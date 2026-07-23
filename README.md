@@ -4,7 +4,14 @@
 
 ## 변경 이력
 
-### 2026-07-23
+### 2026-07-23 (레이더/음향 센서 완전 제거)
+- `types/index.ts`의 `RiskScore.contributingFactors`에서 `acoustic`/`flowRate` 필드 제거
+  (`density`/`bottleneck`만 남음) — BE/SIM에서 레이더/음향 센서를 완전히 제거하면서 응답에
+  더 이상 해당 필드가 오지 않기 때문. 이 필드를 화면에 직접 표시하는 컴포넌트는 없어서
+  런타임 영향은 없었음
+- 타입체크(`npx tsc -b --noEmit`) 통과 확인
+
+### 2026-07-23 (Market/Zone 마이그레이션 + 파이프라인 B)
 - **⚠️ Market/Zone 마이그레이션 복구**: 이 저장소는 한때 `SpatialNode` 기반 구계약으로 되돌아간 적이 있었음
   (로컬 작업본이 GitHub에 push되지 않은 채 유실됨). 현재는 `Market`/`Zone`/`CrowdDensity`/`Risk` 기반의
   새 계약으로 복구된 상태 — `src/` 전체가 이 계약을 일관되게 쓰고 있는지 항상 함께 확인할 것
