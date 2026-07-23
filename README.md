@@ -2,6 +2,20 @@
 
 전통시장 AI 안전탐지 관제 솔루션 - 프론트엔드 (React + Vite + TypeScript + Tailwind v4)
 
+## 변경 이력
+
+### 2026-07-23
+- **⚠️ Market/Zone 마이그레이션 복구**: 이 저장소는 한때 `SpatialNode` 기반 구계약으로 되돌아간 적이 있었음
+  (로컬 작업본이 GitHub에 push되지 않은 채 유실됨). 현재는 `Market`/`Zone`/`CrowdDensity`/`Risk` 기반의
+  새 계약으로 복구된 상태 — `src/` 전체가 이 계약을 일관되게 쓰고 있는지 항상 함께 확인할 것
+- **파이프라인 B(BE 계약) 정렬**
+  - `types/index.ts`: `AgentState.nodeId` → `zoneId`로 명명 정정 + `latitude`/`longitude` 추가,
+    `ScenarioRequest`에 `marketId` 추가, `eventNodeId` → `eventZoneId`로 이름 변경
+  - `ScenarioForm.tsx`: `marketId` prop 추가, 제출 body에 포함 (기존에는 `eventZoneId` 값을
+    `eventNodeId` 필드명으로 우회 전송하던 임시 코드였음 — 실제 필드명으로 정정)
+  - `ScenarioPage.tsx`: `<ScenarioForm>`에 `marketId` 전달
+  - BE ↔ SIM 통합 테스트까지 완료된 계약을 그대로 따름 (`frames`/`evacuationTimeSeconds`/`finalRiskScore`)
+
 ## 구조
 - `src/pages/DashboardPage.tsx` : 파이프라인 A (실측 기반 관제 대시보드)
 - `src/pages/ScenarioPage.tsx` : 파이프라인 B (사용자 지정 시나리오 시뮬레이션)
@@ -40,4 +54,5 @@ npm run preview # 빌드 결과 로컬 확인
 
 ## 백엔드 연동 주의사항
 - `src/types/index.ts`의 타입은 Spring Boot DTO와 필드명을 반드시 일치시킬 것 (camelCase 기준)
+- 파이프라인 B 요청 시 `marketId`(필수), `eventZoneId`(선택, `scenarioType`이 `none`이면 생략 가능)를 정확한 필드명으로 보낼 것 — 예전 `eventNodeId`는 더 이상 유효하지 않음
 - CORS: Spring Boot 쪽에서 이 프론트엔드의 CloudFront 도메인을 allowed origin으로 등록 필요

@@ -1,15 +1,13 @@
 import { useCallback, useEffect } from 'react';
-import { fetchDashboardSnapshot, fetchSpatialLayout } from '../api/client';
+import { fetchDashboardSnapshot, fetchMarkets, fetchZones } from '../api/client';
 import { useSimulationStore } from '../store/simulationStore';
 
-/**
- * 파이프라인 A(관제 대시보드)용 데이터 로딩 훅.
- * 정적 레이아웃은 최초 1회만 로드하고, 스냅샷은 refetch로 갱신 가능.
- */
 export function useSimulationData(snapshotTime?: string) {
   const {
-    spatialLayout,
-    setSpatialLayout,
+    markets,
+    setMarkets,
+    zones,
+    setZones,
     dashboardSnapshot,
     setDashboardSnapshot,
     isDashboardLoading,
@@ -17,14 +15,20 @@ export function useSimulationData(snapshotTime?: string) {
   } = useSimulationStore();
 
   const loadLayout = useCallback(async () => {
-    if (spatialLayout.length > 0) return;
+    if (markets.length > 0) return;
     try {
-      const layout = await fetchSpatialLayout();
-      setSpatialLayout(layout);
+      const marketData = await fetchMarkets();
+      setMarkets(marketData);
+
+      // 첫 번째 시장을 기준으로 구역 정보를 로드합니다.
+      if (marketData.length > 0) {
+        const zoneData = await fetchZones(marketData[0].marketId);
+        setZones(zoneData);
+      }
     } catch (err) {
-      console.error('레이아웃 로드 실패', err);
+      console.error('시장 및 구역 정보 로드 실패', err);
     }
-  }, [spatialLayout.length, setSpatialLayout]);
+  }, [markets.length, setMarkets, setZones]);
 
   const loadSnapshot = useCallback(async () => {
     setDashboardLoading(true);
@@ -47,7 +51,7 @@ export function useSimulationData(snapshotTime?: string) {
   }, [loadSnapshot]);
 
   return {
-    spatialLayout,
+    zones,
     dashboardSnapshot,
     isDashboardLoading,
     refetch: loadSnapshot,
