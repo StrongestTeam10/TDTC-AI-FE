@@ -37,8 +37,7 @@ export interface RiskScore {
   level: 'low' | 'medium' | 'high' | 'critical';
   contributingFactors: {
     density: number;
-    acoustic: number;
-    flowRate: number;
+    bottleneck: number;
   };
 }
 
