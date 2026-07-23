@@ -3,7 +3,8 @@ import type {
   DashboardSnapshot,
   ScenarioRequest,
   ScenarioResult,
-  SpatialNode,
+  Market,
+  Zone,
 } from '../types';
 
 const apiClient = axios.create({
@@ -14,24 +15,30 @@ const apiClient = axios.create({
   },
 });
 
-// 공통 에러 로깅 (추후 Sentry 등 연동 지점)
+// 공통 에러 로깅
 apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    console.error('[API Error]', error?.response?.status, error?.message);
-    return Promise.reject(error);
-  }
+    (response) => response,
+    (error) => {
+      console.error('[API Error]', error?.response?.status, error?.message);
+      return Promise.reject(error);
+    }
 );
 
-// 정적 레이아웃 조회 (spatial_nodes 테이블 참조)
-export async function fetchSpatialLayout(): Promise<SpatialNode[]> {
-  const { data } = await apiClient.get<SpatialNode[]>('/spatial/layout');
+// 시장 목록 조회
+export async function fetchMarkets(): Promise<Market[]> {
+  const { data } = await apiClient.get<Market[]>('/markets');
+  return data;
+}
+
+// 특정 시장의 구역(Zone) 목록 조회
+export async function fetchZones(marketId: number): Promise<Zone[]> {
+  const { data } = await apiClient.get<Zone[]>(`/markets/${marketId}/zones`);
   return data;
 }
 
 // 파이프라인 A: 관제 대시보드 - 특정 시점 스냅샷 조회
 export async function fetchDashboardSnapshot(
-  snapshotTime?: string
+    snapshotTime?: string
 ): Promise<DashboardSnapshot> {
   const { data } = await apiClient.get<DashboardSnapshot>('/dashboard/snapshot', {
     params: snapshotTime ? { snapshotTime } : undefined,
@@ -47,7 +54,7 @@ export async function fetchAvailableTimestamps(): Promise<string[]> {
 
 // 파이프라인 B: 사용자 지정 시나리오 시뮬레이션 실행
 export async function runScenarioSimulation(
-  request: ScenarioRequest
+    request: ScenarioRequest
 ): Promise<ScenarioResult> {
   const { data } = await apiClient.post<ScenarioResult>('/simulation/run', request);
   return data;
