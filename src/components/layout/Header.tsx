@@ -59,6 +59,9 @@ export default function Header() {
           <NavLink to="/prediction" className={navClass}>
             인구 유입 예측
           </NavLink>
+          <NavLink to="/board" className={navClass}>
+            게시판
+          </NavLink>
         </nav>
 
         <div className="flex items-center gap-3 text-sm text-slate-400">

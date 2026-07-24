@@ -4,6 +4,164 @@
 
 ## 변경 이력
 
+### 2026-07-25 (18차 - 목록 테이블 레이아웃 근본 수정 + Tiptap 중복 확장 경고 수정)
+- **증상 1**: "시장" 컬럼의 "망원시장"이 "망원..."으로 계속 잘려서 보임(이전 컬럼 폭
+  조정으로는 해결이 반복적으로 안 됨)
+- **원인**: `table-fixed` + 컬럼마다 수동으로 픽셀 폭을 지정하는 방식 자체가 한글
+  콘텐츠 폭을 정확히 예측하기 어려워서 컬럼이 늘어날 때마다(카테고리, 시장 추가 등)
+  계속 잘리는 문제가 반복됐음
+- ✏️ `pages/BoardListPage.tsx`: 테이블 레이아웃을 근본적으로 교체
+  - `table-fixed` 제거, 브라우저가 내용에 맞게 컬럼 폭을 자동으로 늘리는 기본
+    테이블 레이아웃으로 변경
+  - 제목을 제외한 모든 셀에 `whitespace-nowrap` 적용 - 줄바꿈으로 인한 잘림을
+    구조적으로 차단(더 이상 폭 계산에 의존하지 않음)
+  - 화면보다 테이블이 넓어지는 경우(좁은 화면 등)에는 컬럼을 억지로 줄이는 대신
+    테이블 래퍼에 `overflow-x-auto`를 적용해 가로 스크롤로 대응
+  - 제목 컬럼만 `min-w-[240px]`로 최소 폭 보장, 나머지는 내용 크기에 맡김
+  - 기존에 컬럼별로 넣었던 `truncate`/`title` 툴팁 처리는 더 이상 필요 없어져서 제거
+- **증상 2**: 브라우저 콘솔에 `[tiptap warn]: Duplicate extension names found:
+  ['link', 'underline']` 경고 반복 출력
+- **원인**: Tiptap v3의 `@tiptap/starter-kit`가 `Link`/`Underline`을 기본 내장하게
+  바뀌었는데(v2 대비 변경점), `RichTextEditor.tsx`가 이걸 모르고 별도로 또
+  `@tiptap/extension-link`/`@tiptap/extension-underline`을 추가해서 중복 등록됨
+- ✏️ `components/RichTextEditor.tsx`: 별도 `Underline`/`Link` 확장 제거, 링크 클릭
+  동작(`openOnClick: false, autolink: true`)은 `StarterKit.configure({ link: {...} })`
+  옵션으로 대신 설정. `@tiptap/extension-underline`/`@tiptap/extension-link` 패키지
+  의존성도 제거(더 이상 직접 사용 안 함, `@tiptap/starter-kit`가 내부적으로 계속 사용)
+- `npx tsc -b`, `npx oxlint`, `npx vite build` 모두 통과 확인
+
+### 2026-07-25 (17차 - 작성일 컬럼 잘림 수정 + 카테고리 2개로 축소)
+- **증상**: 목록 테이블 "작성일" 컬럼이 `table-fixed` 고정폭 안에서 텍스트가 잘려 보임
+- **원인**: `toLocaleString('ko-KR', {...})`로 만든 "2026. 07. 25. 오전 12:36" 포맷이
+  한글 "오전/오후" 때문에 고정폭 컬럼(`w-36`)보다 길어짐
+- ✏️ `pages/BoardListPage.tsx`:
+  - `formatDate()`를 "오전/오후" 없는 24시간제 짧은 포맷("2026-07-25 12:36")으로 교체
+  - 컬럼 폭 재조정(시장/카테고리/작성자 살짝 줄이고 작성일 확보)
+- ✏️ `constants/categoryCode.ts`: BE 변경(카테고리 공지사항/자유게시판 2개로 축소)에
+  맞춰 폴백 옵션도 `BCTQA`(질문과 답변)/`BCTSG`(제안) 제거, `BCTFR`(자유게시판) 추가
+- `npx tsc -b`, `npx oxlint`, `npx vite build` 모두 통과 확인
+- ⚠️ 화면에 떴던 "유효하지 않은 게시판 카테고리 코드입니다: BCTNT" 오류는 FE 버그가
+  아니라 BE DB 마이그레이션(comcode-seed.sql BCT 도메인) 미반영 문제였음 - BE
+  README/CHANGELOG 참고
+
+### 2026-07-25 (16차 - 목록/상세 화면 레이아웃 수정)
+- 사용자 확인 사항: 스크린샷 기준 3가지 레이아웃 이슈 지적받고 수정
+  1. 목록 "구분" 컬럼의 "공지" 배지가 "공"/"지"로 줄바꿈되는 문제
+  2. 상세 화면 하단 버튼 순서를 "목록은 아래로, 수정/삭제는 조회·좋아요 오른쪽으로" 재배치
+  3. 목록 테이블에 어느 시장 글인지 구분하는 컬럼 추가
+- ✏️ `pages/BoardListPage.tsx`:
+  - `<table>`에 `table-fixed` 적용 + 각 컬럼 `w-*` 명시적 지정, "공지" 배지에
+    `whitespace-nowrap` 추가 — 컬럼이 좁아져도 텍스트가 줄바꿈되지 않도록 고정
+  - "구분" 컬럼 오른쪽에 **"시장" 컬럼 신규 추가** — `marketCode`를 라벨로 표시
+    (공지처럼 `marketCode`가 없는 글은 "전체"로 표시). 시장 옵션은 이제 관리자
+    여부와 무관하게 항상 로드(목록 컬럼 표시용으로 전체 사용자에게 필요해짐 -
+    기존엔 관리자 시장 탭에서만 썼음)
+  - 제목/작성자 등 긴 텍스트 컬럼은 `truncate` 처리(고정 폭 레이아웃에서 넘치는
+    텍스트를 ...으로 축약, `title` 속성으로 전체 텍스트는 hover 시 확인 가능)
+- ✏️ `pages/BoardDetailPage.tsx`:
+  - 수정/삭제 버튼을 하단 액션 영역에서 **상단 메타 정보 영역(조회/좋아요 표시
+    오른쪽)**으로 이동 — 구분선(`border-l`)으로 시각적으로 묶음
+  - 하단 영역을 2단으로 분리: 1단(좋아요 버튼만), 2단(구분선 아래 "← 목록" 버튼을
+    중앙 정렬로 별도 배치)
+- `npx tsc -b`, `npx oxlint`, `npx vite build` 모두 통과 확인
+
+### 2026-07-25 (15차 - 조회수 중복 증가 버그 수정)
+- **증상**: 게시글 상세 화면 진입 시 조회수가 한 번에 2씩 올라감
+- **원인 1**: `GET /api/posts/{id}`는 호출될 때마다 서버 조회수를 1 증가시키는데,
+  `main.tsx`의 `<StrictMode>`가 **개발 모드에서만** 마운트 시 `useEffect`를 의도적으로
+  두 번 실행함(부작용 버그 조기 발견 목적, React 공식 동작) - `BoardDetailPage`의
+  최초 조회 effect가 이 영향으로 `fetchPostDetail`을 두 번 호출해 조회수가 2씩 오름
+- **원인 2**: 좋아요 버튼을 누르면 `togglePostLike()` 후 상세를 통째로 다시
+  `load()`해서 좋아요 상태를 갱신했는데, 이 재조회도 `GET /api/posts/{id}`라 그때마다
+  조회수가 또 올라감(좋아요만 눌렀는데 조회수까지 같이 오르는 부작용)
+- ✏️ `pages/BoardDetailPage.tsx`:
+  - `viewCountedPostIdRef`(useRef)로 postId별 "이미 조회수 반영용 조회를 했는지"
+    기억해서, StrictMode가 effect를 다시 실행해도 같은 postId에 대해
+    `fetchPostDetail`을 중복 호출하지 않도록 막음(다른 postId로 이동하면 정상적으로
+    다시 조회 - ref가 postId 값 자체를 키로 사용하므로 정상 케이스는 그대로 동작)
+  - `handleLike()`: 좋아요 토글 후 `load()`로 전체 재조회하는 대신, 서버 응답(`liked`)만으로
+    로컬 상태(`liked`/`likeCount`)를 직접 갱신하도록 변경 - 조회수에 영향 없음
+- `npx tsc -b`, `npx oxlint`, `npx vite build` 모두 통과 확인
+- ⚠️ 참고: 프로덕션 빌드(`vite build`로 배포된 결과물)에서는 StrictMode의 개발 모드
+  이중 호출 자체가 발생하지 않으므로 원인 1은 원래 배포본에는 영향이 없었을 가능성이
+  높지만, 원인 2(좋아요 재조회)는 개발/배포 환경 무관하게 항상 발생하던 버그라 이번에
+  같이 잡았음
+
+### 2026-07-25 (14차 - UI 설계서 반영: 카테고리/시장 탭 + 리치 텍스트 에디터 + 드래그앤드롭 업로드)
+- BE `category_code`/관리자 전용 `marketCode` 필터 API 추가에 맞춰 게시판 화면 3개
+  전면 개편
+- 🆕 `constants/categoryCode.ts`: `orgCode.ts`/`marketCode.ts`와 동일 패턴(BCT 도메인
+  폴백), 관리자 전용 카테고리 코드(`BCTNT`) 상수 포함
+- 🆕 `components/RichTextEditor.tsx`: Tiptap 기반 리치 텍스트 에디터. 굵게/기울임/
+  밑줄/정렬(좌·가운데·우)/글머리·번호 목록/이미지 삽입/링크/글자 색 툴바 제공.
+  이미지는 별도 업로드 API 없이 base64 data URL로 콘텐츠(HTML)에 직접 내장(구현
+  단순화 목적, 이미지 많으면 게시글 용량이 커질 수 있음 - 참고용). 동영상 삽입은
+  이번 범위에서 제외(임의 iframe 삽입은 XSS 표면을 넓히는 선택이라 별도 논의 필요
+  판단)
+- 🆕 `components/FileDropzone.tsx`: 드래그앤드롭 파일 첨부 + 제출 시 업로드 진행률
+  표시(스피너 → 진행바). `api/client.ts`의 `createPost`/`updatePost`에 추가한
+  `onUploadProgress` 콜백(axios)과 연결
+- ✏️ `pages/BoardListPage.tsx`: 상단 카테고리 탭(전체/공지사항/질문과 답변/제안)
+  추가, 목록 테이블에 카테고리 컬럼 추가. 관리자 계정에는 시장 전환 탭도 추가로
+  노출(일반 사용자는 기존처럼 자동으로 본인 담당 시장 글만 보임 - 탭 자체가 없음)
+- ✏️ `pages/BoardWritePage.tsx`: 본문 입력을 `textarea` → `RichTextEditor`로, 첨부는
+  단순 `<input type="file">` → `FileDropzone`으로 교체. 카테고리 select 추가
+  (공지사항 카테고리는 관리자가 아니면 비활성화 처리, BE 검증과 동일 규칙).
+  **임시저장(이탈 시 저장 확인 팝업)은 이번 범위에서 제외**(사용자 확인 사항)
+- ✏️ `pages/BoardDetailPage.tsx`: 카테고리 배지 표시. 본문이 이제 Tiptap이 만든
+  HTML 문자열이라, **DOMPurify로 sanitize한 뒤에만 `dangerouslySetInnerHTML`로
+  렌더링**(저장된 HTML을 그대로 신뢰하지 않음 - 저장형 XSS 방지)
+- ✏️ `types/board.ts`/`api/client.ts`: `categoryCode` 필드, `fetchPosts`의
+  `categoryCode`/`marketCode` 파라미터, `createPost`/`updatePost`의 업로드 진행률
+  콜백 추가
+- 🆕 패키지 설치: `@tiptap/react`, `@tiptap/pm`, `@tiptap/starter-kit`,
+  `@tiptap/extension-underline`, `@tiptap/extension-text-align`,
+  `@tiptap/extension-color`, `@tiptap/extension-text-style`, `@tiptap/extension-link`,
+  `@tiptap/extension-image`, `dompurify`, `@tailwindcss/typography`(에디터/렌더링
+  영역 `prose` 스타일용)
+- ✏️ `index.css`: `@plugin "@tailwindcss/typography";` 등록 (Tailwind v4 CSS-first
+  플러그인 방식)
+- `npx tsc -b`, `npx oxlint`, `npx vite build` 모두 통과 확인 (빌드 산출물이
+  Tiptap 추가로 커져서 500KB 청크 경고가 뜨지만 기능상 문제는 없음 - 필요하면 추후
+  코드 스플리팅 고려 가능)
+
+### 2026-07-24 (13차 - 회원가입 화면에 담당 시장 select 추가)
+- BE `SignupRequestDto.marketCode` 필수 필드 추가에 맞춰 회원가입 화면에 반영
+- 🆕 `constants/marketCode.ts`: `orgCode.ts`와 동일한 패턴 - BE `GET
+  /api/common-codes?domain=MKT` 조회 실패 시 폴백용 상수(현재 망원시장 1건)
+- ✏️ `pages/SignupPage.tsx`: 소속기관 select 아래에 "담당 시장" select 추가.
+  옵션은 BE 공통코드(MKT 도메인) API로 조회하고 실패 시 로컬 폴백 사용(소속기관과
+  동일한 방식). 필수 입력 검증에 `marketCode` 추가, 제출 payload에 포함
+- ✏️ `api/client.ts`(`SignupRequest`): `marketCode: string` 필드 추가
+- `npx tsc -b`, `npx oxlint`, `npx vite build` 모두 통과 확인
+
+### 2026-07-24 (12차 - 게시판 화면 신규 추가)
+- BE `POST /api/posts/**` 신규 구현에 맞춰 게시판 화면 3개 추가
+- 🆕 `types/board.ts`: `PostSummary`/`PostDetail`/`Attachment`/`PageResponse<T>`/
+  `PostListResponse` - BE DTO와 필드명 그대로 일치
+- ✏️ `api/client.ts`: `fetchPosts`/`fetchPostDetail`/`createPost`/`updatePost`/
+  `deletePost`/`togglePostLike`/`downloadAttachment` 추가. 작성/수정은 파일 업로드를
+  함께 보내야 해서 JSON이 아니라 `FormData`(multipart/form-data)로 전송
+- 🆕 `pages/BoardListPage.tsx`: 검색(제목/내용/작성자) + 페이징 + 공지 상단 고정 목록.
+  목록 API가 이미 "관리자는 전체 시장 / 그 외는 본인 담당 시장 + 공지"로 필터링해서
+  내려주므로 화면에서는 응답을 그대로 렌더링만 함
+- 🆕 `pages/BoardWritePage.tsx`: 작성(`/board/write`)/수정(`/board/:postId/edit`)을 같은
+  컴포넌트로 처리. 공지 고정 체크박스는 관리자(`ROL01`)에게만 노출. 수정 화면에서는
+  기존 첨부파일을 체크해서 삭제 표시하고, 새 파일을 추가로 첨부할 수 있음
+- 🆕 `pages/BoardDetailPage.tsx`: 상세 조회, 좋아요 토글, 첨부파일 다운로드, 수정/삭제
+  버튼(`canEdit`/`canDelete`는 BE가 이미 계산해서 내려주므로 FE는 role/writerId 비교
+  로직을 따로 두지 않음)
+- ✏️ `App.tsx`: `/board`, `/board/write`, `/board/:postId`, `/board/:postId/edit` 라우트
+  추가(전부 `RequireAuth`로 보호)
+- ✏️ `components/layout/Header.tsx`: 메인 메뉴에 "게시판" 링크 추가
+- ✏️ `types/auth.ts`/`api/client.ts`(`UserSummary`)/`store/authStore.ts`: BE
+  `usrusrs01m.market_code` 추가에 맞춰 `AuthUser.marketCode`(optional) 추가
+- ⚠️ 첨부파일 다운로드는 BE가 302로 S3 presigned URL을 응답하는데, axios가 리다이렉트를
+  그대로 따라가 파일을 blob으로 받은 뒤 브라우저 다운로드를 트리거하는 방식으로 구현함
+  (Authorization 헤더는 최초 우리 서버 요청에만 붙고, 리다이렉트되는 S3 요청에는 브라우저가
+  자동으로 제외하므로 별도 처리 불필요)
+- `npx tsc -b`, `npx oxlint`, `npx vite build` 모두 통과 확인
+
 ### 2026-07-24 (11차 - BE 로그인/회원가입 실제 연동 + 기존 API 인증 필수화)
 - 사용자 확인 사항: 권한 표현은 FE도 BE와 동일하게 `ROL01/02/03`로 통일, 기존 API
   (대시보드/시뮬레이션 등)도 이번에 토큰 인증을 필수로 만들기로 함

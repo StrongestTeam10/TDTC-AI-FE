@@ -6,6 +6,9 @@ import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import LandingPage from './pages/LandingPage';
 import NotFoundPage from './pages/NotFoundPage';
+import BoardListPage from './pages/BoardListPage';
+import BoardDetailPage from './pages/BoardDetailPage';
+import BoardWritePage from './pages/BoardWritePage';
 import AppLayout from './components/layout/AppLayout';
 import RequireAuth from './components/RequireAuth';
 
@@ -53,6 +56,46 @@ export default function App() {
             <RequireAuth>
               <AppLayout>
                 <PredictionPage />
+              </AppLayout>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/board"
+          element={
+            <RequireAuth>
+              <AppLayout>
+                <BoardListPage />
+              </AppLayout>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/board/write"
+          element={
+            <RequireAuth>
+              <AppLayout>
+                <BoardWritePage />
+              </AppLayout>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/board/:postId"
+          element={
+            <RequireAuth>
+              <AppLayout>
+                <BoardDetailPage />
+              </AppLayout>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/board/:postId/edit"
+          element={
+            <RequireAuth>
+              <AppLayout>
+                <BoardWritePage />
               </AppLayout>
             </RequireAuth>
           }

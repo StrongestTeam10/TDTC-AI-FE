@@ -18,4 +18,6 @@ export interface AuthUser {
   name: string;
   rulesCode: UserRole;
   orgCode: string;
+  // 2026-07-24 추가(게시판): 담당 시장 코드. 관리자는 시장 제한이 없어 없을 수도 있음(optional).
+  marketCode?: string;
 }

@@ -4,6 +4,7 @@ import TermsModal from '../components/TermsModal';
 import { PASSWORD_RULES, isPasswordValid } from '../utils/password';
 import { TERMS_TEXT, PRIVACY_TEXT } from '../constants/legalText';
 import { ORG_CODE_OPTIONS } from '../constants/orgCode';
+import { MARKET_CODE_OPTIONS } from '../constants/marketCode';
 import { fetchCommonCodes } from '../api/client';
 import { useAuthStore } from '../store/authStore';
 
@@ -42,6 +43,22 @@ export default function SignupPage() {
   const [name, setName] = useState('');
   const [orgCode, setOrgCode] = useState('');
   const [orgOptions, setOrgOptions] = useState(ORG_CODE_OPTIONS);
+  const [marketCode, setMarketCode] = useState('');
+  const [marketOptions, setMarketOptions] = useState(MARKET_CODE_OPTIONS);
+
+  // 2026-07-24 추가(게시판): 담당 시장 옵션도 소속기관과 동일한 패턴으로
+  // BE 공통코드 API(MKT 도메인)에서 가져오고, 실패 시 로컬 폴백 사용.
+  useEffect(() => {
+    fetchCommonCodes('MKT')
+      .then((codes) => {
+        if (codes.length > 0) {
+          setMarketOptions(codes.map((c) => ({ code: c.code, name: c.codeName })));
+        }
+      })
+      .catch((err) => {
+        console.error('공통코드(담당 시장) 조회 실패, 로컬 기본값 사용', err);
+      });
+  }, []);
 
   // 2026-07-24: 소속기관 옵션을 BE 공통코드 API에서 가져오되, 실패하면
   // constants/orgCode.ts의 값을 그대로 씀(이미 초기값으로 세팅돼 있어 폴백은 자동).
@@ -122,8 +139,8 @@ export default function SignupPage() {
     e.preventDefault();
     setError('');
 
-    if (!loginId || !password || !name || !orgCode) {
-      setError('아이디, 비밀번호, 이름, 소속기관은 필수 입력 항목입니다.');
+    if (!loginId || !password || !name || !orgCode || !marketCode) {
+      setError('아이디, 비밀번호, 이름, 소속기관, 담당 시장은 필수 입력 항목입니다.');
       return;
     }
     if (!isPasswordValid(password)) {
@@ -145,6 +162,7 @@ export default function SignupPage() {
       password,
       name,
       orgCode,
+      marketCode,
       agreeTerms: consent.terms,
       agreePrivacy: consent.privacy,
       agreeMarketing: consent.marketing,
@@ -270,6 +288,24 @@ export default function SignupPage() {
                 {orgOptions.map((org) => (
                   <option key={org.code} value={org.code}>
                     {org.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="marketCode" className="mb-1 block text-sm text-slate-400">
+                담당 시장 <span className="text-red-400">*</span>
+              </label>
+              <select
+                id="marketCode"
+                value={marketCode}
+                onChange={(e) => setMarketCode(e.target.value)}
+                className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              >
+                <option value="">선택해주세요</option>
+                {marketOptions.map((market) => (
+                  <option key={market.code} value={market.code}>
+                    {market.name}
                   </option>
                 ))}
               </select>
