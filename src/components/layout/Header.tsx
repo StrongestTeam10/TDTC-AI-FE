@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 
 // 2026-07-24 추가
@@ -10,6 +10,11 @@ import { useAuthStore } from '../../store/authStore';
 // 이동. 비로그인 상태에서 메인 메뉴를 눌러도(랜딩페이지 제외) RequireAuth가 알아서
 // /login으로 보내주므로 메뉴 자체는 로그인 여부와 관계없이 항상 노출함.
 // 유틸리티 영역은 로그인 여부에 따라 "사용자명 + 로그아웃" ↔ "로그인" 버튼으로 전환.
+//
+// 2026-07-24 (2차): 왼쪽 서비스명(로고 자리)이 클릭해도 반응 없는 텍스트였던 것을
+// "/"(랜딩페이지)로 이동하는 홈 링크로 변경. 가이드라인 헤더 사용성 원칙에도
+// "정부 로고는 항상 헤더의 왼쪽 상단에 제공한다"는 항목이 있어, 이 자리를 홈 이동
+// 용도로 쓰는 게 일반적인 관례와도 맞음.
 const navClass = ({ isActive }: { isActive: boolean }) =>
   `px-3 py-2 rounded text-sm transition-colors ${
     isActive ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
@@ -36,7 +41,12 @@ export default function Header() {
       </a>
 
       <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
-        <span className="font-semibold text-slate-100">전통시장 안전탐지 디지털 트윈</span>
+        <Link
+          to="/"
+          className="font-semibold text-slate-100 hover:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 rounded"
+        >
+          전통시장 안전탐지 디지털 트윈
+        </Link>
 
         <nav aria-label="주요 메뉴" className="flex gap-2">
           <NavLink to="/dashboard" className={navClass}>
