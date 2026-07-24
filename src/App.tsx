@@ -3,7 +3,9 @@ import DashboardPage from './pages/DashboardPage';
 import ScenarioPage from './pages/ScenarioPage';
 import PredictionPage from './pages/PredictionPage';
 import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
 import LandingPage from './pages/LandingPage';
+import NotFoundPage from './pages/NotFoundPage';
 import AppLayout from './components/layout/AppLayout';
 import RequireAuth from './components/RequireAuth';
 
@@ -24,6 +26,7 @@ export default function App() {
           }
         />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
         <Route
           path="/dashboard"
           element={
@@ -52,6 +55,14 @@ export default function App() {
                 <PredictionPage />
               </AppLayout>
             </RequireAuth>
+          }
+        />
+        <Route
+          path="*"
+          element={
+            <AppLayout>
+              <NotFoundPage />
+            </AppLayout>
           }
         />
       </Routes>

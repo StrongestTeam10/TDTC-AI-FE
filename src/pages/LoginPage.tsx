@@ -42,6 +42,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
+          <p className="mb-1 text-sm text-slate-500">KT Aivle School B2G 캡스톤</p>
           <h1 className="text-xl font-semibold text-slate-100">전통시장 안전탐지 디지털 트윈</h1>
           <p className="mt-2 text-sm text-slate-500">관제 시스템 로그인이 필요합니다.</p>
         </div>
@@ -89,6 +90,14 @@ export default function LoginPage() {
             로그인
           </button>
         </form>
+
+        <button
+          type="button"
+          onClick={() => navigate('/signup')}
+          className="mt-3 w-full text-center text-sm text-slate-500 hover:text-slate-300"
+        >
+          계정이 없으신가요? 회원가입
+        </button>
 
         <div className="mt-4 rounded-lg border border-dashed border-slate-800 bg-slate-900/50 p-4 text-xs text-slate-500">
           <p className="mb-2">테스트 계정 (BE 인증 연동 전까지 전체 화면 확인용 임시 계정)</p>
