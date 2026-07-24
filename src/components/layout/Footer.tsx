@@ -15,7 +15,7 @@ export default function Footer() {
           GitHub 조직 바로가기
         </a>
       </div>
-      <p>본 시스템은 빅프로젝트 프로젝트 데모 목적으로 운영되며, 실제 서비스 데이터가 아닙니다.</p>
+      <p>본 시스템은 빅프로젝트 데모 목적으로 운영되며, 실제 서비스 데이터가 아닙니다.</p>
       <p>© 2026 StrongestTeam10. All rights reserved.</p>
     </footer>
   );
