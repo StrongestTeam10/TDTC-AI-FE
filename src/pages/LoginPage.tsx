@@ -6,7 +6,7 @@ import { useAuthStore } from '../store/authStore';
 // 행안부 가이드라인 - 로그인 영역 반영 (아이디/비밀번호 로그인 정보입력 패턴 기준).
 //
 // 범위를 좁힌 부분: 가이드라인의 간편인증/공동인증서/금융인증서/생체인증은
-// 외부 인증기관 연동이 필요해서 이번 캡스톤 범위에서는 제외하고, 내부 관제 시스템에
+// 외부 인증기관 연동이 필요해서 이번 빅프로젝트 범위에서는 제외하고, 내부 관제 시스템에
 // 맞는 아이디/비밀번호 로그인만 구현함. 로그인 방식 선택 화면도 이 사유로 생략함.
 //
 // BE 로그인 API가 아직 없어서 authStore의 mock 계정으로 로그인함. 심사/데모에서
@@ -42,7 +42,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
-          <p className="mb-1 text-sm text-slate-500">KT Aivle School B2G 캡스톤</p>
+          <p className="mb-1 text-sm text-slate-500">KT Aivle School B2G 빅프로젝트</p>
           <h1 className="text-xl font-semibold text-slate-100">전통시장 안전탐지 디지털 트윈</h1>
           <p className="mt-2 text-sm text-slate-500">관제 시스템 로그인이 필요합니다.</p>
         </div>
