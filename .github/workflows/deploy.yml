@@ -29,20 +29,20 @@ jobs:
         run: npm run build
         env:
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+# ===== 여기서부터 끝까지 주석 처리 =====
+#     - name: Configure AWS credentials
+#       uses: aws-actions/configure-aws-credentials@v4
+#       with:
+#         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#         aws-region: ap-northeast-2
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-northeast-2
+#     - name: Sync to S3
+#       run: aws s3 sync dist/ s3://${{ secrets.S3_BUCKET_NAME }} --delete
 
-      - name: Sync to S3
-        run: aws s3 sync dist/ s3://${{ secrets.S3_BUCKET_NAME }} --delete
-
-      # CloudFront 배포 ID 발급 후 secrets.CLOUDFRONT_DISTRIBUTION_ID 등록 필요
-      - name: Invalidate CloudFront cache
-        run: |
-          aws cloudfront create-invalidation \
-            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
-            --paths "/*"
+#     # CloudFront 배포 ID 발급 후 secrets.CLOUDFRONT_DISTRIBUTION_ID 등록 필요
+#     - name: Invalidate CloudFront cache
+#       run: |
+#         aws cloudfront create-invalidation \
+#           --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+#           --paths "/*"
