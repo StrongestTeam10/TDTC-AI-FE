@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
 import DashboardPage from './pages/DashboardPage';
 import ScenarioPage from './pages/ScenarioPage';
+import PredictionPage from './pages/PredictionPage';
 
 function Layout({ children }: { children: React.ReactNode }) {
   const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -23,6 +24,9 @@ function Layout({ children }: { children: React.ReactNode }) {
           <NavLink to="/scenario" className={navClass}>
             시나리오 시뮬레이션
           </NavLink>
+          <NavLink to="/prediction" className={navClass}>
+            인구 유입 예측
+          </NavLink>
         </nav>
       </header>
       <main className="px-6 py-6">{children}</main>
@@ -37,6 +41,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/scenario" element={<ScenarioPage />} />
+          <Route path="/prediction" element={<PredictionPage />} />
         </Routes>
       </Layout>
     </BrowserRouter>
