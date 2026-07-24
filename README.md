@@ -4,6 +4,17 @@
 
 ## 변경 이력
 
+### 2026-07-24 (10차 - 소속기관 필수화 + 공통코드 select로 변경)
+- 🆕 `constants/orgCode.ts`: BE `comcode01m`(공통코드) 시드 데이터(`comcode-seed.sql`)의
+  `ORG` 도메인 값(ORGKT/KT, ORGGV/지자체, ORGMA/상인회)과 동일하게 맞춘 상수.
+  **BE에 공통코드 조회 API가 아직 없어서 FE에 하드코딩**해둠. BE에 조회 API(예:
+  `GET /api/common-codes?domain=ORG`)가 생기면 이 상수 대신 API 응답으로 옵션을
+  채우도록 교체 필요. `comcode01m`에 ORG 값이 추가/변경되면 지금은 이 배열도 수동으로
+  같이 갱신해야 함
+- ✏️ `pages/SignupPage.tsx`: 소속기관을 자유 입력(선택)에서 `ORG_CODE_OPTIONS`
+  기반 select(필수)로 변경, 미선택 시 제출 검증에서 걸러지도록 처리
+- `npx tsc -b`, `npx oxlint`, `npx vite build` 모두 통과 확인
+
 ### 2026-07-24 (9차 - 회원가입 화면 강화: 약관 팝업 + 비밀번호 조합 규칙)
 - 🆕 `constants/legalText.ts`: 서비스 이용약관/개인정보 수집·이용 동의/안내사항
   수신 동의 문구를 표준 양식 기반 초안으로 작성. **⚠️ 실제 법무 검토를 거친 문구가
@@ -129,7 +140,7 @@
 - 🆕 `components/layout/AppLayout.tsx`: 위 3개를 조합한 공통 레이아웃
 - 🆕 `components/RequireAuth.tsx`: 로그인 안 하면 `/login`으로 리다이렉트하는 라우트 가드
 - 🆕 `pages/LoginPage.tsx`: 가이드라인 로그인 영역 - 로그인 정보입력 화면. **간편인증/공동인증서/
-  금융인증서/생체인증/로그인 방식 선택 화면은 외부 인증기관 연동이 필요해 이번 캡스톤
+  금융인증서/생체인증/로그인 방식 선택 화면은 외부 인증기관 연동이 필요해 이번 빅프로젝트
   범위에서 제외**하고 아이디/비밀번호 로그인만 구현. "전체 관리자로 채우기" 버튼으로
   심사/데모 시 모든 화면에 바로 접근 가능한 테스트 계정 입력 지원
 - ✏️ `App.tsx`: 인라인 Layout 제거 → `AppLayout` 사용, `/login` 라우트 추가, 기존
