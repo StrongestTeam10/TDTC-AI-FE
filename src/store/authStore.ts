@@ -44,6 +44,7 @@ export const useAuthStore = create<AuthStore>()(
               name: response.user.name,
               rulesCode: response.user.rulesCode as UserRole,
               orgCode: response.user.orgCode,
+              marketCode: response.user.marketCode,
             },
           });
           return { ok: true };

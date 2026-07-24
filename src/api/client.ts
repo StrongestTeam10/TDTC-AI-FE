@@ -8,6 +8,7 @@ import type {
   Market,
   Zone,
 } from '../types';
+import type { PostListResponse, PostDetail } from '../types/board';
 import { getToken, notifyUnauthorized } from '../auth/tokenStore';
 
 const apiClient = axios.create({
@@ -107,6 +108,8 @@ export interface UserSummary {
   name: string;
   rulesCode: string;
   orgCode: string;
+  // 2026-07-24 추가(게시판)
+  marketCode?: string;
 }
 
 export interface LoginResponse {
@@ -126,6 +129,9 @@ export interface SignupRequest {
   password: string;
   name: string;
   orgCode: string;
+  // 2026-07-24 추가(게시판): 담당 시장 코드. 게시판 목록에서 "본인 담당 시장 글만
+  // 노출"하는 기준이 되므로 회원가입 시점에 반드시 선택해야 함.
+  marketCode: string;
   agreeTerms: boolean;
   agreePrivacy: boolean;
   agreeMarketing: boolean;
@@ -156,6 +162,113 @@ export async function fetchCommonCodes(domain: string): Promise<CommonCodeOption
     params: { domain },
   });
   return data;
+}
+
+// ===== 게시판 (2026-07-24 추가) =====
+// BE PostController(/api/posts/**)와 대응.
+// 작성/수정은 파일 업로드를 함께 보내야 해서 JSON이 아니라 multipart/form-data(FormData)로 전송함.
+
+export async function fetchPosts(
+    params: { keyword?: string; categoryCode?: string; marketCode?: string; page?: number; size?: number } = {}
+): Promise<PostListResponse> {
+  const { data } = await apiClient.get<PostListResponse>('/posts', { params });
+  return data;
+}
+
+export async function fetchPostDetail(postId: number): Promise<PostDetail> {
+  const { data } = await apiClient.get<PostDetail>(`/posts/${postId}`);
+  return data;
+}
+
+export interface PostWritePayload {
+  title: string;
+  content: string;
+  notice: boolean;
+  categoryCode: string;
+  files: File[];
+}
+
+export async function createPost(
+    payload: PostWritePayload,
+    onUploadProgress?: (percent: number) => void
+): Promise<number> {
+  const formData = new FormData();
+  formData.append('title', payload.title);
+  formData.append('content', payload.content);
+  formData.append('notice', String(payload.notice));
+  formData.append('categoryCode', payload.categoryCode);
+  payload.files.forEach((file) => formData.append('files', file));
+
+  const { data } = await apiClient.post<{ postId: number }>('/posts', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress: (e) => {
+      if (onUploadProgress && e.total) onUploadProgress(Math.round((e.loaded / e.total) * 100));
+    },
+  });
+  return data.postId;
+}
+
+export interface PostUpdatePayload {
+  title: string;
+  content: string;
+  notice?: boolean; // 관리자가 아니면 이 값을 보내도 BE에서 거부되므로, 관리자 화면에서만 채워서 보낼 것
+  categoryCode: string;
+  deleteAttachmentIds: number[];
+  files: File[];
+}
+
+export async function updatePost(
+    postId: number,
+    payload: PostUpdatePayload,
+    onUploadProgress?: (percent: number) => void
+): Promise<void> {
+  const formData = new FormData();
+  formData.append('title', payload.title);
+  formData.append('content', payload.content);
+  if (payload.notice !== undefined) {
+    formData.append('notice', String(payload.notice));
+  }
+  formData.append('categoryCode', payload.categoryCode);
+  payload.deleteAttachmentIds.forEach((id) => formData.append('deleteAttachmentIds', String(id)));
+  payload.files.forEach((file) => formData.append('files', file));
+
+  await apiClient.put(`/posts/${postId}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress: (e) => {
+      if (onUploadProgress && e.total) onUploadProgress(Math.round((e.loaded / e.total) * 100));
+    },
+  });
+}
+
+export async function deletePost(postId: number): Promise<void> {
+  await apiClient.delete(`/posts/${postId}`);
+}
+
+export async function togglePostLike(postId: number): Promise<{ liked: boolean }> {
+  const { data } = await apiClient.post<{ liked: boolean }>(`/posts/${postId}/like`);
+  return data;
+}
+
+// BE가 302로 S3 presigned URL을 돌려주므로, axios가 리다이렉트를 그대로 따라가
+// 파일 바이너리를 blob으로 받은 뒤 브라우저 다운로드를 트리거함
+// (Authorization 헤더는 최초 우리 서버 요청에만 붙고, 리다이렉트되는 S3 쪽 요청에는
+// 브라우저가 자동으로 제외하므로 별도 처리가 필요 없음).
+export async function downloadAttachment(
+    postId: number,
+    attachmentId: number,
+    originalName: string
+): Promise<void> {
+  const response = await apiClient.get(`/posts/${postId}/attachments/${attachmentId}/download`, {
+    responseType: 'blob',
+  });
+  const blobUrl = window.URL.createObjectURL(response.data as Blob);
+  const link = document.createElement('a');
+  link.href = blobUrl;
+  link.download = originalName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(blobUrl);
 }
 
 export default apiClient;
