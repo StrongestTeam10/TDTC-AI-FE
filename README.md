@@ -4,6 +4,87 @@
 
 ## 변경 이력
 
+### 2026-07-24 (5차 - 대시보드/시나리오/예측 화면 사용성 패턴 점검: 로딩/오류/빈화면)
+- 사용자 확인 사항: 다음 작업으로 "각 화면 내부에 가이드라인 적용 점검(로딩/오류/빈화면 등
+  사용성 패턴)"을 선택
+- 점검 결과 발견한 문제:
+  - `ScenarioPage`/`PredictionPage`가 오류를 `window.alert()`로 띄움 → 화면 흐름을
+    강제로 막고 모바일 UX가 나쁨, 가이드라인의 "오류 메시지는 명확하고 간결하게"에도
+    안 맞음
+  - `useSimulationData`/각 페이지의 초기 데이터 로드 실패 시 `console.error`만 찍고
+    화면엔 아무 표시가 없어서, 로드가 실패하면 사용자가 원인을 알 방법이 없었음
+  - `DashboardPage` 최초 로딩 시 스피너 없이 빈 레이아웃만 잠깐 보임(버튼 텍스트만
+    "갱신 중..."으로 바뀜)
+  - `RiskScorePanel`/`AlertLogTable`/`FramePlayer`는 이미 빈 데이터 상태 문구가
+    있어서 그대로 둠(수정 없음)
+- 🆕 `components/ui/Spinner.tsx`: 가이드라인 피드백 영역 - 스피너 패턴 반영
+- 🆕 `components/ui/ErrorBanner.tsx`: `alert()`를 대체하는 화면 내 오류 배너
+  (필요 시 "다시 시도" 버튼 포함)
+- 🆕 `utils/errorMessage.ts`: axios 에러에서 사용자에게 보여줄 문구를 뽑는 공통 헬퍼
+  (서버 메시지 우선, 타임아웃/네트워크 단절/기타 HTTP 오류를 구분해서 안내)
+- ✏️ `hooks/useSimulationData.ts`: `loadError` 상태 추가 반환
+- ✏️ `pages/DashboardPage.tsx`: 최초 로딩 중 `Spinner` 표시, `loadError` 발생 시
+  `ErrorBanner`(다시 시도 버튼 포함) 표시
+- ✏️ `pages/ScenarioPage.tsx`, `pages/PredictionPage.tsx`: 레이아웃(시장/구역) 로딩
+  중 `Spinner` 표시, 로딩 실패 시 `ErrorBanner`(다시 시도), 시뮬레이션 실행 실패 시
+  `alert()` 대신 폼 위에 `ErrorBanner` 표시로 교체
+- `npx tsc -b`, `npx oxlint`, `npx vite build` 모두 통과 확인
+
+### 2026-07-24 (4차 - 로그아웃 이동 위치 재수정: 랜딩페이지 → 로그인 페이지)
+- 사용자 확인 사항: 3차에서 랜딩페이지(`/`)로 정했던 로그아웃 이동 위치를
+  로그인 페이지(`/login`)로 다시 변경
+- ✏️ `components/layout/Header.tsx`: `handleLogout`의 `navigate('/')` → `navigate('/login')`
+- `npx tsc -b`, `npx oxlint` 통과 확인
+
+### 2026-07-24 (3차 - 로그아웃 시 랜딩페이지로 이동)
+- 사용자 확인 사항: 로그아웃 버튼 클릭 시 이동 위치는 랜딩페이지(`/`)로 확정
+- ✏️ `components/layout/Header.tsx`: 로그아웃 버튼 클릭 시 `logout()` 호출 후
+  `navigate('/')`로 이동하도록 변경(기존엔 로그아웃만 하고 현재 화면에 그대로
+  머물러 있다가 `RequireAuth`에 의해 `/login`으로 튕기는 방식이었음)
+- `npx tsc -b`, `npx oxlint`, `npx vite build` 모두 통과 확인
+
+### 2026-07-24 (2차 - 공개 랜딩페이지 분리, 라우트 구조 확정)
+- 사용자 확인 사항: 로그인 전 첫 진입 화면은 "서비스 소개 랜딩페이지 → 버튼 눌러야
+  로그인 화면"으로, 랜딩페이지를 제외한 모든 화면은 비로그인 접근 시 `/login`으로
+  리다이렉트하는 것으로 확정
+- 🆕 `pages/LandingPage.tsx`: `/` 에서 보여주는 공개 랜딩페이지(로그인 불필요). 서비스
+  소개 + "로그인하고 관제 시작하기" 버튼(`/login`으로 이동)만 제공
+- ✏️ `App.tsx`: 기존 `/`에 있던 관제 대시보드를 `/dashboard`로 이동(로그인 필요).
+  `/`는 `RequireAuth` 없이 `LandingPage`를 렌더링
+- ✏️ `components/layout/Header.tsx`: 메인 메뉴의 "관제 대시보드" 링크를 `/dashboard`로
+  변경. 비로그인 상태에서는 유틸리티 영역에 "사용자명+로그아웃" 대신 "로그인" 버튼 노출
+  (메인 메뉴는 로그인 여부와 관계없이 항상 노출하며, 비로그인 상태로 클릭하면
+  `RequireAuth`가 알아서 `/login`으로 보냄)
+- ✏️ `pages/LoginPage.tsx`: 로그인 성공 후 기본 이동 경로를 `/`(기존) → `/dashboard`로
+  변경(사용자 확인: "로그인 성공 후 기본 화면은 관제 대시보드"). `RequireAuth`를 거쳐
+  로그인한 경우엔 원래 가려던 경로로 정상적으로 돌아감
+- `npx tsc -b`, `npx oxlint`, `npx vite build` 모두 통과 확인
+
+### 2026-07-24 (1차 - 행안부 UI/UX 가이드라인 - 공통 레이아웃 + 로그인 화면 추가)
+- 🆕 `types/auth.ts`: `AuthUser`, `UserRole` 타입 (BE `usrusrs01m` 필드명과 대응)
+- 🆕 `store/authStore.ts`: 로그인 상태 zustand 스토어. BE 로그인 API가 아직 없어서
+  당분간 FE 단독 mock 계정(`admin`/`viewer`)으로 동작. `sessionStorage`에 로그인 상태
+  persist(새로고침해도 로그인 유지, 탭 닫으면 초기화)
+- 🆕 `components/layout/IdentityBanner.tsx`: 가이드라인 Identity 영역 - 운영기관 식별자
+- 🆕 `components/layout/Header.tsx`: 가이드라인 Identity 영역 - 헤더(건너뛰기 링크, 메인 메뉴,
+  유틸리티 영역=로그인 사용자명/로그아웃). 기존 `App.tsx` 안에 있던 인라인 Layout에서 분리
+- 🆕 `components/layout/Footer.tsx`: 가이드라인 Identity 영역 - 푸터
+- 🆕 `components/layout/AppLayout.tsx`: 위 3개를 조합한 공통 레이아웃
+- 🆕 `components/RequireAuth.tsx`: 로그인 안 하면 `/login`으로 리다이렉트하는 라우트 가드
+- 🆕 `pages/LoginPage.tsx`: 가이드라인 로그인 영역 - 로그인 정보입력 화면. **간편인증/공동인증서/
+  금융인증서/생체인증/로그인 방식 선택 화면은 외부 인증기관 연동이 필요해 이번 캡스톤
+  범위에서 제외**하고 아이디/비밀번호 로그인만 구현. "전체 관리자로 채우기" 버튼으로
+  심사/데모 시 모든 화면에 바로 접근 가능한 테스트 계정 입력 지원
+- ✏️ `App.tsx`: 인라인 Layout 제거 → `AppLayout` 사용, `/login` 라우트 추가, 기존
+  3개 라우트(`/`, `/scenario`, `/prediction`) 전부 `RequireAuth`로 감쌈
+- 테스트 계정: `admin`/`admin1234`(전체 화면 접근), `viewer`/`viewer1234`(추후 화면별
+  권한 분리 시 사용 예정, 현재는 admin과 동일하게 전체 화면 접근됨 — 권한별 화면 제한은
+  아직 미구현)
+- `npx tsc -b`, `npx oxlint`, `npx vite build` 모두 통과 확인
+- **주의**: 이 로그인은 BE와 연동되지 않은 FE 전용 임시 mock입니다. BE에 `usrusrs01m`
+  기반 실제 로그인 API가 만들어지면 `authStore.ts`의 `login()` 구현부만 axios 호출로
+  교체하면 되도록 `AuthUser` 타입을 BE 엔티티 필드명에 맞춰뒀습니다.
+
 ### 2026-07-24 (지도 확대/축소·드래그 이동 추가 — 향후 구글맵 전환 대비 설계)
 - 🆕 `components/HeatmapView.tsx`: 마우스 휠로 확대/축소(커서 위치 기준), 드래그로
   이동, +/−/초기화 버튼 추가

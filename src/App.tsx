@@ -1,49 +1,60 @@
-import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import DashboardPage from './pages/DashboardPage';
 import ScenarioPage from './pages/ScenarioPage';
 import PredictionPage from './pages/PredictionPage';
+import LoginPage from './pages/LoginPage';
+import LandingPage from './pages/LandingPage';
+import AppLayout from './components/layout/AppLayout';
+import RequireAuth from './components/RequireAuth';
 
-function Layout({ children }: { children: React.ReactNode }) {
-  const navClass = ({ isActive }: { isActive: boolean }) =>
-    `px-3 py-2 rounded text-sm ${
-      isActive
-        ? 'bg-blue-600 text-white'
-        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-    }`;
-
-  return (
-    <div className="min-h-screen bg-slate-950">
-      <header className="border-b border-slate-800 px-6 py-4 flex items-center justify-between">
-        <span className="text-slate-100 font-semibold">
-          전통시장 안전탐지 디지털 트윈
-        </span>
-        <nav className="flex gap-2">
-          <NavLink to="/" end className={navClass}>
-            관제 대시보드
-          </NavLink>
-          <NavLink to="/scenario" className={navClass}>
-            시나리오 시뮬레이션
-          </NavLink>
-          <NavLink to="/prediction" className={navClass}>
-            인구 유입 예측
-          </NavLink>
-        </nav>
-      </header>
-      <main className="px-6 py-6">{children}</main>
-    </div>
-  );
-}
-
+// 2026-07-24 변경
+// "/" 를 비로그인도 볼 수 있는 공개 랜딩페이지로 바꾸고, 기존 "/"에 있던 관제
+// 대시보드는 "/dashboard"로 옮김(로그인 필요). 랜딩페이지를 제외한 모든 화면은
+// RequireAuth로 감싸서 비로그인 접근 시 /login으로 리다이렉트됨.
 export default function App() {
   return (
     <BrowserRouter>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/scenario" element={<ScenarioPage />} />
-          <Route path="/prediction" element={<PredictionPage />} />
-        </Routes>
-      </Layout>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <AppLayout>
+              <LandingPage />
+            </AppLayout>
+          }
+        />
+        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/dashboard"
+          element={
+            <RequireAuth>
+              <AppLayout>
+                <DashboardPage />
+              </AppLayout>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/scenario"
+          element={
+            <RequireAuth>
+              <AppLayout>
+                <ScenarioPage />
+              </AppLayout>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/prediction"
+          element={
+            <RequireAuth>
+              <AppLayout>
+                <PredictionPage />
+              </AppLayout>
+            </RequireAuth>
+          }
+        />
+      </Routes>
     </BrowserRouter>
   );
 }

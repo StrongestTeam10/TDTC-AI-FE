@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import HeatmapView from '../components/HeatmapView';
 import RiskScorePanel from '../components/RiskScorePanel';
 import AlertLogTable from '../components/AlertLogTable';
+import Spinner from '../components/ui/Spinner';
+import ErrorBanner from '../components/ui/ErrorBanner';
 import { useSimulationData } from '../hooks/useSimulationData';
 import { fetchAvailableTimestamps } from '../api/client';
 import type { Risk } from '../types';
@@ -11,7 +13,7 @@ export default function DashboardPage() {
   const [capturedAt, setCapturedAt] = useState<string | undefined>(undefined);
   const [availableTimestamps, setAvailableTimestamps] = useState<string[]>([]);
 
-  const { zones, dashboardSnapshot, isDashboardLoading, refetch } =
+  const { zones, dashboardSnapshot, isDashboardLoading, loadError, refetch } =
       useSimulationData(capturedAt);
 
   useEffect(() => {
@@ -75,23 +77,31 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2">
-            <HeatmapView
-                zones={zones}
-                agents={dashboardSnapshot?.agents ?? []}
-                zoneRisks={zoneRisks}
-            />
-          </div>
-          <div>
-            <RiskScorePanel risks={risks} />
-          </div>
-        </div>
+        {loadError && <ErrorBanner message={loadError} onRetry={refetch} />}
 
-        <div>
-          <h2 className="text-sm font-semibold text-slate-300 mb-2">구역별 위험 알림 이력</h2>
-          <AlertLogTable risks={risks} />
-        </div>
+        {isDashboardLoading && !dashboardSnapshot ? (
+            <Spinner label="관제 데이터를 불러오는 중..." />
+        ) : (
+            <>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="lg:col-span-2">
+                  <HeatmapView
+                      zones={zones}
+                      agents={dashboardSnapshot?.agents ?? []}
+                      zoneRisks={zoneRisks}
+                  />
+                </div>
+                <div>
+                  <RiskScorePanel risks={risks} />
+                </div>
+              </div>
+
+              <div>
+                <h2 className="text-sm font-semibold text-slate-300 mb-2">구역별 위험 알림 이력</h2>
+                <AlertLogTable risks={risks} />
+              </div>
+            </>
+        )}
       </div>
   );
 }
