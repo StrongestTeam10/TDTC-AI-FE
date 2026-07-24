@@ -3,6 +3,8 @@ import type {
   DashboardSnapshot,
   ScenarioRequest,
   ScenarioResult,
+  PredictRequest,
+  PredictResult,
   Market,
   Zone,
 } from '../types';
@@ -36,12 +38,13 @@ export async function fetchZones(marketId: number): Promise<Zone[]> {
   return data;
 }
 
-// 파이프라인 A: 관제 대시보드 - 특정 시점 스냅샷 조회
+// 파이프라인 A: 관제 대시보드 - 실시간(또는 특정 시점) 스냅샷 조회
 export async function fetchDashboardSnapshot(
-    snapshotTime?: string
+    marketId: number,
+    options?: { capturedAt?: string; persistRisk?: boolean; includeAgents?: boolean }
 ): Promise<DashboardSnapshot> {
   const { data } = await apiClient.get<DashboardSnapshot>('/dashboard/snapshot', {
-    params: snapshotTime ? { snapshotTime } : undefined,
+    params: { marketId, ...options },
   });
   return data;
 }
@@ -57,6 +60,14 @@ export async function runScenarioSimulation(
     request: ScenarioRequest
 ): Promise<ScenarioResult> {
   const { data } = await apiClient.post<ScenarioResult>('/simulation/run', request);
+  return data;
+}
+
+// 2026-07-24 추가: 예측 시뮬레이션 (실측 상태 + 게이트 신규 유입 기반)
+export async function runPredictSimulation(
+    request: PredictRequest
+): Promise<PredictResult> {
+  const { data } = await apiClient.post<PredictResult>('/simulation/predict', request);
   return data;
 }
 

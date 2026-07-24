@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import HeatmapView from '../components/HeatmapView';
+import FramePlayer from '../components/FramePlayer';
 import RiskScorePanel from '../components/RiskScorePanel';
 import ScenarioForm from '../components/ScenarioForm';
 import { fetchMarkets, fetchZones, runScenarioSimulation } from '../api/client';
@@ -68,9 +68,9 @@ export default function ScenarioPage() {
           </div>
 
           <div className="lg:col-span-2 space-y-6">
-            <HeatmapView
+            <FramePlayer
                 zones={zones}
-                agents={scenarioResult?.frames[scenarioResult.frames.length - 1] ?? []}
+                frames={scenarioResult?.frames ?? []}
             />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

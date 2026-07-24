@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { DashboardSnapshot, ScenarioResult, Market, Zone } from '../types';
+import type { DashboardSnapshot, ScenarioResult, PredictResult, Market, Zone } from '../types';
 
 interface SimulationStore {
   // 공통: 시장 및 구역 정보
@@ -19,6 +19,12 @@ interface SimulationStore {
   isScenarioRunning: boolean;
   setScenarioResult: (result: ScenarioResult | null) => void;
   setScenarioRunning: (running: boolean) => void;
+
+  // 2026-07-24 추가: 예측 시뮬레이션(파이프라인 A 확장) 상태
+  predictResult: PredictResult | null;
+  isPredicting: boolean;
+  setPredictResult: (result: PredictResult | null) => void;
+  setPredicting: (running: boolean) => void;
 }
 
 export const useSimulationStore = create<SimulationStore>((set) => ({
@@ -36,4 +42,9 @@ export const useSimulationStore = create<SimulationStore>((set) => ({
   isScenarioRunning: false,
   setScenarioResult: (result) => set({ scenarioResult: result }),
   setScenarioRunning: (running) => set({ isScenarioRunning: running }),
+
+  predictResult: null,
+  isPredicting: false,
+  setPredictResult: (result) => set({ predictResult: result }),
+  setPredicting: (running) => set({ isPredicting: running }),
 }));
