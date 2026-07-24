@@ -4,6 +4,49 @@
 
 ## 변경 이력
 
+### 2026-07-24 (11차 - BE 로그인/회원가입 실제 연동 + 기존 API 인증 필수화)
+- 사용자 확인 사항: 권한 표현은 FE도 BE와 동일하게 `ROL01/02/03`로 통일, 기존 API
+  (대시보드/시뮬레이션 등)도 이번에 토큰 인증을 필수로 만들기로 함
+- 🆕 `auth/tokenStore.ts`: 현재 액세스 토큰을 보관하는 최소 모듈. `api/client.ts`
+  (axios 인터셉터, 읽기 전용)와 `store/authStore.ts`(zustand, 로그인/로그아웃 시
+  쓰기) 사이에서 순환 참조를 피하려고 둠. API가 401을 주면 이 모듈이
+  `authStore.logout()`을 호출하는 콜백도 여기서 관리
+- ✏️ `api/client.ts`:
+  - 모든 요청에 토큰이 있으면 `Authorization: Bearer` 헤더 자동 첨부하는 요청
+    인터셉터 추가
+  - 응답이 401이면(로그인/회원가입 자체의 401은 제외) 로그인 상태를 자동 정리하도록
+    `notifyUnauthorized()` 호출 추가
+  - `login`/`signup`/`fetchCommonCodes` API 함수 추가 (BE `AuthController`/
+    `CommonCodeController`와 대응)
+- ✏️ `types/auth.ts`: `UserRole`을 `'ADMIN' | 'VIEWER'` 2단계에서 BE와 동일한
+  `'ROL01' | 'ROL02' | 'ROL03'`(comcode01m 기준: 관리자/관제요원/조회자) 3단계로
+  변경. 화면 표시용 `ROLE_LABELS` 맵 추가
+- ✏️ `store/authStore.ts`: mock 계정을 완전히 제거하고 `login`/`signup`을 실제 BE
+  API 호출(비동기)로 교체. 로그인 성공 시 토큰을 `tokenStore`에 저장, 새로고침 후
+  복원(`onRehydrateStorage`)도 처리
+- ✏️ `pages/LoginPage.tsx`: `login()`이 비동기라 `handleSubmit`도 async로 변경,
+  제출 중 로딩 상태 표시. mock 시절 "테스트 계정으로 채우기" 버튼은 실제 계정이
+  없으면 로그인이 실패하므로 제거(전체 화면 확인용 관리자 계정이 필요하면 `/signup`으로
+  가입 후 BE에서 해당 계정의 `rules_code`를 `ROL01`로 한 번 수동 변경 필요 - BE
+  README 참고)
+- ✏️ `pages/SignupPage.tsx`: `handleSubmit`을 실제 회원가입 API 호출로 교체, 제출
+  중 로딩 상태 및 실패 시 오류 배너 표시. 소속기관 옵션은 이제 BE
+  `GET /api/common-codes?domain=ORG`에서 가져오되, 실패 시 `constants/orgCode.ts`
+  값으로 폴백
+- ✏️ `components/layout/Header.tsx`: 사용자 정보에 권한 코드 대신 `ROLE_LABELS`로
+  변환한 읽기 쉬운 라벨(관리자/관제요원/조회자) 표시
+- ✏️ `constants/orgCode.ts`: 이제 BE 공통코드 API 실패 시에만 쓰는 폴백 용도로
+  주석 갱신
+- ✏️ "캡스톤" → "빅프로젝트" 표현 일괄 정리 (`Footer.tsx`, `IdentityBanner.tsx`,
+  `constants/legalText.ts`, `pages/LandingPage.tsx`, `pages/SignupPage.tsx`, 이
+  README)
+- `npx tsc -b`, `npx oxlint`, `npx vite build` 모두 통과 확인
+- ⚠️ BE도 같은 날 기존 API를 `authenticated()`로 잠갔으므로(BE README 참고), 이제
+  로그인하지 않은 상태로는 대시보드/시나리오/예측 어떤 API도 호출되지 않음 -
+  RequireAuth가 애초에 로그인 안 하면 그 화면들을 렌더링 자체를 안 하므로 실사용
+  흐름에서는 문제 없지만, 혹시 토큰 만료 중 API 호출이 발생하면 401 → 자동 로그아웃
+  → `/login`으로 이동됨
+
 ### 2026-07-24 (10차 - 소속기관 필수화 + 공통코드 select로 변경)
 - 🆕 `constants/orgCode.ts`: BE `comcode01m`(공통코드) 시드 데이터(`comcode-seed.sql`)의
   `ORG` 도메인 값(ORGKT/KT, ORGGV/지자체, ORGMA/상인회)과 동일하게 맞춘 상수.

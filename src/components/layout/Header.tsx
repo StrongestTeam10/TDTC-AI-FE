@@ -1,5 +1,6 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { ROLE_LABELS } from '../../types/auth';
 
 // 2026-07-24 추가
 // 행안부 가이드라인 - Identity 영역 - 헤더 구조 반영:
@@ -64,7 +65,7 @@ export default function Header() {
           {user ? (
             <>
               <span>
-                {user.name} <span className="text-slate-600">· {user.rulesCode}</span>
+                {user.name} <span className="text-slate-600">· {ROLE_LABELS[user.rulesCode]}</span>
               </span>
               <button
                 type="button"

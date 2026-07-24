@@ -1,10 +1,19 @@
-// 2026-07-24 추가
+// 2026-07-24 추가 (SIGNUP-01)
 // BE usrusrs01m(사용자) 테이블과 필드 개념을 맞춰둠: loginId=login_id, rulesCode=rules_code, orgCode=org_code
-// 지금은 rulesCode를 'ADMIN' | 'VIEWER' 2단계로만 씀. BE의 rules_code(VARCHAR(5)) 코드 체계가
-// 정해지면 그 코드값에 맞춰 이 유니언 타입만 넓히면 됨.
-export type UserRole = 'ADMIN' | 'VIEWER';
+
+// 2026-07-24 (2차): 처음엔 FE 편의상 'ADMIN' | 'VIEWER' 2단계로 단순화해뒀었는데,
+// 실제 BE 회원가입/로그인 API를 연동하면서 comcode01m 기준 실제 권한 코드
+// (ROL01=관리자, ROL02=관제요원, ROL03=조회자)로 통일함.
+export type UserRole = 'ROL01' | 'ROL02' | 'ROL03';
+
+export const ROLE_LABELS: Record<UserRole, string> = {
+  ROL01: '관리자',
+  ROL02: '관제요원',
+  ROL03: '조회자',
+};
 
 export interface AuthUser {
+  userId: number;
   loginId: string;
   name: string;
   rulesCode: UserRole;
