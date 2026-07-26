@@ -46,7 +46,7 @@ export default function Header() {
           to="/"
           className="font-semibold text-slate-100 hover:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 rounded"
         >
-          전통시장 안전탐지 디지털 트윈
+          Home
         </Link>
 
         <nav aria-label="주요 메뉴" className="flex gap-2">
