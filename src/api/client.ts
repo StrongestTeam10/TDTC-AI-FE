@@ -124,6 +124,15 @@ export async function login(request: LoginRequest): Promise<LoginResponse> {
   return data;
 }
 
+// 2026-07-26 추가: 앱 부팅 시 저장된 토큰이 아직 유효한지 서버에 확인하는 용도.
+// 로그인 API처럼 자체적으로 401을 401로 두면 api/client.ts 응답 인터셉터가 자동으로
+// notifyUnauthorized()를 호출해 로그아웃 처리를 해주므로, 여기선 별도 에러 처리를
+// 하지 않고 호출만 해도 됨(App.tsx 참고).
+export async function fetchMe(): Promise<UserSummary> {
+  const { data } = await apiClient.get<UserSummary>('/auth/me');
+  return data;
+}
+
 export interface SignupRequest {
   loginId: string;
   password: string;
@@ -175,8 +184,11 @@ export async function fetchPosts(
   return data;
 }
 
-export async function fetchPostDetail(postId: number): Promise<PostDetail> {
-  const { data } = await apiClient.get<PostDetail>(`/posts/${postId}`);
+// 2026-07-26 변경: countView=false로 호출하면 서버에 조회수를 올리지 않도록 요청함.
+// (BoardDetailPage처럼 실제로 "글을 읽는" 상황에서만 true로 호출하고,
+// BoardWritePage의 수정 화면 프리필처럼 "편집 준비" 목적일 땐 false로 호출)
+export async function fetchPostDetail(postId: number, countView = true): Promise<PostDetail> {
+  const { data } = await apiClient.get<PostDetail>(`/posts/${postId}`, { params: { countView } });
   return data;
 }
 

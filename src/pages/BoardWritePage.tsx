@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Spinner from '../components/ui/Spinner';
 import ErrorBanner from '../components/ui/ErrorBanner';
@@ -40,7 +40,12 @@ export default function BoardWritePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
+  // 2026-07-26: StrictMode 이중 실행 방지(BoardListPage와 동일 패턴)
+  const commonCodesLoadedRef = useRef(false);
   useEffect(() => {
+    if (commonCodesLoadedRef.current) return;
+    commonCodesLoadedRef.current = true;
+
     fetchCommonCodes('BCT')
         .then((codes) => {
           if (codes.length > 0) setCategoryOptions(codes.map((c) => ({ code: c.code, name: c.codeName })));
@@ -48,10 +53,15 @@ export default function BoardWritePage() {
         .catch((err) => console.error('공통코드(카테고리) 조회 실패, 로컬 기본값 사용', err));
   }, []);
 
+  const detailLoadedRef = useRef(false);
   useEffect(() => {
-    if (!isEditMode || !postId) return;
+    if (!isEditMode || !postId || detailLoadedRef.current) return;
+    detailLoadedRef.current = true;
     setIsLoading(true);
-    fetchPostDetail(Number(postId))
+    // 2026-07-26 버그 수정: 이 호출이 상세 화면과 같은 GET API를 재사용하는데, 편집 화면을
+    // 여는 것은 "조회"가 아니므로 조회수를 올리면 안 됨(게다가 StrictMode 이중 실행 시 2씩
+    // 올라가던 부작용도 있었음). countView=false로 넘겨서 조회수 증가를 막음.
+    fetchPostDetail(Number(postId), false)
         .then((detail) => {
           setTitle(detail.title);
           setContent(detail.content);

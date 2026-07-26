@@ -3,6 +3,31 @@
 이 파일은 Claude와의 작업 세션에서 변경된 내용을 기록합니다.
 각 항목은 zip으로 전달된 시점 기준입니다.
 
+### 2026-07-26 (게시글 수정 화면을 열면 조회수가 올라가던 버그 수정 + BoardWritePage StrictMode 가드 추가)
+- **증상**: `BoardWritePage`(수정 화면)가 기존 값을 프리필할 때 `fetchPostDetail`(상세 조회 API)을
+  그대로 재사용하고 있었는데, 이 API가 호출될 때마다 서버 조회수를 올리는 API라서 수정 화면을
+  열기만 해도 조회수가 증가했음(BE `CHANGELOG.md` 2026-07-26 항목과 세트)
+- ✏️ `api/client.ts`: `fetchPostDetail(postId, countView = true)` — `countView` 파라미터를
+  쿼리 파라미터로 서버에 전달하도록 변경
+- ✏️ `BoardWritePage.tsx`: 수정 화면 프리필 호출을 `fetchPostDetail(Number(postId), false)`로
+  변경해 조회수 증가를 막음
+- ✏️ `BoardWritePage.tsx`: `BoardListPage`에 적용했던 것과 동일한 `useRef` 가드를 공통코드 조회
+  effect와 상세 프리필 effect에 추가해, StrictMode 이중 실행으로 인한 중복 호출 자체도 제거
+- `npx tsc -b && npx oxlint && npx vite build` 전부 통과 확인 완료
+
+- **증상**: 서버 로그(Hibernate SQL)를 직접 확인한 결과, 게시판 목록 진입 시
+  공통코드(BCT/MKT) 조회 + 목록 조회(공지/페이징/첨부파일 배치/작성자 배치) 쿼리 세트
+  전체가 항상 2번씩 나가고 있었음
+- **원인**: `BoardDetailPage`는 이전 세션(2026-07-25, 조회수 중복 증가 버그 수정)에서
+  React 18/19 StrictMode(`main.tsx`)의 개발 모드 useEffect 이중 실행에 대비해 `useRef` 가드를
+  넣었는데, 같은 시점에 만든 `BoardListPage`에는 이 가드가 빠져 있었음. StrictMode가 마운트 시
+  effect를 두 번 실행하면서 공통코드 조회 effect와 목록 조회(`load`) effect가 각각 중복 호출됨
+- ✏️ `BoardListPage.tsx`:
+  - 공통코드(BCT/MKT) 조회 effect에 `commonCodesLoadedRef`(useRef) 가드 추가 - 마운트당 1회만 실행
+  - 목록 조회 effect에 `lastLoadedKeyRef`(useRef) 가드 추가 - 검색어/카테고리/시장/관리자여부/페이지
+    조합이 실제로 바뀔 때만 `load()` 호출, StrictMode가 동일 조합으로 재실행해도 건너뜀
+  - `load()` 호출 지점이 이 effect 1곳뿐이라 다른 갱신 로직과의 충돌 없음을 확인
+- `npx tsc -b && npx oxlint && npx vite build` 전부 통과 확인 완료
 
 ### 2026-07-25 (18차 - 목록 테이블 레이아웃 근본 수정 + Tiptap 중복 확장 경고 수정)
 - **증상 1**: "시장" 컬럼의 "망원시장"이 "망원..."으로 계속 잘려서 보임(이전 컬럼 폭

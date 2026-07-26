@@ -45,7 +45,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
           <p className="mb-1 text-sm text-slate-500">KT Aivle School B2G 빅프로젝트</p>
-          <h1 className="text-xl font-semibold text-slate-100">전통시장 안전탐지 디지털 트윈</h1>
+          <h1 className="text-xl font-semibold text-slate-100">시켜줘 네 장터매니저</h1>
           <p className="mt-2 text-sm text-slate-500">관제 시스템 로그인이 필요합니다.</p>
         </div>
 

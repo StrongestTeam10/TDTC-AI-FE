@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Spinner from '../components/ui/Spinner';
 import ErrorBanner from '../components/ui/ErrorBanner';
@@ -56,7 +56,15 @@ export default function BoardListPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
+  // 2026-07-26 버그 수정: React 18/19 StrictMode(main.tsx)가 개발 모드에서 마운트 시
+  // useEffect를 두 번 실행하면서, 공통코드(BCT/MKT) 조회와 목록 조회(load) 쿼리 세트가
+  // 통째로 2번씩 나가던 문제. BoardDetailPage(조회수 중복 증가 수정 시)에 적용했던 것과
+  // 동일한 ref 가드 패턴을 여기에도 적용해서 중복 호출을 막음.
+  const commonCodesLoadedRef = useRef(false);
   useEffect(() => {
+    if (commonCodesLoadedRef.current) return;
+    commonCodesLoadedRef.current = true;
+
     fetchCommonCodes('BCT')
       .then((codes) => {
         if (codes.length > 0) setCategoryOptions(codes.map((c) => ({ code: c.code, name: c.codeName })));
@@ -87,9 +95,15 @@ export default function BoardListPage() {
         .finally(() => setIsLoading(false));
   }, [keywordParam, categoryParam, marketParam, isAdmin, page]);
 
+  // 파라미터 조합(검색어/카테고리/시장/페이지)이 실제로 바뀔 때만 load()를 호출하고,
+  // StrictMode가 동일 조합으로 effect를 재실행하는 경우는 건너뜀
+  const lastLoadedKeyRef = useRef<string | null>(null);
   useEffect(() => {
+    const key = `${keywordParam}|${categoryParam}|${marketParam}|${isAdmin}|${page}`;
+    if (lastLoadedKeyRef.current === key) return;
+    lastLoadedKeyRef.current = key;
     load();
-  }, [load]);
+  }, [load, keywordParam, categoryParam, marketParam, isAdmin, page]);
 
   const updateParams = (next: Record<string, string>) => {
     setSearchParams({
