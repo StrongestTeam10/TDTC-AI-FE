@@ -1,57 +1,22 @@
-import { useEffect, useState } from 'react';
-import FramePlayer from '../components/FramePlayer';
+import { useEffect, useRef, useState } from 'react';
 import HeatmapView from '../components/HeatmapView';
 import RiskScorePanel from '../components/RiskScorePanel';
 import ScenarioForm from '../components/ScenarioForm';
 import Spinner from '../components/ui/Spinner';
 import ErrorBanner from '../components/ui/ErrorBanner';
-import { fetchMarkets, fetchZones, fetchCorridors, runScenarioSimulation } from '../api/client';
+import { fetchMarkets, fetchZones, fetchCorridors, fetchGates, runScenarioSimulation } from '../api/client';
 import { useSimulationStore } from '../store/simulationStore';
 import { toDisplayErrorMessage } from '../utils/errorMessage';
-import type { ScenarioRequest, PlacedObject, CorridorPolicy, Corridor } from '../types';
+import type { ScenarioRequest, PlacedObject, EventTrigger, Corridor, Gate } from '../types';
 
-// 2026-07-25 추가: 지도에서 통로를 클릭할 때마다 순환하는 5단계 상태.
-// none은 "정책 없음"(제출 시 목록에서 빠짐).
-type CorridorCycleState = 'none' | 'close' | 'open' | 'one_way_from_to' | 'one_way_to_from';
-const CORRIDOR_CYCLE: CorridorCycleState[] = ['none', 'close', 'open', 'one_way_from_to', 'one_way_to_from'];
+type PlacementKind = PlacedObject['objectType'] | EventTrigger['eventType'];
 
-function toCorridorPolicy(
-    fromZoneId: number,
-    toZoneId: number,
-    state: CorridorCycleState
-): CorridorPolicy | null {
-  switch (state) {
-    case 'close':
-      return { fromZoneId, toZoneId, action: 'close' };
-    case 'open':
-      return { fromZoneId, toZoneId, action: 'open' };
-    case 'one_way_from_to':
-      return { fromZoneId, toZoneId, action: 'one_way', allowedDirection: 'from_to' };
-    case 'one_way_to_from':
-      return { fromZoneId, toZoneId, action: 'one_way', allowedDirection: 'to_from' };
-    default:
-      return null;
-  }
-}
+const OBJECT_TYPES = new Set<PlacedObject['objectType']>(['food_truck', 'obstacle', 'event_zone', 'rest_area']);
 
-// HeatmapView가 색상을 정하는 데 쓰는 축약 상태로 변환.
-function toDisplayStatus(state: CorridorCycleState): 'close' | 'open' | 'one_way' | undefined {
-  if (state === 'close') return 'close';
-  if (state === 'open') return 'open';
-  if (state === 'one_way_from_to' || state === 'one_way_to_from') return 'one_way';
-  return undefined;
-}
-
-const CORRIDOR_STATE_LABEL: Record<CorridorCycleState, string> = {
-  none: '정책 없음',
-  close: '폐쇄',
-  open: '개방',
-  one_way_from_to: '일방통행 (→)',
-  one_way_to_from: '일방통행 (←)',
-};
-
-const MAP_WIDTH = 800;
-const MAP_HEIGHT = 600;
+const MAP_SIZE = 720;
+const SPEED_OPTIONS = [0.5, 1, 2, 4];
+const BASE_INTERVAL_MS = 500;
+const STEP_DURATION_SECONDS = 10;
 
 export default function ScenarioPage() {
   const {
@@ -69,16 +34,18 @@ export default function ScenarioPage() {
   const [layoutError, setLayoutError] = useState<string | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
 
-  // 2026-07-25 추가: 통로(구역 연결) 원본 데이터
   const [corridors, setCorridors] = useState<Corridor[]>([]);
+  const [gates, setGates] = useState<Gate[]>([]);
+  const [closedGateIds, setClosedGateIds] = useState<Set<number>>(new Set());
 
-  // 2026-07-25 추가: 오브젝트 배치 상태 (지도 클릭으로 채워짐)
   const [objects, setObjects] = useState<PlacedObject[]>([]);
-  const [placementType, setPlacementType] = useState<PlacedObject['objectType'] | null>(null);
-  const [nextObjectIntensity, setNextObjectIntensity] = useState(0.5);
+  const [events, setEvents] = useState<EventTrigger[]>([]);
+  const [placementType, setPlacementType] = useState<PlacementKind | null>(null);
+  const [nextIntensity, setNextIntensity] = useState(0.5);
 
-  // 2026-07-25 추가: 통로 정책 상태 (지도 클릭으로 순환)
-  const [corridorStates, setCorridorStates] = useState<Record<string, CorridorCycleState>>({});
+  const [playIndex, setPlayIndex] = useState(0);
+  const [playSpeed, setPlaySpeed] = useState(1);
+  const timerRef = useRef<number | null>(null);
 
   const loadLayout = () => {
     setLayoutLoading(true);
@@ -90,81 +57,92 @@ export default function ScenarioPage() {
             return Promise.all([
               fetchZones(marketData[0].marketId),
               fetchCorridors(marketData[0].marketId),
+              fetchGates(marketData[0].marketId),
             ]);
           }
-          return [[], []] as [typeof zones, Corridor[]];
+          return [[], [], []] as [typeof zones, Corridor[], Gate[]];
         })
-        .then(([zoneData, corridorData]) => {
+        .then(([zoneData, corridorData, gateData]) => {
           if (zoneData.length > 0) {
             setZones(zoneData);
           }
           setCorridors(corridorData);
+          setGates(gateData);
         })
         .catch((err) => {
-          console.error('시장/구역/통로 정보 로드 실패', err);
-          setLayoutError(toDisplayErrorMessage(err, '시장/구역/통로 정보를 불러오지 못했습니다.'));
+          console.error('시장/구역/통로/게이트 정보 로드 실패', err);
+          setLayoutError(toDisplayErrorMessage(err, '시장/구역/통로/게이트 정보를 불러오지 못했습니다.'));
         })
         .finally(() => setLayoutLoading(false));
   };
 
   useEffect(() => {
-    if (markets.length === 0) {
-      loadLayout();
-    }
+    // 2026-07-25: 페이지 진입 때마다 최신 데이터를 다시 불러온다(게이트/통로가
+    // 브라우저 세션 안에서 갱신 안 되던 문제 수정 - markets가 이미 있어도 다시 로드).
+    loadLayout();
     // eslint-disable-next-line
   }, []);
 
-  // 2026-07-25 추가: 지도 클릭 -> 현재 선택된 오브젝트 종류를 그 좌표에 배치
+  useEffect(() => {
+    setPlayIndex(0);
+  }, [scenarioResult]);
+
+  const totalFrames = scenarioResult?.frames.length ?? 0;
+  const intervalMs = Math.max(80, BASE_INTERVAL_MS / playSpeed);
+
+  useEffect(() => {
+    if (totalFrames === 0) return;
+    timerRef.current = window.setInterval(() => {
+      setPlayIndex((prev) => (prev >= totalFrames - 1 ? 0 : prev + 1));
+    }, intervalMs);
+    return () => {
+      if (timerRef.current !== null) window.clearInterval(timerRef.current);
+    };
+  }, [intervalMs, totalFrames]);
+
   const handlePlaceObject = (zoneId: number, latitude: number, longitude: number) => {
     if (!placementType) return;
-    setObjects((prev) => [
-      ...prev,
-      { objectType: placementType, zoneId, intensity: nextObjectIntensity, latitude, longitude },
-    ]);
+    if (OBJECT_TYPES.has(placementType as PlacedObject['objectType'])) {
+      setObjects((prev) => [
+        ...prev,
+        { objectType: placementType as PlacedObject['objectType'], zoneId, intensity: nextIntensity, latitude, longitude },
+      ]);
+    } else {
+      setEvents((prev) => [
+        ...prev,
+        { eventType: placementType as EventTrigger['eventType'], zoneId, intensity: nextIntensity, latitude, longitude },
+      ]);
+    }
   };
 
   const handleRemoveObject = (index: number) => {
     setObjects((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // 2026-07-25 추가: 통로 클릭 -> 5단계 순환(없음/폐쇄/개방/일방→/일방←)
-  const handleCorridorClick = (fromZoneId: number, toZoneId: number) => {
-    const key = `${fromZoneId}-${toZoneId}`;
-    setCorridorStates((prev) => {
-      const current = prev[key] ?? 'none';
-      const nextIndex = (CORRIDOR_CYCLE.indexOf(current) + 1) % CORRIDOR_CYCLE.length;
-      return { ...prev, [key]: CORRIDOR_CYCLE[nextIndex] };
+  const handleRemoveEvent = (index: number) => {
+    setEvents((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleGateClick = (facilityId: number) => {
+    setClosedGateIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(facilityId)) {
+        next.delete(facilityId);
+      } else {
+        next.add(facilityId);
+      }
+      return next;
     });
   };
 
-  const handleRemoveCorridor = (key: string) => {
-    setCorridorStates((prev) => ({ ...prev, [key]: 'none' }));
-  };
-
-  const zoneName = (zoneId: number) => zones.find((z) => z.zoneId === zoneId)?.zoneName ?? `Zone ${zoneId}`;
-
-  const activeCorridorEntries = Object.entries(corridorStates).filter(([, s]) => s !== 'none');
-  const corridorStatusForMap = Object.fromEntries(
-      Object.entries(corridorStates)
-          .map(([key, state]) => [key, toDisplayStatus(state)])
-          .filter(([, status]) => status !== undefined)
-  );
-
-  const handleRunScenario = async (
-      basicFields: Omit<ScenarioRequest, 'marketId' | 'objects' | 'corridorPolicies'>
-  ) => {
-    const corridorPolicies = activeCorridorEntries
-        .map(([key, state]) => {
-          const [fromZoneId, toZoneId] = key.split('-').map(Number);
-          return toCorridorPolicy(fromZoneId, toZoneId, state);
-        })
-        .filter((p): p is CorridorPolicy => p !== null);
-
+  const handleRunScenario = async (basicFields: Pick<ScenarioRequest, 'agentCount' | 'steps'>) => {
     const request: ScenarioRequest = {
       ...basicFields,
       marketId: markets[0]?.marketId ?? 0,
       objects,
-      corridorPolicies,
+      events,
+      corridorPolicies: [],
+      closedGateIds: Array.from(closedGateIds),
     };
 
     setScenarioRunning(true);
@@ -180,6 +158,9 @@ export default function ScenarioPage() {
     }
   };
 
+  const displayedAgents = scenarioResult ? scenarioResult.frames[playIndex] ?? [] : [];
+  const elapsedSeconds = scenarioResult ? (playIndex + 1) * STEP_DURATION_SECONDS : 0;
+
   return (
       <div className="space-y-6">
         <h1 className="text-xl font-semibold text-slate-100">
@@ -189,52 +170,60 @@ export default function ScenarioPage() {
         {layoutError && <ErrorBanner message={layoutError} onRetry={loadLayout} />}
 
         {isLayoutLoading ? (
-            <Spinner label="시장/구역/통로 정보를 불러오는 중..." />
+            <Spinner label="시장/구역/통로/게이트 정보를 불러오는 중..." />
         ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-              <div className="lg:col-span-2 space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              <div className="lg:col-span-1 space-y-4">
                 {runError && <ErrorBanner message={runError} />}
                 <ScenarioForm
                     isRunning={isScenarioRunning}
                     onSubmit={handleRunScenario}
                     objects={objects}
                     onRemoveObject={handleRemoveObject}
+                    events={events}
+                    onRemoveEvent={handleRemoveEvent}
                     placementType={placementType}
                     onSelectPlacementType={setPlacementType}
-                    nextObjectIntensity={nextObjectIntensity}
-                    onNextObjectIntensityChange={setNextObjectIntensity}
-                    corridorEntries={activeCorridorEntries.map(([key, state]) => ({
-                      key,
-                      label: `${zoneName(Number(key.split('-')[0]))} ↔ ${zoneName(Number(key.split('-')[1]))} · ${CORRIDOR_STATE_LABEL[state]}`,
-                    }))}
-                    onRemoveCorridor={handleRemoveCorridor}
+                    nextIntensity={nextIntensity}
+                    onNextIntensityChange={setNextIntensity}
                 />
               </div>
 
               <div className="lg:col-span-3 space-y-6">
-                {/* 2026-07-25 추가: 배치 전용 지도. 시뮬레이션 실행 전 오브젝트 배치와
-                    통로 정책 지정에 쓰는, 항상 떠 있는 정적 지도. */}
-                <HeatmapView
-                    zones={zones}
-                    agents={[]}
-                    width={MAP_WIDTH}
-                    height={MAP_HEIGHT}
-                    corridors={corridors}
-                    corridorStatus={corridorStatusForMap}
-                    onCorridorClick={handleCorridorClick}
-                    placementType={placementType}
-                    onPlaceObject={handlePlaceObject}
-                    placedObjects={objects}
-                />
+                <div className="relative" style={{ width: MAP_SIZE }}>
+                  <HeatmapView
+                      zones={zones}
+                      agents={displayedAgents}
+                      width={MAP_SIZE}
+                      height={MAP_SIZE}
+                      transitionMs={scenarioResult ? intervalMs : 0}
+                      corridors={corridors}
+                      gates={gates}
+                      closedGateIds={closedGateIds}
+                      onGateClick={handleGateClick}
+                      placementType={placementType}
+                      onPlaceObject={handlePlaceObject}
+                      placedObjects={objects}
+                      events={events}
+                  />
 
-                {scenarioResult && (
-                    <FramePlayer
-                        zones={zones}
-                        frames={scenarioResult.frames}
-                        width={MAP_WIDTH}
-                        height={MAP_HEIGHT}
-                    />
-                )}
+                  {scenarioResult && (
+                      <div className="absolute top-2 right-24 flex items-center gap-2 rounded bg-slate-900/80 px-2 py-1 text-xs text-slate-300">
+                        <span className="whitespace-nowrap">
+                          {playIndex + 1}/{totalFrames} (~{elapsedSeconds}초)
+                        </span>
+                        <select
+                            value={playSpeed}
+                            onChange={(e) => setPlaySpeed(Number(e.target.value))}
+                            className="rounded border border-slate-600 bg-slate-800 px-1 py-0.5 text-slate-200"
+                        >
+                          {SPEED_OPTIONS.map((s) => (
+                              <option key={s} value={s}>{s}x</option>
+                          ))}
+                        </select>
+                      </div>
+                  )}
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <RiskScorePanel

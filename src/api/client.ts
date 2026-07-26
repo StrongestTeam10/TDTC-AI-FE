@@ -8,6 +8,7 @@ import type {
   Market,
   Zone,
   Corridor,
+  Gate,
 } from '../types';
 
 const apiClient = axios.create({
@@ -40,9 +41,15 @@ export async function fetchZones(marketId: number): Promise<Zone[]> {
 }
 
 // 2026-07-25 추가: 특정 시장의 통로(구역 간 연결) 목록 조회.
-// 지도에 통로를 선으로 그리고 클릭으로 폐쇄/개방/일방통행을 지정하는 데 사용.
 export async function fetchCorridors(marketId: number): Promise<Corridor[]> {
   const { data } = await apiClient.get<Corridor[]>(`/markets/${marketId}/corridors`);
+  return data;
+}
+
+// 2026-07-25 추가: 특정 시장의 게이트(출입구) 목록 조회.
+// 지도에 아이콘으로 표시하고 클릭으로 열림/닫힘을 토글하는 데 사용.
+export async function fetchGates(marketId: number): Promise<Gate[]> {
+  const { data } = await apiClient.get<Gate[]>(`/markets/${marketId}/gates`);
   return data;
 }
 
