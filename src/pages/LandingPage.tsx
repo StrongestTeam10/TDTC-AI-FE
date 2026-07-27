@@ -9,13 +9,16 @@ export default function LandingPage() {
 
   return (
     <div className="flex flex-col items-center justify-center gap-6 px-4 py-24 text-center">
-      <p className="text-sm text-slate-500">KT Aivle School 9기 4반 10조</p>
-      <h1 className="max-w-2xl text-3xl font-semibold text-slate-100 sm:text-4xl">
-          시켜줘 네 장터매니저
-      </h1>
-      <p className="max-w-xl text-slate-400">
-          전통시장 인구분석 및 안전탐지 관제솔루션AI
-      </p>
+      <p className="text-sm text-slate-500">KT Aivle School 9기 10조 · B2G 빅프로젝트</p>
+        <h1 className="max-w-2xl text-3xl font-semibold text-slate-100 sm:text-4xl">
+            시켜줘 네 장터매니저
+        </h1>
+        전통시장 인구분석 및 안전탐지 관제솔루션AI
+        <p className="max-w-xl text-slate-400">
+            실측 센서 데이터와 디지털 트윈 시뮬레이션으로 전통시장의 혼잡도·위험도를 실시간으로
+            관제하고, 인구 유입에 따른 위험 확산을 미리 예측합니다.
+            전통시장 인구분석 및 안전탐지 관제솔루션AI
+        </p>
       <button
         type="button"
         onClick={() => navigate('/login')}

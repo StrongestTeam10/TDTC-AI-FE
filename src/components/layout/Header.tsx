@@ -1,5 +1,6 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { ROLE_LABELS } from '../../types/auth';
 
 // 2026-07-24 추가
 // 행안부 가이드라인 - Identity 영역 - 헤더 구조 반영:
@@ -45,7 +46,7 @@ export default function Header() {
           to="/"
           className="font-semibold text-slate-100 hover:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 rounded"
         >
-          전통시장 안전탐지 디지털 트윈
+          Home
         </Link>
 
         <nav aria-label="주요 메뉴" className="flex gap-2">
@@ -58,13 +59,16 @@ export default function Header() {
           <NavLink to="/prediction" className={navClass}>
             인구 유입 예측
           </NavLink>
+          <NavLink to="/board" className={navClass}>
+            게시판
+          </NavLink>
         </nav>
 
         <div className="flex items-center gap-3 text-sm text-slate-400">
           {user ? (
             <>
               <span>
-                {user.name} <span className="text-slate-600">· {user.rulesCode}</span>
+                {user.name} <span className="text-slate-600">· {ROLE_LABELS[user.rulesCode]}</span>
               </span>
               <button
                 type="button"

@@ -1,8 +1,12 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TermsModal from '../components/TermsModal';
 import { PASSWORD_RULES, isPasswordValid } from '../utils/password';
 import { TERMS_TEXT, PRIVACY_TEXT } from '../constants/legalText';
+import { ORG_CODE_OPTIONS } from '../constants/orgCode';
+import { MARKET_CODE_OPTIONS } from '../constants/marketCode';
+import { fetchCommonCodes } from '../api/client';
+import { useAuthStore } from '../store/authStore';
 
 // 2026-07-24 추가 (1차, SIGNUP-01)
 // 행안부 가이드라인 - 기본패턴 영역 반영: "개인 식별 정보 입력" + "동의" 패턴을
@@ -16,13 +20,10 @@ import { TERMS_TEXT, PRIVACY_TEXT } from '../constants/legalText';
 //   팝업은 끝까지 스크롤해야 "확인하고 동의" 버튼이 활성화되고, 그 버튼을 눌러야만
 //   회원가입 화면의 체크박스가 켜짐 (체크박스를 직접 클릭해서 켤 수는 없음. 끄는 것은 직접 가능)
 //
-// ⚠️ 범위: 지금은 화면(UI/검증/인터랙션)만 구현. 실제 계정 생성 BE API가 없어서
-// 제출해도 서버에 아무것도 저장되지 않고, 화면 안에서만 "접수됨" 상태를 보여줌.
-// BE 작업 시 아래를 함께 반영해야 함:
-//   1. usrusrs01m에 동의 이력 컬럼 추가 필요 (예: agree_terms_at, agree_privacy_at,
-//      agree_marketing TIMESTAMP/BOOLEAN 등 - 실제 컬럼명/타입은 BE 담당자와 협의)
-//   2. 회원가입 API(POST /api/auth/signup 등) 연동 후, 아래 handleSubmit의 mock
-//      처리 부분만 axios 호출로 교체
+// 2026-07-24 (3차, SIGNUP-03): BE 회원가입 API가 생기면서 실제로 계정이 생성되도록
+// authStore.signup()을 통해 axios 호출로 교체. 소속기관 옵션도 BE
+// GET /api/common-codes?domain=ORG로 조회하되, 실패하면 constants/orgCode.ts의
+// 값으로 대체(오프라인/BE 장애 시 폴백).
 
 interface ConsentState {
   terms: boolean;
@@ -34,12 +35,44 @@ type ModalKey = 'terms' | 'privacy' | null;
 
 export default function SignupPage() {
   const navigate = useNavigate();
+  const signup = useAuthStore((s) => s.signup);
 
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [name, setName] = useState('');
   const [orgCode, setOrgCode] = useState('');
+  const [orgOptions, setOrgOptions] = useState(ORG_CODE_OPTIONS);
+  const [marketCode, setMarketCode] = useState('');
+  const [marketOptions, setMarketOptions] = useState(MARKET_CODE_OPTIONS);
+
+  // 2026-07-24 추가(게시판): 담당 시장 옵션도 소속기관과 동일한 패턴으로
+  // BE 공통코드 API(MKT 도메인)에서 가져오고, 실패 시 로컬 폴백 사용.
+  useEffect(() => {
+    fetchCommonCodes('MKT')
+      .then((codes) => {
+        if (codes.length > 0) {
+          setMarketOptions(codes.map((c) => ({ code: c.code, name: c.codeName })));
+        }
+      })
+      .catch((err) => {
+        console.error('공통코드(담당 시장) 조회 실패, 로컬 기본값 사용', err);
+      });
+  }, []);
+
+  // 2026-07-24: 소속기관 옵션을 BE 공통코드 API에서 가져오되, 실패하면
+  // constants/orgCode.ts의 값을 그대로 씀(이미 초기값으로 세팅돼 있어 폴백은 자동).
+  useEffect(() => {
+    fetchCommonCodes('ORG')
+      .then((codes) => {
+        if (codes.length > 0) {
+          setOrgOptions(codes.map((c) => ({ code: c.code, name: c.codeName })));
+        }
+      })
+      .catch((err) => {
+        console.error('공통코드(소속기관) 조회 실패, 로컬 기본값 사용', err);
+      });
+  }, []);
 
   const [consent, setConsent] = useState<ConsentState>({
     terms: false,
@@ -100,12 +133,14 @@ export default function SignupPage() {
     }
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (!loginId || !password || !name) {
-      setError('아이디, 비밀번호, 이름은 필수 입력 항목입니다.');
+    if (!loginId || !password || !name || !orgCode || !marketCode) {
+      setError('아이디, 비밀번호, 이름, 소속기관, 담당 시장은 필수 입력 항목입니다.');
       return;
     }
     if (!isPasswordValid(password)) {
@@ -121,18 +156,33 @@ export default function SignupPage() {
       return;
     }
 
-    // TODO(BE 연동 시): 여기서 실제 회원가입 API를 호출하고, 응답의 성공/실패에 따라
-    // 처리하도록 교체. 지금은 화면 흐름 확인용으로 접수 상태만 표시함.
-    setSubmitted(true);
+    setIsSubmitting(true);
+    const result = await signup({
+      loginId,
+      password,
+      name,
+      orgCode,
+      marketCode,
+      agreeTerms: consent.terms,
+      agreePrivacy: consent.privacy,
+      agreeMarketing: consent.marketing,
+    });
+    setIsSubmitting(false);
+
+    if (result.ok) {
+      setSubmitted(true);
+    } else {
+      setError(result.message);
+    }
   };
 
   if (submitted) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
         <div className="w-full max-w-sm rounded-lg border border-slate-800 bg-slate-900 p-6 text-center">
-          <p className="mb-2 text-lg font-semibold text-slate-100">가입 신청이 접수되었습니다</p>
+          <p className="mb-2 text-lg font-semibold text-slate-100">가입이 완료되었습니다</p>
           <p className="mb-6 text-sm text-slate-500">
-            실제 계정 생성은 BE 연동 후 적용됩니다. 지금은 화면 흐름만 확인할 수 있습니다.
+            등록하신 아이디로 로그인해주세요.
           </p>
           <button
             type="button"
@@ -150,7 +200,7 @@ export default function SignupPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-12">
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
-          <p className="mb-1 text-sm text-slate-500">KT Aivle School B2G 캡스톤</p>
+          <p className="mb-1 text-sm text-slate-500">KT Aivle School B2G 빅프로젝트</p>
           <h1 className="text-xl font-semibold text-slate-100">관제 시스템 계정 등록</h1>
         </div>
 
@@ -226,15 +276,39 @@ export default function SignupPage() {
             </div>
             <div>
               <label htmlFor="orgCode" className="mb-1 block text-sm text-slate-400">
-                소속기관 <span className="text-slate-600">(선택)</span>
+                소속기관 <span className="text-red-400">*</span>
               </label>
-              <input
+              <select
                 id="orgCode"
                 value={orgCode}
                 onChange={(e) => setOrgCode(e.target.value)}
-                placeholder="예: 망원시장 상인회"
-                className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-600"
-              />
+                className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              >
+                <option value="">선택해주세요</option>
+                {orgOptions.map((org) => (
+                  <option key={org.code} value={org.code}>
+                    {org.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="marketCode" className="mb-1 block text-sm text-slate-400">
+                담당 시장 <span className="text-red-400">*</span>
+              </label>
+              <select
+                id="marketCode"
+                value={marketCode}
+                onChange={(e) => setMarketCode(e.target.value)}
+                className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              >
+                <option value="">선택해주세요</option>
+                {marketOptions.map((market) => (
+                  <option key={market.code} value={market.code}>
+                    {market.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -283,9 +357,10 @@ export default function SignupPage() {
 
           <button
             type="submit"
-            className="w-full rounded bg-blue-600 py-2 font-medium text-white hover:bg-blue-500"
+            disabled={isSubmitting}
+            className="w-full rounded bg-blue-600 py-2 font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            가입하기
+            {isSubmitting ? '가입 처리 중...' : '가입하기'}
           </button>
 
           <button
