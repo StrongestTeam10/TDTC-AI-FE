@@ -3,6 +3,68 @@
 이 파일은 Claude와의 작업 세션에서 변경된 내용을 기록합니다.
 각 항목은 zip으로 전달된 시점 기준입니다.
 
+### 2026-07-27 (파이프라인 A 대시보드 - 관리자 전용 시장 전환 탭, 폴링 주기 2초 반영)
+- **요청**: 상인회/지자체는 본인 담당 구역만, 관리자는 전체 + 페이지(시장) 전환
+  가능하게(게시판과 동일한 패턴) - BE 권한 분리에 대응하는 FE 작업
+- 🆕 `components/ui/TabButton.tsx`: `BoardListPage.tsx` 안에만 있던 지역 컴포넌트를
+  공용 컴포넌트로 분리(게시판/대시보드가 동일한 탭 스타일 공유)
+- ✏️ `pages/BoardListPage.tsx`: 지역 `TabButton` 정의 제거, 공용 컴포넌트 import로 교체
+  (동작 변화 없음, 순수 리팩터링)
+- ✏️ `pages/DashboardPage.tsx`:
+  - `useAuthStore`에서 `user.rulesCode === 'ROL01'`으로 관리자 여부 판정
+  - 관리자에게만 게시판과 동일한 스타일의 시장 전환 탭 노출(`markets` 배열을 순회).
+    비관리자는 BE `/markets` 응답 자체가 본인 담당 시장 1개로 이미 필터링되어
+    내려오므로 탭이 필요 없음(게시판의 "관리자 시장 탭 결정"과 동일한 판단)
+  - `selectedMarketId` 상태 추가, 시장 목록 로드 후 아직 선택 전이면 첫 번째 시장을
+    기본값으로 확정(탭 active 표시와 실제 조회 중인 시장을 항상 일치시키기 위함)
+  - 자동 갱신 표시 문구 "10초마다" → "2초마다"로 수정(`DASHBOARD_POLL_INTERVAL_MS`를
+    2초로 바꾸신 것과 동기화)
+- ✏️ `hooks/useSimulationData.ts`:
+  - `DASHBOARD_POLL_INTERVAL_MS`: 10초 → 2초
+  - `marketIdOverride` 파라미터 추가: 관리자가 탭으로 선택한 시장을 우선 사용하고,
+    없으면(비관리자, 또는 관리자가 아직 선택 전) 로드된 시장 목록의 첫 번째를 사용
+  - 기존엔 "시장 목록 로드" 안에서 곧바로 markets[0]의 구역까지 함께 불러왔는데
+    (단일 시장 가정), 관리자가 탭으로 시장을 전환할 때마다 새로 선택된 시장의 구역을
+    다시 불러와야 해서 "시장 목록 로드"와 "구역 로드"를 별도 effect로 분리
+- `npx tsc -b && npx oxlint && npx vite build` 전부 통과 확인 완료
+
+### 2026-07-27 (파이프라인 A 대시보드 레이아웃 - 트윈 반응형 확장 + 알림 이력 테이블 우측 컬럼 이동)
+- **요청**: 트윈(HeatmapView) 우측의 빈 공간을 채우고, 하단에 별도로 있던 "구역별
+  위험 알림 이력" 테이블을 "최고 위험 구역" 패널 아래로 이동
+- ✏️ `components/HeatmapView.tsx`:
+  - `width` prop을 고정 기본값(640) 없이 옵셔널로 변경. `width`를 명시적으로 넘기지
+    않으면 컨테이너를 `ResizeObserver`로 관찰해 실제 렌더링 너비(`measuredWidth`)를
+    구해 좌표 투영/뷰포트 계산에 사용
+  - 컨테이너 `style.width`를 고정 픽셀 대신 `width ?? '100%'`로 변경해 부모(그리드
+    셀) 너비를 그대로 채우도록 함(기존엔 항상 640px로 고정돼 넓은 화면에서 우측에
+    빈 공간이 남았음)
+  - 확대/축소·투영 계산에 쓰이던 `width` 참조를 전부 `renderWidth`(= 명시적 width
+    ?? measuredWidth)로 교체. `height`(기본 480)는 기존과 동일하게 고정
+- ✏️ `pages/DashboardPage.tsx`:
+  - 우측 컬럼을 `RiskScorePanel` + "구역별 위험 알림 이력"(`AlertLogTable`) 세로
+    스택으로 재구성. 기존에 그리드 하단에 전체 폭으로 따로 있던 테이블 섹션을
+    제거하고 우측 컬럼 안으로 이동
+  - `HeatmapView` 호출부에서 `width`를 넘기지 않으므로 좌측 컬럼(`lg:col-span-2`)
+    폭에 맞춰 자동으로 채워짐
+- `npx tsc -b && npx oxlint && npx vite build` 전부 통과 확인 완료
+
+### 2026-07-26 (파이프라인 A 대시보드 실시간 자동 갱신(폴링) 추가)
+- **배경**: "전통시장 실시간 위험도 관제" 화면이지만 지금까지는 최초 진입 시 또는
+  수동 새로고침 버튼을 눌러야만 데이터가 갱신됐음(자동 갱신 없음)
+- ✏️ `hooks/useSimulationData.ts`:
+  - `DASHBOARD_POLL_INTERVAL_MS`(10초) 주기로 `loadSnapshot()`을 자동 재호출하는
+    폴링 `useEffect` 추가
+  - 폴링은 `capturedAt`이 없는 "최신(실시간)" 모드에서만 동작. 과거 특정 시점을
+    선택했을 때는 고정된 스냅샷을 보는 것이므로 폴링하지 않음
+  - `isFetchingRef`로 이전 요청이 끝나기 전 겹쳐서 호출되는 것을 방지(네트워크
+    지연 시 폴링 주기보다 응답이 늦게 오는 경우 대비)
+  - `document.visibilitychange` 이벤트로 탭이 백그라운드로 가면 폴링을 멈추고,
+    다시 포그라운드로 돌아오면 즉시 1회 갱신 후 폴링 재개(불필요한 API 호출 절감)
+  - 훅 반환값에 `isPolling` 추가
+- ✏️ `pages/DashboardPage.tsx`: `isPolling`이 `true`일 때 제목 옆에 "10초마다 자동
+  갱신 중" 표시(pulse 애니메이션 점) 추가해 사용자가 자동 갱신 여부를 알 수 있게 함
+- `npx tsc -b && npx oxlint && npx vite build` 전부 통과 확인 완료
+
 ### 2026-07-26 (게시글 수정 화면을 열면 조회수가 올라가던 버그 수정 + BoardWritePage StrictMode 가드 추가)
 - **증상**: `BoardWritePage`(수정 화면)가 기존 값을 프리필할 때 `fetchPostDetail`(상세 조회 API)을
   그대로 재사용하고 있었는데, 이 API가 호출될 때마다 서버 조회수를 올리는 API라서 수정 화면을

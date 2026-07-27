@@ -70,7 +70,7 @@ export default function HeatmapView({
                                         zones,
                                         agents,
                                         zoneRisks,
-                                        width = 640,
+                                        width,
                                         height = 480,
                                         transitionMs = 0,
                                       }: HeatmapViewProps) {
@@ -78,6 +78,26 @@ export default function HeatmapView({
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ x: number; y: number } | null>(null);
   const [viewport, setViewport] = useState<Viewport>({ zoom: 1, panX: 0, panY: 0 });
+
+  // 2026-07-27: width를 고정 픽셀로 강제하던 것을 제거하고, width prop을 명시적으로
+  // 넘기지 않으면(예: 대시보드에서 그리드 셀을 꽉 채우고 싶은 경우) 컨테이너의 실제
+  // 렌더링 너비를 ResizeObserver로 관찰해서 그 값을 내부 좌표 계산(viewBox/투영)에
+  // 사용한다. 640은 컨테이너가 측정되기 전(최초 렌더) 임시 fallback일 뿐이다.
+  const [measuredWidth, setMeasuredWidth] = useState(640);
+
+  useEffect(() => {
+    if (width !== undefined) return; // 명시적 width가 있으면 컨테이너 측정 불필요
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width;
+      if (w) setMeasuredWidth(Math.round(w));
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [width]);
+
+  const renderWidth = width ?? measuredWidth;
 
   // 마우스 휠 확대/축소. React의 합성 onWheel은 기본적으로 passive라 preventDefault가
   // 안 먹혀서(경고 발생) 네이티브 리스너를 직접 붙인다. 커서 위치를 기준으로 확대해서
@@ -97,9 +117,9 @@ export default function HeatmapView({
             MAX_ZOOM,
             Math.max(MIN_ZOOM, v.zoom * (e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP))
         );
-        const oldVbW = width / v.zoom;
+        const oldVbW = renderWidth / v.zoom;
         const oldVbH = height / v.zoom;
-        const newVbW = width / nextZoom;
+        const newVbW = renderWidth / nextZoom;
         const newVbH = height / nextZoom;
         const anchorX = v.panX + oldVbW * ratioX;
         const anchorY = v.panY + oldVbH * ratioY;
@@ -113,7 +133,7 @@ export default function HeatmapView({
 
     el.addEventListener('wheel', handleWheel, { passive: false });
     return () => el.removeEventListener('wheel', handleWheel);
-  }, [width, height]);
+  }, [renderWidth, height]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
     dragRef.current = { x: e.clientX, y: e.clientY };
@@ -140,8 +160,8 @@ export default function HeatmapView({
     setViewport((v) => {
       const nextZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.zoom * factor));
       // 화면 중앙을 기준으로 확대/축소
-      const oldVbW = width / v.zoom, oldVbH = height / v.zoom;
-      const newVbW = width / nextZoom, newVbH = height / nextZoom;
+      const oldVbW = renderWidth / v.zoom, oldVbH = height / v.zoom;
+      const newVbW = renderWidth / nextZoom, newVbH = height / nextZoom;
       const centerX = v.panX + oldVbW / 2;
       const centerY = v.panY + oldVbH / 2;
       return { zoom: nextZoom, panX: centerX - newVbW / 2, panY: centerY - newVbH / 2 };
@@ -181,7 +201,7 @@ export default function HeatmapView({
     const lonSpan = maxLon - minLon || 0.0001;
     const latSpan = maxLat - minLat || 0.0001;
     const scale = Math.min(
-        (width - PADDING * 2) / lonSpan,
+        (renderWidth - PADDING * 2) / lonSpan,
         (height - PADDING * 2) / latSpan
     );
 
@@ -217,28 +237,28 @@ export default function HeatmapView({
     });
 
     return { renderedZones, renderedAgents };
-  }, [zones, agents, zoneRisks, width, height]);
+  }, [zones, agents, zoneRisks, renderWidth, height]);
 
   if (!layout) {
     return (
         <div
             ref={containerRef}
             className="relative rounded-lg border border-slate-700 bg-slate-900 flex items-center justify-center text-slate-500 text-sm"
-            style={{ width, minHeight: height }}
+            style={{ width: width ?? '100%', minHeight: height }}
         >
           구역 데이터를 불러오는 중입니다...
         </div>
     );
   }
 
-  const vbWidth = width / viewport.zoom;
+  const vbWidth = renderWidth / viewport.zoom;
   const vbHeight = height / viewport.zoom;
 
   return (
       <div
           ref={containerRef}
           className="relative rounded-lg border border-slate-700 bg-slate-900 overflow-hidden touch-none select-none"
-          style={{ width, minHeight: height, cursor: 'grab' }}
+          style={{ width: width ?? '100%', minHeight: height, cursor: 'grab' }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
