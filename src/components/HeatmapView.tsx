@@ -20,14 +20,10 @@ interface HeatmapViewProps {
   width?: number;
   height?: number;
   transitionMs?: number;
-
   corridors?: CorridorEdge[];
-
   gates?: Gate[];
   closedGateIds?: Set<number>;
   onGateClick?: (facilityId: number) => void;
-
-  // 오브젝트/이벤트 배치 모드. 둘 다 같은 클릭 메커니즘(지도 클릭 -> zoneId+위경도)을 쓴다.
   placementType?: PlacedObject['objectType'] | EventTrigger['eventType'] | null;
   onPlaceObject?: (zoneId: number, latitude: number, longitude: number) => void;
   placedObjects?: PlacedObject[];
@@ -62,13 +58,12 @@ const OBJECT_COLOR: Record<PlacedObject['objectType'], string> = {
   obstacle: '#78350f',
 };
 
-// 2026-07-25 추가: 화재/음향 이상 이벤트 아이콘 색상.
 const EVENT_COLOR: Record<EventTrigger['eventType'], string> = {
   fire: '#dc2626',
   acoustic_anomaly: '#eab308',
 };
 const EVENT_GLYPH: Record<EventTrigger['eventType'], string> = {
-  fire: '\u{1F525}',        // 🔥 (폰트 미지원 시 안 보일 수 있어 텍스트로 대체 가능)
+  fire: '\u{1F525}',
   acoustic_anomaly: '!',
 };
 
@@ -317,7 +312,6 @@ export default function HeatmapView({
       return { key: `obj-${obj.objectType}-${index}`, x: point[0], y: point[1], objectType: obj.objectType };
     });
 
-    // 2026-07-25 추가: 화재/음향 이상 이벤트 위치 계산.
     const renderedEvents = (events ?? []).map((ev, index) => {
       const point =
           ev.latitude !== undefined && ev.latitude !== null &&
@@ -350,7 +344,7 @@ export default function HeatmapView({
     const [lon, lat] = layout.unproject(svgX, svgY);
 
     const containing = layout.zonePolygons.find(({ points }) => pointInPolygon([lon, lat], points));
-    if (!containing) return; // 시장 폴리곤 바깥 클릭 -> 무시
+    if (!containing) return;
 
     onPlaceObject(containing.zone.zoneId, lat, lon);
   };
@@ -436,7 +430,6 @@ export default function HeatmapView({
               />
           ))}
 
-          {/* 2026-07-25 추가: 화재/음향 이상 이벤트 아이콘 (원형, 오브젝트와 구분) */}
           {layout.renderedEvents.map((ev) => (
               <g key={ev.key} style={{ pointerEvents: 'none' }}>
                 <circle

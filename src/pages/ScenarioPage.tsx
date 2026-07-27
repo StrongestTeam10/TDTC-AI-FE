@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import HeatmapView from '../components/HeatmapView';
+import HeatmapView from '../components/KakaoMapView';
 import RiskScorePanel from '../components/RiskScorePanel';
 import ScenarioForm from '../components/ScenarioForm';
 import Spinner from '../components/ui/Spinner';
