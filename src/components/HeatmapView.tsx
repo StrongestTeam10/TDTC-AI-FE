@@ -1,16 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { AgentState, Zone, PlacedObject, Gate, EventTrigger } from '../types';
+import type { AgentState, Zone } from '../types';
 
+// 특정 구역의 위험도 정보 (파이프라인 A: SIM ZoneResult 기반, 선택적)
 export interface ZoneRisk {
   zoneId: number;
   riskLevel?: string;
   riskScore?: number;
-}
-
-export interface CorridorEdge {
-  fromZoneId: number;
-  toZoneId: number;
-  pathCoordinates: string | null;
 }
 
 interface HeatmapViewProps {
@@ -19,22 +14,16 @@ interface HeatmapViewProps {
   zoneRisks?: ZoneRisk[];
   width?: number;
   height?: number;
+  // 프레임이 바뀔 때 점이 순간이동하지 않고 부드럽게 미끄러지도록 하는 트랜지션
+  // 시간(ms). FramePlayer가 재생 간격과 맞춰서 넘겨준다. 미지정(0)이면 순간이동.
   transitionMs?: number;
-  corridors?: CorridorEdge[];
-  gates?: Gate[];
-  closedGateIds?: Set<number>;
-  onGateClick?: (facilityId: number) => void;
-  placementType?: PlacedObject['objectType'] | EventTrigger['eventType'] | null;
-  onPlaceObject?: (zoneId: number, latitude: number, longitude: number) => void;
-  placedObjects?: PlacedObject[];
-  events?: EventTrigger[];
 }
 
 const RISK_FILL: Record<string, string> = {
-  low: 'rgba(59, 130, 246, 0.25)',
-  medium: 'rgba(245, 158, 11, 0.3)',
-  high: 'rgba(249, 115, 22, 0.35)',
-  critical: 'rgba(239, 68, 68, 0.4)',
+  low: 'rgba(59, 130, 246, 0.25)',      // blue
+  medium: 'rgba(245, 158, 11, 0.3)',    // amber
+  high: 'rgba(249, 115, 22, 0.35)',     // orange
+  critical: 'rgba(239, 68, 68, 0.4)',   // red
 };
 const RISK_STROKE: Record<string, string> = {
   low: '#3b82f6',
@@ -42,7 +31,7 @@ const RISK_STROKE: Record<string, string> = {
   high: '#f97316',
   critical: '#ef4444',
 };
-const DEFAULT_FILL = 'rgba(100, 116, 139, 0.2)';
+const DEFAULT_FILL = 'rgba(100, 116, 139, 0.2)'; // slate, 위험도 정보 없을 때
 const DEFAULT_STROKE = '#64748b';
 
 const AGENT_COLOR: Record<string, string> = {
@@ -51,28 +40,12 @@ const AGENT_COLOR: Record<string, string> = {
   evacuating: '#ef4444',
 };
 
-const OBJECT_COLOR: Record<PlacedObject['objectType'], string> = {
-  food_truck: '#f97316',
-  event_zone: '#a855f7',
-  rest_area: '#22c55e',
-  obstacle: '#78350f',
-};
-
-const EVENT_COLOR: Record<EventTrigger['eventType'], string> = {
-  fire: '#dc2626',
-  acoustic_anomaly: '#eab308',
-};
-const EVENT_GLYPH: Record<EventTrigger['eventType'], string> = {
-  fire: '\u{1F525}',
-  acoustic_anomaly: '!',
-};
-
-const GATE_OPEN_COLOR = '#22c55e';
-const GATE_CLOSED_COLOR = '#ef4444';
-
+// 확대/축소 상태. 지금은 SVG viewBox에 반영하지만, 나중에 구글맵 API로 바꿔도
+// 이 zoom/center 개념을 그대로 map.setZoom()/setCenter()에 넘기면 되도록
+// "확대 배율 + 중심점"이라는 지도 API 공통 개념으로 설계함 (2026-07-24 추가).
 interface Viewport {
-  zoom: number;
-  panX: number;
+  zoom: number;   // 1 = 기본, 커질수록 확대
+  panX: number;   // 보이는 영역의 좌상단 x (SVG 로컬 좌표)
   panY: number;
 }
 
@@ -93,30 +66,6 @@ function parsePolygon(polygonCoordinates: string): LonLat[] | null {
   }
 }
 
-function parseLineString(coordinates: string): LonLat[] | null {
-  try {
-    const geo = JSON.parse(coordinates);
-    const line = geo?.coordinates;
-    if (!Array.isArray(line) || line.length < 2) return null;
-    return line.map((pt: number[]) => [pt[0], pt[1]] as LonLat);
-  } catch {
-    return null;
-  }
-}
-
-function pointInPolygon(point: LonLat, polygon: LonLat[]): boolean {
-  const [px, py] = point;
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const [xi, yi] = polygon[i];
-    const [xj, yj] = polygon[j];
-    const intersects =
-        yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi;
-    if (intersects) inside = !inside;
-  }
-  return inside;
-}
-
 export default function HeatmapView({
                                         zones,
                                         agents,
@@ -124,21 +73,16 @@ export default function HeatmapView({
                                         width = 640,
                                         height = 480,
                                         transitionMs = 0,
-                                        corridors,
-                                        gates,
-                                        closedGateIds,
-                                        onGateClick,
-                                        placementType = null,
-                                        onPlaceObject,
-                                        placedObjects,
-                                        events,
                                       }: HeatmapViewProps) {
   const PADDING = 32;
   const containerRef = useRef<HTMLDivElement>(null);
-  const svgRef = useRef<SVGSVGElement>(null);
   const dragRef = useRef<{ x: number; y: number } | null>(null);
   const [viewport, setViewport] = useState<Viewport>({ zoom: 1, panX: 0, panY: 0 });
+  const [hoveredAgent, setHoveredAgent] = useState<{ agent: AgentState; x: number; y: number } | null>(null);
 
+  // 마우스 휠 확대/축소. React의 합성 onWheel은 기본적으로 passive라 preventDefault가
+  // 안 먹혀서(경고 발생) 네이티브 리스너를 직접 붙인다. 커서 위치를 기준으로 확대해서
+  // 커서 아래 지점이 화면에서 안 움직이게 한다 (구글맵과 동일한 조작감).
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -173,7 +117,6 @@ export default function HeatmapView({
   }, [width, height]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
-    if (placementType) return;
     dragRef.current = { x: e.clientX, y: e.clientY };
     (e.target as Element).setPointerCapture(e.pointerId);
   };
@@ -197,6 +140,7 @@ export default function HeatmapView({
   const zoomBy = (factor: number) => {
     setViewport((v) => {
       const nextZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.zoom * factor));
+      // 화면 중앙을 기준으로 확대/축소
       const oldVbW = width / v.zoom, oldVbH = height / v.zoom;
       const newVbW = width / nextZoom, newVbH = height / nextZoom;
       const centerX = v.panX + oldVbW / 2;
@@ -212,6 +156,7 @@ export default function HeatmapView({
         .map((zone) => ({ zone, points: parsePolygon(zone.polygonCoordinates) }))
         .filter((z): z is { zone: Zone; points: LonLat[] } => z.points !== null);
 
+    // 구역 폴리곤 좌표 + 에이전트 좌표를 모두 포함해 경계 산출
     const allLons: number[] = [];
     const allLats: number[] = [];
     zonePolygons.forEach(({ points }) =>
@@ -223,10 +168,6 @@ export default function HeatmapView({
     agents.forEach((a) => {
       allLons.push(a.longitude);
       allLats.push(a.latitude);
-    });
-    (gates ?? []).forEach((g) => {
-      allLons.push(g.longitude);
-      allLats.push(g.latitude);
     });
 
     if (allLons.length === 0) {
@@ -247,12 +188,7 @@ export default function HeatmapView({
 
     const project = ([lon, lat]: LonLat): [number, number] => [
       PADDING + (lon - minLon) * scale,
-      PADDING + (maxLat - lat) * scale,
-    ];
-
-    const unproject = (x: number, y: number): LonLat => [
-      minLon + (x - PADDING) / scale,
-      maxLat - (y - PADDING) / scale,
+      PADDING + (maxLat - lat) * scale, // 위도가 클수록(북쪽) 화면 위쪽(작은 y)
     ];
 
     const riskByZoneId = new Map((zoneRisks ?? []).map((r) => [r.zoneId, r]));
@@ -268,7 +204,6 @@ export default function HeatmapView({
       return {
         zoneId: zone.zoneId,
         zoneName: zone.zoneName,
-        points,
         pointsAttr: projected.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' '),
         centroid,
         fill: (level && RISK_FILL[level]) || DEFAULT_FILL,
@@ -282,72 +217,8 @@ export default function HeatmapView({
       return { ...agent, x, y };
     });
 
-    const zoneCentroidById = new Map(renderedZones.map((z) => [z.zoneId, z.centroid]));
-
-    const renderedCorridors = (corridors ?? []).map((c) => {
-      const line = c.pathCoordinates ? parseLineString(c.pathCoordinates) : null;
-      const projected = line
-          ? line.map(project)
-          : [zoneCentroidById.get(c.fromZoneId), zoneCentroidById.get(c.toZoneId)].filter(
-              (p): p is [number, number] => p !== undefined
-          );
-      if (projected.length < 2) return null;
-      return {
-        key: `${c.fromZoneId}-${c.toZoneId}`,
-        pointsAttr: projected.map(([x, y]) => `${x},${y}`).join(' '),
-      };
-    }).filter((c): c is NonNullable<typeof c> => c !== null);
-
-    const renderedGates = (gates ?? []).map((g) => {
-      const [x, y] = project([g.longitude, g.latitude]);
-      return { ...g, x, y };
-    });
-
-    const renderedObjects = (placedObjects ?? []).map((obj, index) => {
-      const point =
-          obj.latitude !== undefined && obj.latitude !== null &&
-          obj.longitude !== undefined && obj.longitude !== null
-              ? project([obj.longitude, obj.latitude])
-              : zoneCentroidById.get(obj.zoneId) ?? [0, 0];
-      return { key: `obj-${obj.objectType}-${index}`, x: point[0], y: point[1], objectType: obj.objectType };
-    });
-
-    const renderedEvents = (events ?? []).map((ev, index) => {
-      const point =
-          ev.latitude !== undefined && ev.latitude !== null &&
-          ev.longitude !== undefined && ev.longitude !== null
-              ? project([ev.longitude, ev.latitude])
-              : zoneCentroidById.get(ev.zoneId) ?? [0, 0];
-      return { key: `evt-${ev.eventType}-${index}`, x: point[0], y: point[1], eventType: ev.eventType };
-    });
-
-    return {
-      renderedZones,
-      renderedAgents,
-      renderedCorridors,
-      renderedGates,
-      renderedObjects,
-      renderedEvents,
-      unproject,
-      zonePolygons,
-    };
-  }, [zones, agents, zoneRisks, width, height, corridors, gates, placedObjects, events]);
-
-  const handleMapClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!placementType || !layout || !onPlaceObject || !svgRef.current) return;
-
-    const rect = svgRef.current.getBoundingClientRect();
-    const vbWidth = width / viewport.zoom;
-    const vbHeight = height / viewport.zoom;
-    const svgX = viewport.panX + ((e.clientX - rect.left) / rect.width) * vbWidth;
-    const svgY = viewport.panY + ((e.clientY - rect.top) / rect.height) * vbHeight;
-    const [lon, lat] = layout.unproject(svgX, svgY);
-
-    const containing = layout.zonePolygons.find(({ points }) => pointInPolygon([lon, lat], points));
-    if (!containing) return;
-
-    onPlaceObject(containing.zone.zoneId, lat, lon);
-  };
+    return { renderedZones, renderedAgents };
+  }, [zones, agents, zoneRisks, width, height]);
 
   if (!layout) {
     return (
@@ -368,19 +239,17 @@ export default function HeatmapView({
       <div
           ref={containerRef}
           className="relative rounded-lg border border-slate-700 bg-slate-900 overflow-hidden touch-none select-none"
-          style={{ width, minHeight: height, cursor: placementType ? 'crosshair' : 'grab' }}
+          style={{ width, minHeight: height, cursor: 'grab' }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
       >
         <svg
-            ref={svgRef}
             viewBox={`${viewport.panX} ${viewport.panY} ${vbWidth} ${vbHeight}`}
             width="100%"
             height={height}
             className="block"
-            onClick={handleMapClick}
         >
           {layout.renderedZones.map((z) => (
               <g key={z.zoneId}>
@@ -404,119 +273,35 @@ export default function HeatmapView({
               </g>
           ))}
 
-          {layout.renderedCorridors.map((c) => (
-              <polyline
-                  key={c.key}
-                  points={c.pointsAttr}
-                  fill="none"
-                  stroke="#64748b"
-                  strokeWidth={1.5}
-                  strokeDasharray="4 3"
-                  style={{ pointerEvents: 'none' }}
-              />
-          ))}
-
-          {layout.renderedObjects.map((obj) => (
-              <rect
-                  key={obj.key}
-                  x={obj.x - 6}
-                  y={obj.y - 6}
-                  width={12}
-                  height={12}
-                  fill={OBJECT_COLOR[obj.objectType]}
-                  stroke="#0f172a"
-                  strokeWidth={1}
-                  style={{ pointerEvents: 'none' }}
-              />
-          ))}
-
-          {layout.renderedEvents.map((ev) => (
-              <g key={ev.key} style={{ pointerEvents: 'none' }}>
-                <circle
-                    cx={ev.x}
-                    cy={ev.y}
-                    r={9}
-                    fill={EVENT_COLOR[ev.eventType]}
-                    stroke="#0f172a"
-                    strokeWidth={1.5}
-                />
-                <text
-                    x={ev.x}
-                    y={ev.y}
-                    fill="#0f172a"
-                    fontSize={10}
-                    fontWeight="bold"
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                >
-                  {EVENT_GLYPH[ev.eventType]}
-                </text>
-              </g>
-          ))}
-
-          {layout.renderedGates.map((gate) => {
-            const isClosed = closedGateIds?.has(gate.facilityId) ?? false;
-            return (
-                <g
-                    key={gate.facilityId}
-                    style={{ cursor: onGateClick ? 'pointer' : 'default' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onGateClick?.(gate.facilityId);
-                    }}
-                >
-                  <circle
-                      cx={gate.x}
-                      cy={gate.y}
-                      r={9}
-                      fill={isClosed ? GATE_CLOSED_COLOR : GATE_OPEN_COLOR}
-                      stroke="#0f172a"
-                      strokeWidth={1.5}
-                  />
-                  <text
-                      x={gate.x}
-                      y={gate.y}
-                      fill="#0f172a"
-                      fontSize={11}
-                      fontWeight="bold"
-                      textAnchor="middle"
-                      dominantBaseline="central"
-                      style={{ pointerEvents: 'none' }}
-                  >
-                    {isClosed ? '\u2715' : '\u2713'}
-                  </text>
-                </g>
-            );
-          })}
-
           {layout.renderedAgents.map((agent) => (
-              <circle
-                  key={agent.agentId}
+              <g key={agent.agentId}>
+                <circle
                   cx={agent.x}
                   cy={agent.y}
                   r={3}
                   fill={AGENT_COLOR[agent.state] ?? AGENT_COLOR.normal}
-                  stroke="#0f172a"
-                  strokeWidth={0.5}
-                  style={{
-                    pointerEvents: 'none',
-                    ...(transitionMs > 0
+                  stroke={agent.actionState === 'STAYING' ? '#ffffff' : '#0f172a'}
+                  strokeWidth={agent.actionState === 'STAYING' ? 1 : 0.5}
+                  style={
+                    transitionMs > 0
                         ? { transition: `cx ${transitionMs}ms linear, cy ${transitionMs}ms linear, fill ${transitionMs}ms linear` }
-                        : undefined),
+                        : undefined
+                  }
+                  onPointerEnter={(e) => {
+                    const rect = containerRef.current?.getBoundingClientRect();
+                    if (rect) {
+                      setHoveredAgent({ agent, x: e.clientX - rect.left, y: e.clientY - rect.top });
+                    }
                   }}
-              />
+                  onPointerLeave={() => setHoveredAgent(null)}
+                />
+              </g>
           ))}
         </svg>
 
         <div className="absolute top-2 left-2 text-xs text-slate-400 bg-slate-900/70 rounded px-2 py-1">
           구역 {zones.length}개 · 유동 인구 {agents.length}명
         </div>
-
-        {placementType && (
-            <div className="absolute top-2 right-2 text-xs text-sky-200 bg-sky-900/80 rounded px-2 py-1">
-              지도를 클릭해서 배치하세요
-            </div>
-        )}
 
         <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded bg-slate-900/70 px-1 py-1">
           <button
@@ -556,6 +341,45 @@ export default function HeatmapView({
           </span>
           ))}
         </div>
+
+        {hoveredAgent && (
+          <div
+            className="absolute z-10 pointer-events-none rounded bg-slate-800 border border-slate-600 px-3 py-2 text-xs text-white shadow-lg"
+            style={{ left: hoveredAgent.x + 10, top: hoveredAgent.y + 10 }}
+          >
+            <div className="font-bold mb-1 border-b border-slate-600 pb-1">Agent #{hoveredAgent.agent.agentId}</div>
+            <div>
+              <span className="text-slate-400">유형:</span>{' '}
+              {hoveredAgent.agent.agentType
+                ? hoveredAgent.agent.agentType === 'SHOPPING'
+                  ? '🛍️ 쇼핑형'
+                  : hoveredAgent.agent.agentType === 'FOOD_TOUR'
+                  ? '🍔 맛집관광형'
+                  : '🚶 통행형'
+                : '데이터 없음 (과거 기록)'}
+            </div>
+            <div>
+              <span className="text-slate-400">행동:</span>{' '}
+              {hoveredAgent.agent.actionState
+                ? hoveredAgent.agent.actionState === 'STAYING'
+                  ? '체류 중'
+                  : hoveredAgent.agent.actionState === 'EXITING'
+                  ? '퇴장 중'
+                  : hoveredAgent.agent.actionState === 'ENTERING'
+                  ? '진입 중'
+                  : '이동 중'
+                : '데이터 없음'}
+            </div>
+            <div>
+              <span className="text-slate-400">상태:</span>{' '}
+              {hoveredAgent.agent.state === 'normal'
+                ? '정상'
+                : hoveredAgent.agent.state === 'congested'
+                ? '혼잡'
+                : '대피 중'}
+            </div>
+          </div>
+        )}
       </div>
   );
 }

@@ -9,6 +9,8 @@ export interface AgentState {
   latitude: number;
   longitude: number;
   state: 'normal' | 'congested' | 'evacuating';
+  agentType: string;
+  actionState: string;
 }
 
 export interface CrowdDensity {
