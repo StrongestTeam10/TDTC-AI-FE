@@ -7,7 +7,7 @@ import ErrorBanner from '../components/ui/ErrorBanner';
 import { fetchMarkets, fetchZones, fetchCorridors, fetchGates, runScenarioSimulation } from '../api/client';
 import { useSimulationStore } from '../store/simulationStore';
 import { toDisplayErrorMessage } from '../utils/errorMessage';
-import type { ScenarioRequest, PlacedObject, EventTrigger, Corridor, Gate } from '../types';
+import type { ScenarioRequest, PlacedObject, EventTrigger, CorridorPolicy, Corridor, Gate } from '../types';
 
 type PlacementKind = PlacedObject['objectType'] | EventTrigger['eventType'];
 
@@ -40,8 +40,10 @@ export default function ScenarioPage() {
 
   const [objects, setObjects] = useState<PlacedObject[]>([]);
   const [events, setEvents] = useState<EventTrigger[]>([]);
+  const [submittedEvents, setSubmittedEvents] = useState<EventTrigger[]>([]);
   const [placementType, setPlacementType] = useState<PlacementKind | null>(null);
   const [nextIntensity, setNextIntensity] = useState(0.5);
+  const [nextTriggerStep, setNextTriggerStep] = useState(1);
 
   const [playIndex, setPlayIndex] = useState(0);
   const [playSpeed, setPlaySpeed] = useState(1);
@@ -77,8 +79,6 @@ export default function ScenarioPage() {
   };
 
   useEffect(() => {
-    // 2026-07-25: 페이지 진입 때마다 최신 데이터를 다시 불러온다(게이트/통로가
-    // 브라우저 세션 안에서 갱신 안 되던 문제 수정 - markets가 이미 있어도 다시 로드).
     loadLayout();
     // eslint-disable-next-line
   }, []);
@@ -88,7 +88,13 @@ export default function ScenarioPage() {
   }, [scenarioResult]);
 
   const totalFrames = scenarioResult?.frames.length ?? 0;
-  const intervalMs = Math.max(80, BASE_INTERVAL_MS / playSpeed);
+  const currentStepNumber = playIndex + 1;
+
+  const isNearAnyTrigger = scenarioResult
+      ? submittedEvents.some((ev) => Math.abs(currentStepNumber - (ev.triggerStep ?? 1)) <= 2)
+      : false;
+  const effectiveSpeed = isNearAnyTrigger ? Math.min(playSpeed, 1) : playSpeed;
+  const intervalMs = Math.max(80, BASE_INTERVAL_MS / effectiveSpeed);
 
   useEffect(() => {
     if (totalFrames === 0) return;
@@ -100,6 +106,14 @@ export default function ScenarioPage() {
     };
   }, [intervalMs, totalFrames]);
 
+  const visibleEvents = scenarioResult
+      ? submittedEvents.filter((ev) => (ev.triggerStep ?? 1) <= currentStepNumber)
+      : events;
+
+  const focusEvent = scenarioResult
+      ? submittedEvents.find((ev) => (ev.triggerStep ?? 1) === currentStepNumber) ?? null
+      : null;
+
   const handlePlaceObject = (zoneId: number, latitude: number, longitude: number) => {
     if (!placementType) return;
     if (OBJECT_TYPES.has(placementType as PlacedObject['objectType'])) {
@@ -110,7 +124,14 @@ export default function ScenarioPage() {
     } else {
       setEvents((prev) => [
         ...prev,
-        { eventType: placementType as EventTrigger['eventType'], zoneId, intensity: nextIntensity, latitude, longitude },
+        {
+          eventType: placementType as EventTrigger['eventType'],
+          zoneId,
+          intensity: nextIntensity,
+          latitude,
+          longitude,
+          triggerStep: nextTriggerStep,
+        },
       ]);
     }
   };
@@ -121,6 +142,13 @@ export default function ScenarioPage() {
 
   const handleRemoveEvent = (index: number) => {
     setEvents((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // 2026-07-29 추가: 이미 배치한 이벤트의 발생 스텝을 리스트에서 바로 수정.
+  // "지도 클릭이 스텝 입력보다 먼저 일어나면 옛날 값(기본 1)으로 고정되는"
+  // 순서 함정을 근본적으로 없애기 위해 추가함 - 순서를 안 지켜도 나중에 고칠 수 있음.
+  const handleUpdateEventTriggerStep = (index: number, value: number) => {
+    setEvents((prev) => prev.map((ev, i) => (i === index ? { ...ev, triggerStep: value } : ev)));
   };
 
   const handleGateClick = (facilityId: number) => {
@@ -135,15 +163,21 @@ export default function ScenarioPage() {
     });
   };
 
-  const handleRunScenario = async (basicFields: Pick<ScenarioRequest, 'agentCount' | 'steps'>) => {
+  const handleRunScenario = async (
+      basicFields: Pick<ScenarioRequest, 'agentCount' | 'steps'> & { corridorPolicies: CorridorPolicy[] }
+  ) => {
     const request: ScenarioRequest = {
-      ...basicFields,
+      agentCount: basicFields.agentCount,
+      steps: basicFields.steps,
+      corridorPolicies: basicFields.corridorPolicies,
       marketId: markets[0]?.marketId ?? 0,
       objects,
       events,
-      corridorPolicies: [],
       closedGateIds: Array.from(closedGateIds),
     };
+
+    setSubmittedEvents(events);
+    setPlacementType(null);
 
     setScenarioRunning(true);
     setRunError(null);
@@ -159,7 +193,7 @@ export default function ScenarioPage() {
   };
 
   const displayedAgents = scenarioResult ? scenarioResult.frames[playIndex] ?? [] : [];
-  const elapsedSeconds = scenarioResult ? (playIndex + 1) * STEP_DURATION_SECONDS : 0;
+  const elapsedSeconds = scenarioResult ? currentStepNumber * STEP_DURATION_SECONDS : 0;
 
   return (
       <div className="space-y-6">
@@ -178,14 +212,18 @@ export default function ScenarioPage() {
                 <ScenarioForm
                     isRunning={isScenarioRunning}
                     onSubmit={handleRunScenario}
+                    zones={zones}
                     objects={objects}
                     onRemoveObject={handleRemoveObject}
                     events={events}
                     onRemoveEvent={handleRemoveEvent}
+                    onUpdateEventTriggerStep={handleUpdateEventTriggerStep}
                     placementType={placementType}
                     onSelectPlacementType={setPlacementType}
                     nextIntensity={nextIntensity}
                     onNextIntensityChange={setNextIntensity}
+                    nextTriggerStep={nextTriggerStep}
+                    onNextTriggerStepChange={setNextTriggerStep}
                 />
               </div>
 
@@ -204,13 +242,15 @@ export default function ScenarioPage() {
                       placementType={placementType}
                       onPlaceObject={handlePlaceObject}
                       placedObjects={objects}
-                      events={events}
+                      events={visibleEvents}
+                      focusEvent={focusEvent}
                   />
 
                   {scenarioResult && (
                       <div className="absolute top-2 right-24 flex items-center gap-2 rounded bg-slate-900/80 px-2 py-1 text-xs text-slate-300">
                         <span className="whitespace-nowrap">
-                          {playIndex + 1}/{totalFrames} (~{elapsedSeconds}초)
+                          {currentStepNumber}/{totalFrames} (~{elapsedSeconds}초)
+                          {isNearAnyTrigger ? ' ⚠' : ''}
                         </span>
                         <select
                             value={playSpeed}
