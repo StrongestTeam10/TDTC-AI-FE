@@ -128,12 +128,14 @@ export interface Gate {
 
 // 2026-07-25 추가: 화재/음향 이상 이벤트. SIM EventTrigger / BE EventTriggerDto와 1:1 매칭.
 // 오브젝트 배치와 같은 방식(지도 클릭 -> zoneId + 위경도 + intensity)으로 배치한다.
+// 2026-07-29 추가: triggerStep - 이 이벤트가 실제로 발동하는 스텝 번호(1부터 시작).
 export interface EventTrigger {
   eventType: 'fire' | 'acoustic_anomaly';
   zoneId: number;
   intensity: number; // 0.0 ~ 1.0
   latitude?: number;
   longitude?: number;
+  triggerStep?: number;
 }
 
 // 파이프라인 B: 사용자 지정 시뮬레이션 요청/응답
