@@ -28,6 +28,7 @@ interface HeatmapViewProps {
   onPlaceObject?: (zoneId: number, latitude: number, longitude: number) => void;
   placedObjects?: PlacedObject[];
   events?: EventTrigger[];
+  focusEvent?: EventTrigger | null;
 }
 
 declare global {
@@ -35,13 +36,6 @@ declare global {
     kakao: any;
   }
 }
-
-// 2026-07-27 추가: 카카오맵 SDK 도입. 관제 대시보드(HeatmapView.tsx, SVG 버전)는
-// 그대로 두고, 시나리오 시뮬레이션 화면에서만 이 컴포넌트를 대신 쓴다.
-// - 지도는 컴포넌트 마운트 시 딱 한 번만 생성한다(폴링에 지도 API까지 같이
-//   반복 호출되는 문제 방지). 폴링으로 갱신되는 건 오직 에이전트/오브젝트 등
-//   오버레이 데이터뿐이고, 지도 자체(SDK 로드, Map 인스턴스 생성)는 재실행되지 않는다.
-// - SDK 스크립트도 앱 전체에서 딱 한 번만 로드되도록 모듈 스코프 싱글턴으로 관리한다.
 
 const KAKAO_APP_KEY = import.meta.env.VITE_KAKAO_JS_KEY;
 
@@ -66,7 +60,7 @@ function loadKakaoSdk(): Promise<void> {
     }
     const script = document.createElement('script');
     script.id = 'kakao-map-sdk';
-    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_APP_KEY}&autoload=false`;
+    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_APP_KEY}&autoload=false`;
     script.async = true;
     script.onload = () => window.kakao.maps.load(() => resolve());
     script.onerror = () => reject(new Error('카카오맵 SDK 로드 실패'));
@@ -156,12 +150,30 @@ const GATE_CLOSED_COLOR = '#ef4444';
 
 const DEFAULT_CENTER: LonLat = [126.978, 37.5665];
 
+// 2026-07-29 추가: 이벤트가 발동하는 순간, 지도 위에 잠깐 나타났다 사라지는
+// 펄스(원이 커지며 옅어지는) 효과용 CSS 애니메이션. 한 번만 <style> 태그로
+// 주입한다.
+let pulseStyleInjected = false;
+function ensurePulseStyle() {
+  if (pulseStyleInjected) return;
+  pulseStyleInjected = true;
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes kakaoEventPulse {
+      0% { transform: scale(0.4); opacity: 0.9; }
+      100% { transform: scale(2.4); opacity: 0; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 export default function HeatmapView({
                                        zones,
                                        agents,
                                        zoneRisks,
                                        width = 640,
                                        height = 480,
+                                       transitionMs = 0,
                                        corridors,
                                        gates,
                                        closedGateIds,
@@ -170,6 +182,7 @@ export default function HeatmapView({
                                        onPlaceObject,
                                        placedObjects,
                                        events,
+                                       focusEvent = null,
                                      }: HeatmapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
@@ -407,30 +420,163 @@ export default function HeatmapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, events, zonePolygonPoints]);
 
-  const agentOverlaysRef = useRef<any[]>([]);
+  // ---------- 이벤트 발동 시점: 지도 자동 이동 + 펄스 강조 ----------
+  // 2026-07-29 추가: focusEvent는 "지금 막 발동한 이벤트"만 잠깐 채워지는 값이다
+  // (ScenarioPage가 현재 재생 스텝과 triggerStep이 일치하는 순간에만 넘겨줌).
+  // 값이 들어오면 그 위치로 지도를 살짝 이동시키고, 눈에 띄는 펄스 원을 잠깐
+  // 띄웠다가 자동으로 제거한다.
+  useEffect(() => {
+    if (!ready || !mapRef.current || !focusEvent) return;
+
+    ensurePulseStyle();
+
+    const centroids = zoneCentroidMap(zonePolygonPoints);
+    const hasCoords =
+        focusEvent.latitude !== undefined && focusEvent.latitude !== null &&
+        focusEvent.longitude !== undefined && focusEvent.longitude !== null;
+    const [lon, lat] = hasCoords
+        ? [focusEvent.longitude as number, focusEvent.latitude as number]
+        : centroids.get(focusEvent.zoneId) ?? DEFAULT_CENTER;
+    const position = new window.kakao.maps.LatLng(lat, lon);
+
+    mapRef.current.panTo(position);
+
+    const ringColor = EVENT_COLOR[focusEvent.eventType];
+    const ringEl = document.createElement('div');
+    ringEl.style.width = '30px';
+    ringEl.style.height = '30px';
+    ringEl.style.borderRadius = '50%';
+    ringEl.style.border = `3px solid ${ringColor}`;
+    ringEl.style.boxSizing = 'border-box';
+    ringEl.style.animation = 'kakaoEventPulse 1.2s ease-out 2';
+    ringEl.style.pointerEvents = 'none';
+
+    const pulseOverlay = new window.kakao.maps.CustomOverlay({
+      map: mapRef.current,
+      position,
+      content: ringEl,
+      yAnchor: 0.5,
+      zIndex: 50,
+    });
+
+    const timeoutId = window.setTimeout(() => {
+      pulseOverlay.setMap(null);
+    }, 2600);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      pulseOverlay.setMap(null);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, focusEvent]);
+
+  // ---------- 에이전트: agents 바뀔 때마다(2초 폴링 등) 위치를 부드럽게 보간 이동 ----------
+  // 2026-07-27 추가: 카카오 CustomOverlay는 setPosition()으로 옮기면 즉시 순간이동해서
+  // CSS transition이 안 먹는다(내부적으로 픽셀 좌표를 다시 계산해서 바로 반영하기
+  // 때문). 그래서 requestAnimationFrame으로 이전 위치 -> 새 위치를 직접 보간하며
+  // setPosition을 여러 번 호출하는 방식으로 부드러운 이동을 구현한다.
+  interface AgentOverlayEntry {
+    overlay: any;
+    el: HTMLDivElement;
+    currentLat: number;
+    currentLng: number;
+    animFrameId: number | null;
+  }
+  const agentOverlayMapRef = useRef<Map<number, AgentOverlayEntry>>(new Map());
+
   useEffect(() => {
     if (!ready || !mapRef.current) return;
-    agentOverlaysRef.current.forEach((o) => o.setMap(null));
-    agentOverlaysRef.current = [];
+
+    const currentIds = new Set(agents.map((a) => a.agentId));
+
+    // 더 이상 없는 에이전트(퇴장 등) 정리
+    agentOverlayMapRef.current.forEach((entry, id) => {
+      if (!currentIds.has(id)) {
+        if (entry.animFrameId !== null) cancelAnimationFrame(entry.animFrameId);
+        entry.overlay.setMap(null);
+        agentOverlayMapRef.current.delete(id);
+      }
+    });
 
     agents.forEach((agent) => {
-      const el = document.createElement('div');
-      el.style.width = '8px';
-      el.style.height = '8px';
-      el.style.borderRadius = '50%';
-      el.style.background = AGENT_COLOR[agent.state] ?? AGENT_COLOR.normal;
-      el.style.border = '0.5px solid #0f172a';
+      const color = AGENT_COLOR[agent.state] ?? AGENT_COLOR.normal;
+      let entry = agentOverlayMapRef.current.get(agent.agentId);
 
-      const overlay = new window.kakao.maps.CustomOverlay({
-        map: mapRef.current,
-        position: new window.kakao.maps.LatLng(agent.latitude, agent.longitude),
-        content: el,
-        yAnchor: 0.5,
-      });
-      agentOverlaysRef.current.push(overlay);
+      if (!entry) {
+        const el = document.createElement('div');
+        el.style.width = '8px';
+        el.style.height = '8px';
+        el.style.borderRadius = '50%';
+        el.style.border = '0.5px solid #0f172a';
+        el.style.background = color;
+
+        const overlay = new window.kakao.maps.CustomOverlay({
+          map: mapRef.current,
+          position: new window.kakao.maps.LatLng(agent.latitude, agent.longitude),
+          content: el,
+          yAnchor: 0.5,
+        });
+        agentOverlayMapRef.current.set(agent.agentId, {
+          overlay,
+          el,
+          currentLat: agent.latitude,
+          currentLng: agent.longitude,
+          animFrameId: null,
+        });
+        return;
+      }
+
+      entry.el.style.background = color;
+
+      if (entry.animFrameId !== null) {
+        cancelAnimationFrame(entry.animFrameId);
+        entry.animFrameId = null;
+      }
+
+      const startLat = entry.currentLat;
+      const startLng = entry.currentLng;
+      const endLat = agent.latitude;
+      const endLng = agent.longitude;
+      const duration = Math.max(transitionMs, 0);
+
+      if (duration === 0) {
+        entry.overlay.setPosition(new window.kakao.maps.LatLng(endLat, endLng));
+        entry.currentLat = endLat;
+        entry.currentLng = endLng;
+        return;
+      }
+
+      const startTime = performance.now();
+      const activeEntry = entry;
+      const step = (now: number) => {
+        const t = Math.min((now - startTime) / duration, 1);
+        const lat = startLat + (endLat - startLat) * t;
+        const lng = startLng + (endLng - startLng) * t;
+        activeEntry.overlay.setPosition(new window.kakao.maps.LatLng(lat, lng));
+        activeEntry.currentLat = lat;
+        activeEntry.currentLng = lng;
+        if (t < 1) {
+          activeEntry.animFrameId = requestAnimationFrame(step);
+        } else {
+          activeEntry.animFrameId = null;
+        }
+      };
+      activeEntry.animFrameId = requestAnimationFrame(step);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, agents]);
+  }, [ready, agents, transitionMs]);
+
+  // 컴포넌트 언마운트 시 모든 애니메이션/오버레이 정리
+  useEffect(() => {
+    return () => {
+      agentOverlayMapRef.current.forEach((entry) => {
+        if (entry.animFrameId !== null) cancelAnimationFrame(entry.animFrameId);
+        entry.overlay.setMap(null);
+      });
+      agentOverlayMapRef.current.clear();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (mapRef.current) {
