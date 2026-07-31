@@ -12,8 +12,8 @@ interface HeatmapViewProps {
   zones: Zone[];
   agents: AgentState[];
   zoneRisks?: ZoneRisk[];
-  width?: number;
-  height?: number;
+  width?: number | string;
+  height?: number | string;
   // 프레임이 바뀔 때 점이 순간이동하지 않고 부드럽게 미끄러지도록 하는 트랜지션
   // 시간(ms). FramePlayer가 재생 간격과 맞춰서 넘겨준다. 미지정(0)이면 순간이동.
   transitionMs?: number;
@@ -74,6 +74,9 @@ export default function HeatmapView({
   height = 480,
   transitionMs = 0,
 }: HeatmapViewProps) {
+  const internalWidth = typeof width === 'number' ? width : 640;
+  const internalHeight = typeof height === 'number' ? height : 480;
+  
   const PADDING = 32;
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ x: number; y: number } | null>(null);
@@ -98,10 +101,10 @@ export default function HeatmapView({
           MAX_ZOOM,
           Math.max(MIN_ZOOM, v.zoom * (e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP))
         );
-        const oldVbW = width / v.zoom;
-        const oldVbH = height / v.zoom;
-        const newVbW = width / nextZoom;
-        const newVbH = height / nextZoom;
+        const oldVbW = internalWidth / v.zoom;
+        const oldVbH = internalHeight / v.zoom;
+        const newVbW = internalWidth / nextZoom;
+        const newVbH = internalHeight / nextZoom;
         const anchorX = v.panX + oldVbW * ratioX;
         const anchorY = v.panY + oldVbH * ratioY;
         return {
@@ -114,7 +117,7 @@ export default function HeatmapView({
 
     el.addEventListener('wheel', handleWheel, { passive: false });
     return () => el.removeEventListener('wheel', handleWheel);
-  }, [width, height]);
+  }, [internalWidth, internalHeight]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
     dragRef.current = { x: e.clientX, y: e.clientY };
@@ -141,8 +144,8 @@ export default function HeatmapView({
     setViewport((v) => {
       const nextZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.zoom * factor));
       // 화면 중앙을 기준으로 확대/축소
-      const oldVbW = width / v.zoom, oldVbH = height / v.zoom;
-      const newVbW = width / nextZoom, newVbH = height / nextZoom;
+      const oldVbW = internalWidth / v.zoom, oldVbH = internalHeight / v.zoom;
+      const newVbW = internalWidth / nextZoom, newVbH = internalHeight / nextZoom;
       const centerX = v.panX + oldVbW / 2;
       const centerY = v.panY + oldVbH / 2;
       return { zoom: nextZoom, panX: centerX - newVbW / 2, panY: centerY - newVbH / 2 };
@@ -165,10 +168,6 @@ export default function HeatmapView({
         allLats.push(lat);
       })
     );
-    agents.forEach((a) => {
-      allLons.push(a.longitude);
-      allLats.push(a.latitude);
-    });
 
     if (allLons.length === 0) {
       return null;
@@ -182,8 +181,8 @@ export default function HeatmapView({
     const lonSpan = maxLon - minLon || 0.0001;
     const latSpan = maxLat - minLat || 0.0001;
     const scale = Math.min(
-      (width - PADDING * 2) / lonSpan,
-      (height - PADDING * 2) / latSpan
+      (internalWidth - PADDING * 2) / lonSpan,
+      (internalHeight - PADDING * 2) / latSpan
     );
 
     const project = ([lon, lat]: LonLat): [number, number] => [
@@ -218,7 +217,7 @@ export default function HeatmapView({
     });
 
     return { renderedZones, renderedAgents };
-  }, [zones, agents, zoneRisks, width, height]);
+  }, [zones, agents, zoneRisks, internalWidth, internalHeight]);
 
   if (!layout) {
     return (
@@ -232,8 +231,8 @@ export default function HeatmapView({
     );
   }
 
-  const vbWidth = width / viewport.zoom;
-  const vbHeight = height / viewport.zoom;
+  const vbWidth = internalWidth / viewport.zoom;
+  const vbHeight = internalHeight / viewport.zoom;
 
   return (
     <div

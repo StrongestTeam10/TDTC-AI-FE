@@ -50,14 +50,11 @@ export default function Header() {
         </Link>
 
         <nav aria-label="주요 메뉴" className="flex gap-2">
+          <NavLink to="/compare" className={navClass}>
+            시뮬레이션 비교
+          </NavLink>
           <NavLink to="/dashboard" className={navClass}>
             관제 대시보드
-          </NavLink>
-          <NavLink to="/scenario" className={navClass}>
-            시나리오 시뮬레이션
-          </NavLink>
-          <NavLink to="/prediction" className={navClass}>
-            인구 유입 예측
           </NavLink>
           <NavLink to="/board" className={navClass}>
             게시판

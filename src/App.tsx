@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import DashboardPage from './pages/DashboardPage';
 import ScenarioPage from './pages/ScenarioPage';
 import PredictionPage from './pages/PredictionPage';
+import SimulationComparePage from './pages/SimulationComparePage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import LandingPage from './pages/LandingPage';
@@ -78,6 +79,16 @@ export default function App() {
             <RequireAuth>
               <AppLayout>
                 <PredictionPage />
+              </AppLayout>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/compare"
+          element={
+            <RequireAuth>
+              <AppLayout>
+                <SimulationComparePage />
               </AppLayout>
             </RequireAuth>
           }

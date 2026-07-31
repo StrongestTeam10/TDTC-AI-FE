@@ -17,8 +17,8 @@ interface HeatmapViewProps {
   zones: Zone[];
   agents: AgentState[];
   zoneRisks?: ZoneRisk[];
-  width?: number;
-  height?: number;
+  width?: number | string;
+  height?: number | string;
   transitionMs?: number;
   corridors?: CorridorEdge[];
   gates?: Gate[];

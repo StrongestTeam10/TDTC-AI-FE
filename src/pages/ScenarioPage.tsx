@@ -7,7 +7,7 @@ import ErrorBanner from '../components/ui/ErrorBanner';
 import { fetchMarkets, fetchZones, fetchCorridors, fetchGates, runScenarioSimulation } from '../api/client';
 import { useSimulationStore } from '../store/simulationStore';
 import { toDisplayErrorMessage } from '../utils/errorMessage';
-import type { ScenarioRequest, PlacedObject, EventTrigger, CorridorPolicy, Corridor, Gate } from '../types';
+import type { ScenarioRequest, PlacedObject, EventTrigger, CorridorPolicy, Corridor, Gate, Zone } from '../types';
 
 type PlacementKind = PlacedObject['objectType'] | EventTrigger['eventType'];
 
@@ -62,14 +62,17 @@ export default function ScenarioPage() {
               fetchGates(marketData[0].marketId),
             ]);
           }
-          return [[], [], []] as [typeof zones, Corridor[], Gate[]];
+          return Promise.resolve([[], [], []] as [Zone[], Corridor[], Gate[]]);
         })
         .then(([zoneData, corridorData, gateData]) => {
-          if (zoneData.length > 0) {
-            setZones(zoneData);
+          const _zones = zoneData as Zone[];
+          const _corridors = corridorData as Corridor[];
+          const _gates = gateData as Gate[];
+          if (_zones.length > 0) {
+            setZones(_zones);
           }
-          setCorridors(corridorData);
-          setGates(gateData);
+          setCorridors(_corridors);
+          setGates(_gates);
         })
         .catch((err) => {
           console.error('시장/구역/통로/게이트 정보 로드 실패', err);
