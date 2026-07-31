@@ -6,27 +6,48 @@ import {
   Tooltip,
   XAxis,
   YAxis,
+  Legend,
 } from 'recharts';
 import type { RiskTrendPoint } from '../types';
 
 interface RiskTrendChartProps {
-  riskTrend: RiskTrendPoint[];
-  currentStep?: number; // FramePlayer와 연동해서 현재 재생 위치를 표시하고 싶을 때 (선택)
+  riskTrend?: RiskTrendPoint[];
+  beforeTrend?: RiskTrendPoint[];
+  afterTrend?: RiskTrendPoint[];
 }
 
-export default function RiskTrendChart({ riskTrend }: RiskTrendChartProps) {
-  if (riskTrend.length === 0) {
+export default function RiskTrendChart({ riskTrend, beforeTrend, afterTrend }: RiskTrendChartProps) {
+  const hasData = (riskTrend && riskTrend.length > 0) || 
+                  (beforeTrend && beforeTrend.length > 0) || 
+                  (afterTrend && afterTrend.length > 0);
+
+  if (!hasData) {
     return (
         <div className="rounded-lg border border-slate-700 bg-slate-900 p-8 text-center text-slate-500 text-sm">
-          예측을 실행하면 위험도 추이가 표시됩니다.
+          시뮬레이션을 실행하면 위험도 추이가 표시됩니다.
         </div>
     );
   }
 
-  const data = riskTrend.map((point) => ({
-    step: point.step,
-    overallRiskScore: Number(point.overallRiskScore.toFixed(2)),
-  }));
+  const maxLen = Math.max(
+    riskTrend?.length ?? 0,
+    beforeTrend?.length ?? 0,
+    afterTrend?.length ?? 0
+  );
+
+  const data = Array.from({ length: maxLen }).map((_, i) => {
+    const d: any = { step: i + 1 };
+    if (riskTrend && i < riskTrend.length) {
+      d.risk = Number(riskTrend[i].overallRiskScore.toFixed(2));
+    }
+    if (beforeTrend && i < beforeTrend.length) {
+      d.before = Number(beforeTrend[i].overallRiskScore.toFixed(2));
+    }
+    if (afterTrend && i < afterTrend.length) {
+      d.after = Number(afterTrend[i].overallRiskScore.toFixed(2));
+    }
+    return d;
+  });
 
   return (
       <div className="rounded-lg border border-slate-700 bg-slate-900 p-4">
@@ -44,17 +65,42 @@ export default function RiskTrendChart({ riskTrend }: RiskTrendChartProps) {
             <Tooltip
                 contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', fontSize: 12 }}
                 labelStyle={{ color: '#e2e8f0' }}
-                formatter={(value) => [value ?? '', '종합 위험도']}
                 labelFormatter={(step) => `스텝 ${step}`}
             />
-            <Line
-                type="monotone"
-                dataKey="overallRiskScore"
-                stroke="#f97316"
-                strokeWidth={2}
-                dot={false}
-                isAnimationActive={false}
-            />
+            <Legend wrapperStyle={{ fontSize: 12, paddingTop: '10px' }} />
+            {riskTrend && riskTrend.length > 0 && (
+              <Line
+                  name="종합 위험도"
+                  type="monotone"
+                  dataKey="risk"
+                  stroke="#f97316"
+                  strokeWidth={2}
+                  dot={false}
+                  isAnimationActive={false}
+              />
+            )}
+            {beforeTrend && beforeTrend.length > 0 && (
+              <Line
+                  name="Before (예측)"
+                  type="monotone"
+                  dataKey="before"
+                  stroke="#f97316"
+                  strokeWidth={2}
+                  dot={false}
+                  isAnimationActive={false}
+              />
+            )}
+            {afterTrend && afterTrend.length > 0 && (
+              <Line
+                  name="After (정책)"
+                  type="monotone"
+                  dataKey="after"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  dot={false}
+                  isAnimationActive={false}
+              />
+            )}
           </LineChart>
         </ResponsiveContainer>
       </div>
