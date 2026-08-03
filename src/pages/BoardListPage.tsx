@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Spinner from '../components/ui/Spinner';
 import ErrorBanner from '../components/ui/ErrorBanner';
+import TabButton from '../components/ui/TabButton';
 import { fetchCommonCodes, fetchPosts } from '../api/client';
 import { useAuthStore } from '../store/authStore';
 import { CATEGORY_CODE_OPTIONS } from '../constants/categoryCode';
@@ -236,32 +237,6 @@ export default function BoardListPage() {
         </div>
       )}
     </div>
-  );
-}
-
-function TabButton({
-  active,
-  onClick,
-  children,
-  small,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-  small?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-full border px-3 ${small ? 'py-1 text-xs' : 'py-1.5 text-sm'} ${
-        active
-          ? 'border-blue-600 bg-blue-600/20 text-blue-300'
-          : 'border-slate-700 text-slate-400 hover:bg-slate-800'
-      }`}
-    >
-      {children}
-    </button>
   );
 }
 
