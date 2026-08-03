@@ -32,6 +32,7 @@ export default function FramePlayer({
                                      }: FramePlayerProps) {
   const [index, setIndex] = useState(0);
   const [speed, setSpeed] = useState(1);
+  const [isPlaying, setIsPlaying] = useState(true);
   const timerRef = useRef<number | null>(null);
 
   const totalFrames = frames.length;
@@ -40,10 +41,11 @@ export default function FramePlayer({
   // 새 시뮬레이션 결과가 들어오면 처음부터 자동 재생 시작
   useEffect(() => {
     setIndex(0);
+    setIsPlaying(true);
   }, [frames]);
 
   useEffect(() => {
-    if (totalFrames === 0) return;
+    if (totalFrames === 0 || !isPlaying) return;
 
     timerRef.current = window.setInterval(() => {
       setIndex((prev) => (prev >= totalFrames - 1 ? 0 : prev + 1));
@@ -54,7 +56,7 @@ export default function FramePlayer({
         window.clearInterval(timerRef.current);
       }
     };
-  }, [intervalMs, totalFrames]);
+  }, [intervalMs, totalFrames, isPlaying]);
 
   if (totalFrames === 0) {
     return (
@@ -78,14 +80,35 @@ export default function FramePlayer({
             transitionMs={intervalMs}
         />
 
-        <div className="absolute top-2 right-2 flex items-center gap-2 rounded bg-slate-900/80 px-2 py-1 text-xs text-slate-300">
-          <span className="whitespace-nowrap">
-            {index + 1}/{totalFrames} (~{elapsedSeconds}초)
-          </span>
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-3 rounded bg-slate-900/90 px-4 py-2 text-xs text-slate-300 w-[90%] max-w-md shadow-lg border border-slate-700">
+          <button
+            onClick={() => setIsPlaying(!isPlaying)}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-700 hover:bg-slate-600 text-white transition-colors"
+          >
+            {isPlaying ? '⏸' : '▶'}
+          </button>
+
+          <input
+            type="range"
+            min={0}
+            max={totalFrames - 1}
+            value={index}
+            onChange={(e) => {
+              setIndex(Number(e.target.value));
+              setIsPlaying(false); // 슬라이더 드래그 시 일시정지
+            }}
+            className="flex-1 accent-blue-500 cursor-pointer"
+          />
+
+          <div className="flex flex-col items-end min-w-[70px]">
+            <span className="font-mono">{index + 1} / {totalFrames}</span>
+            <span className="text-[10px] text-slate-400">~{elapsedSeconds}초</span>
+          </div>
+
           <select
               value={speed}
               onChange={(e) => setSpeed(Number(e.target.value))}
-              className="rounded border border-slate-600 bg-slate-800 px-1 py-0.5 text-slate-200"
+              className="rounded border border-slate-600 bg-slate-800 px-1 py-1 text-slate-200 outline-none"
           >
             {SPEED_OPTIONS.map((s) => (
                 <option key={s} value={s}>{s}x</option>

@@ -12,8 +12,8 @@ interface HeatmapViewProps {
   zones: Zone[];
   agents: AgentState[];
   zoneRisks?: ZoneRisk[];
-  width?: number;
-  height?: number;
+  width?: number | string;
+  height?: number | string;
   // 프레임이 바뀔 때 점이 순간이동하지 않고 부드럽게 미끄러지도록 하는 트랜지션
   // 시간(ms). FramePlayer가 재생 간격과 맞춰서 넘겨준다. 미지정(0)이면 순간이동.
   transitionMs?: number;
@@ -67,17 +67,21 @@ function parsePolygon(polygonCoordinates: string): LonLat[] | null {
 }
 
 export default function HeatmapView({
-                                        zones,
-                                        agents,
-                                        zoneRisks,
-                                        width,
-                                        height = 480,
-                                        transitionMs = 0,
-                                      }: HeatmapViewProps) {
+  zones,
+  agents,
+  zoneRisks,
+  width = 640,
+  height = 480,
+  transitionMs = 0,
+}: HeatmapViewProps) {
+  const internalWidth = typeof width === 'number' ? width : 640;
+  const internalHeight = typeof height === 'number' ? height : 480;
+  
   const PADDING = 32;
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ x: number; y: number } | null>(null);
   const [viewport, setViewport] = useState<Viewport>({ zoom: 1, panX: 0, panY: 0 });
+  const [hoveredAgent, setHoveredAgent] = useState<{ agent: AgentState; x: number; y: number } | null>(null);
 
   // 2026-07-27: width를 고정 픽셀로 강제하던 것을 제거하고, width prop을 명시적으로
   // 넘기지 않으면(예: 대시보드에서 그리드 셀을 꽉 채우고 싶은 경우) 컨테이너의 실제
@@ -114,13 +118,13 @@ export default function HeatmapView({
 
       setViewport((v) => {
         const nextZoom = Math.min(
-            MAX_ZOOM,
-            Math.max(MIN_ZOOM, v.zoom * (e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP))
+          MAX_ZOOM,
+          Math.max(MIN_ZOOM, v.zoom * (e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP))
         );
-        const oldVbW = renderWidth / v.zoom;
-        const oldVbH = height / v.zoom;
-        const newVbW = renderWidth / nextZoom;
-        const newVbH = height / nextZoom;
+        const oldVbW = internalWidth / v.zoom;
+        const oldVbH = internalHeight / v.zoom;
+        const newVbW = internalWidth / nextZoom;
+        const newVbH = internalHeight / nextZoom;
         const anchorX = v.panX + oldVbW * ratioX;
         const anchorY = v.panY + oldVbH * ratioY;
         return {
@@ -133,7 +137,7 @@ export default function HeatmapView({
 
     el.addEventListener('wheel', handleWheel, { passive: false });
     return () => el.removeEventListener('wheel', handleWheel);
-  }, [renderWidth, height]);
+  }, [internalWidth, internalHeight]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
     dragRef.current = { x: e.clientX, y: e.clientY };
@@ -160,8 +164,8 @@ export default function HeatmapView({
     setViewport((v) => {
       const nextZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.zoom * factor));
       // 화면 중앙을 기준으로 확대/축소
-      const oldVbW = renderWidth / v.zoom, oldVbH = height / v.zoom;
-      const newVbW = renderWidth / nextZoom, newVbH = height / nextZoom;
+      const oldVbW = internalWidth / v.zoom, oldVbH = internalHeight / v.zoom;
+      const newVbW = internalWidth / nextZoom, newVbH = internalHeight / nextZoom;
       const centerX = v.panX + oldVbW / 2;
       const centerY = v.panY + oldVbH / 2;
       return { zoom: nextZoom, panX: centerX - newVbW / 2, panY: centerY - newVbH / 2 };
@@ -172,22 +176,18 @@ export default function HeatmapView({
 
   const layout = useMemo(() => {
     const zonePolygons = zones
-        .map((zone) => ({ zone, points: parsePolygon(zone.polygonCoordinates) }))
-        .filter((z): z is { zone: Zone; points: LonLat[] } => z.points !== null);
+      .map((zone) => ({ zone, points: parsePolygon(zone.polygonCoordinates) }))
+      .filter((z): z is { zone: Zone; points: LonLat[] } => z.points !== null);
 
     // 구역 폴리곤 좌표 + 에이전트 좌표를 모두 포함해 경계 산출
     const allLons: number[] = [];
     const allLats: number[] = [];
     zonePolygons.forEach(({ points }) =>
-        points.forEach(([lon, lat]) => {
-          allLons.push(lon);
-          allLats.push(lat);
-        })
+      points.forEach(([lon, lat]) => {
+        allLons.push(lon);
+        allLats.push(lat);
+      })
     );
-    agents.forEach((a) => {
-      allLons.push(a.longitude);
-      allLats.push(a.latitude);
-    });
 
     if (allLons.length === 0) {
       return null;
@@ -201,8 +201,8 @@ export default function HeatmapView({
     const lonSpan = maxLon - minLon || 0.0001;
     const latSpan = maxLat - minLat || 0.0001;
     const scale = Math.min(
-        (renderWidth - PADDING * 2) / lonSpan,
-        (height - PADDING * 2) / latSpan
+      (internalWidth - PADDING * 2) / lonSpan,
+      (internalHeight - PADDING * 2) / latSpan
     );
 
     const project = ([lon, lat]: LonLat): [number, number] => [
@@ -215,8 +215,8 @@ export default function HeatmapView({
     const renderedZones = zonePolygons.map(({ zone, points }) => {
       const projected = points.map(project);
       const centroid = projected.reduce(
-          (acc, [x, y]) => [acc[0] + x / projected.length, acc[1] + y / projected.length],
-          [0, 0]
+        (acc, [x, y]) => [acc[0] + x / projected.length, acc[1] + y / projected.length],
+        [0, 0]
       );
       const risk = riskByZoneId.get(zone.zoneId);
       const level = risk?.riskLevel?.toLowerCase();
@@ -237,121 +237,168 @@ export default function HeatmapView({
     });
 
     return { renderedZones, renderedAgents };
-  }, [zones, agents, zoneRisks, renderWidth, height]);
+  }, [zones, agents, zoneRisks, internalWidth, internalHeight]);
 
   if (!layout) {
     return (
-        <div
-            ref={containerRef}
-            className="relative rounded-lg border border-slate-700 bg-slate-900 flex items-center justify-center text-slate-500 text-sm"
-            style={{ width: width ?? '100%', minHeight: height }}
-        >
-          구역 데이터를 불러오는 중입니다...
-        </div>
+      <div
+        ref={containerRef}
+        className="relative rounded-lg border border-slate-700 bg-slate-900 flex items-center justify-center text-slate-500 text-sm"
+        style={{ width, minHeight: height }}
+      >
+        구역 데이터를 불러오는 중입니다...
+      </div>
     );
   }
 
-  const vbWidth = renderWidth / viewport.zoom;
-  const vbHeight = height / viewport.zoom;
+  const vbWidth = internalWidth / viewport.zoom;
+  const vbHeight = internalHeight / viewport.zoom;
 
   return (
-      <div
-          ref={containerRef}
-          className="relative rounded-lg border border-slate-700 bg-slate-900 overflow-hidden touch-none select-none"
-          style={{ width: width ?? '100%', minHeight: height, cursor: 'grab' }}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerLeave={handlePointerUp}
+    <div
+      ref={containerRef}
+      className="relative rounded-lg border border-slate-700 bg-slate-900 overflow-hidden touch-none select-none"
+      style={{ width, minHeight: height, cursor: 'grab' }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerUp}
+    >
+      <svg
+        viewBox={`${viewport.panX} ${viewport.panY} ${vbWidth} ${vbHeight}`}
+        width="100%"
+        height={height}
+        className="block"
       >
-        <svg
-            viewBox={`${viewport.panX} ${viewport.panY} ${vbWidth} ${vbHeight}`}
-            width="100%"
-            height={height}
-            className="block"
-        >
-          {layout.renderedZones.map((z) => (
-              <g key={z.zoneId}>
-                <polygon
-                    points={z.pointsAttr}
-                    fill={z.fill}
-                    stroke={z.stroke}
-                    strokeWidth={1.5}
-                />
-                <text
-                    x={z.centroid[0]}
-                    y={z.centroid[1]}
-                    fill="#e2e8f0"
-                    fontSize={11}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                >
-                  {z.zoneName}
-                  {z.riskScore !== undefined ? ` (${z.riskScore.toFixed(1)})` : ''}
-                </text>
-              </g>
-          ))}
-
-          {layout.renderedAgents.map((agent) => (
-              <circle
-                  key={agent.agentId}
-                  cx={agent.x}
-                  cy={agent.y}
-                  r={3}
-                  fill={AGENT_COLOR[agent.state] ?? AGENT_COLOR.normal}
-                  stroke="#0f172a"
-                  strokeWidth={0.5}
-                  style={
-                    transitionMs > 0
-                        ? { transition: `cx ${transitionMs}ms linear, cy ${transitionMs}ms linear, fill ${transitionMs}ms linear` }
-                        : undefined
-                  }
-              />
-          ))}
-        </svg>
-
-        <div className="absolute top-2 left-2 text-xs text-slate-400 bg-slate-900/70 rounded px-2 py-1">
-          구역 {zones.length}개 · 유동 인구 {agents.length}명
-        </div>
-
-        <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded bg-slate-900/70 px-1 py-1">
-          <button
-              type="button"
-              onClick={() => zoomBy(ZOOM_STEP)}
-              className="w-6 h-6 flex items-center justify-center rounded bg-slate-800 text-slate-200 text-sm hover:bg-slate-700"
-              aria-label="확대"
-          >
-            +
-          </button>
-          <button
-              type="button"
-              onClick={() => zoomBy(1 / ZOOM_STEP)}
-              className="w-6 h-6 flex items-center justify-center rounded bg-slate-800 text-slate-200 text-sm hover:bg-slate-700"
-              aria-label="축소"
-          >
-            −
-          </button>
-          <button
-              type="button"
-              onClick={resetViewport}
-              className="px-2 h-6 flex items-center justify-center rounded bg-slate-800 text-slate-400 text-[10px] hover:bg-slate-700"
-              aria-label="보기 초기화"
-          >
-            초기화
-          </button>
-        </div>
-
-        <div className="absolute bottom-2 right-2 flex items-center gap-3 text-[10px] text-slate-400 bg-slate-900/70 rounded px-2 py-1">
-          {Object.entries(AGENT_COLOR).map(([state, color]) => (
-              <span key={state} className="flex items-center gap-1">
-            <span
-                className="inline-block w-2 h-2 rounded-full"
-                style={{ backgroundColor: color }}
+        {layout.renderedZones.map((z) => (
+          <g key={z.zoneId}>
+            <polygon
+              points={z.pointsAttr}
+              fill={z.fill}
+              stroke={z.stroke}
+              strokeWidth={1.5}
             />
-                {state === 'normal' ? '정상' : state === 'congested' ? '혼잡' : '대피 중'}
-          </span>
-          ))}
-        </div>
+            <text
+              x={z.centroid[0]}
+              y={z.centroid[1]}
+              fill="#e2e8f0"
+              fontSize={11}
+              textAnchor="middle"
+              dominantBaseline="middle"
+            >
+              {z.zoneName}
+              {z.riskScore !== undefined ? ` (${z.riskScore.toFixed(1)})` : ''}
+            </text>
+          </g>
+        ))}
+
+        {layout.renderedAgents.map((agent) => (
+          <g key={agent.agentId}>
+            <circle
+              cx={agent.x}
+              cy={agent.y}
+              r={2}
+              fill={AGENT_COLOR[agent.state] ?? AGENT_COLOR.normal}
+              stroke={agent.actionState === 'STAYING' ? '#ffffff' : '#0f172a'}
+              strokeWidth={agent.actionState === 'STAYING' ? 0.5 : 0.4}
+              style={
+                transitionMs > 0
+                  ? { transition: `cx ${transitionMs}ms linear, cy ${transitionMs}ms linear, fill ${transitionMs}ms linear` }
+                  : undefined
+              }
+              onPointerEnter={(e) => {
+                const rect = containerRef.current?.getBoundingClientRect();
+                if (rect) {
+                  setHoveredAgent({ agent, x: e.clientX - rect.left, y: e.clientY - rect.top });
+                }
+              }}
+              onPointerLeave={() => setHoveredAgent(null)}
+            />
+          </g>
+        ))}
+      </svg>
+
+      <div className="absolute top-2 left-2 text-xs text-slate-400 bg-slate-900/70 rounded px-2 py-1">
+        구역 {zones.length}개 · 유동 인구 {agents.length}명
       </div>
+
+      <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded bg-slate-900/70 px-1 py-1">
+        <button
+          type="button"
+          onClick={() => zoomBy(ZOOM_STEP)}
+          className="w-6 h-6 flex items-center justify-center rounded bg-slate-800 text-slate-200 text-sm hover:bg-slate-700"
+          aria-label="확대"
+        >
+          +
+        </button>
+        <button
+          type="button"
+          onClick={() => zoomBy(1 / ZOOM_STEP)}
+          className="w-6 h-6 flex items-center justify-center rounded bg-slate-800 text-slate-200 text-sm hover:bg-slate-700"
+          aria-label="축소"
+        >
+          −
+        </button>
+        <button
+          type="button"
+          onClick={resetViewport}
+          className="px-2 h-6 flex items-center justify-center rounded bg-slate-800 text-slate-400 text-[10px] hover:bg-slate-700"
+          aria-label="보기 초기화"
+        >
+          초기화
+        </button>
+      </div>
+
+      <div className="absolute bottom-2 right-2 flex items-center gap-3 text-[10px] text-slate-400 bg-slate-900/70 rounded px-2 py-1">
+        {Object.entries(AGENT_COLOR).map(([state, color]) => (
+          <span key={state} className="flex items-center gap-1">
+            <span
+              className="inline-block w-2 h-2 rounded-full"
+              style={{ backgroundColor: color }}
+            />
+            {state === 'normal' ? '정상' : state === 'congested' ? '혼잡' : '대피 중'}
+          </span>
+        ))}
+      </div>
+
+      {hoveredAgent && (
+        <div
+          className="absolute z-10 pointer-events-none rounded bg-slate-800 border border-slate-600 px-3 py-2 text-xs text-white shadow-lg"
+          style={{ left: hoveredAgent.x + 10, top: hoveredAgent.y + 10 }}
+        >
+          <div className="font-bold mb-1 border-b border-slate-600 pb-1">Agent #{hoveredAgent.agent.agentId}</div>
+          <div>
+            <span className="text-slate-400">유형:</span>{' '}
+            {hoveredAgent.agent.agentType
+              ? hoveredAgent.agent.agentType === 'SHOPPING'
+                ? '🛍️ 쇼핑형'
+                : hoveredAgent.agent.agentType === 'FOOD_TOUR'
+                  ? '🍔 맛집관광형'
+                  : '🚶 통행형'
+              : '데이터 없음 (과거 기록)'}
+          </div>
+          <div>
+            <span className="text-slate-400">행동:</span>{' '}
+            {hoveredAgent.agent.actionState
+              ? hoveredAgent.agent.actionState === 'STAYING'
+                ? '체류 중'
+                : hoveredAgent.agent.actionState === 'EXITING'
+                  ? '퇴장 중'
+                  : hoveredAgent.agent.actionState === 'ENTERING'
+                    ? '진입 중'
+                    : '이동 중'
+              : '데이터 없음'}
+          </div>
+          <div>
+            <span className="text-slate-400">상태:</span>{' '}
+            {hoveredAgent.agent.state === 'normal'
+              ? '정상'
+              : hoveredAgent.agent.state === 'congested'
+                ? '혼잡'
+                : '대피 중'}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
