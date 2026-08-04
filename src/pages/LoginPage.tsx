@@ -15,6 +15,9 @@ import { useAuthStore } from '../store/authStore';
 // 아니면 로그인이 실패하므로 제거함 — 화면 전체를 확인할 관리자 계정이 필요하면
 // /signup으로 가입한 뒤, BE에서 해당 계정의 rules_code를 ROL01(관리자)로 한 번
 // 수동 변경해두는 걸 권장(BE README 참고 - 자가 가입은 기본적으로 ROL03 부여).
+// 2026-08-04 변경: 하단의 "계정이 없으신가요? 회원가입" 링크를 "비밀번호를
+// 잊으셨나요? 비밀번호 찾기"로 교체하고, 회원가입은 화면 우측 상단에 눈에 띄는
+// 버튼으로 분리해서 더 명시적으로 노출함.
 export default function LoginPage() {
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
@@ -41,7 +44,15 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-slate-950 px-4">
+      <button
+        type="button"
+        onClick={() => navigate('/signup')}
+        className="absolute right-6 top-6 rounded border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 hover:border-blue-600 hover:text-blue-400"
+      >
+        회원가입
+      </button>
+
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
           <p className="mb-1 text-sm text-slate-500">KT Aivle School B2G 빅프로젝트</p>
@@ -96,10 +107,10 @@ export default function LoginPage() {
 
         <button
           type="button"
-          onClick={() => navigate('/signup')}
+          onClick={() => navigate('/forgot-password')}
           className="mt-3 w-full text-center text-sm text-slate-500 hover:text-slate-300"
         >
-          계정이 없으신가요? 회원가입
+          비밀번호를 잊으셨나요? 비밀번호 찾기
         </button>
       </div>
     </div>
