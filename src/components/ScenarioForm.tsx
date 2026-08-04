@@ -1,20 +1,17 @@
 import { useEffect, useState } from 'react';
-import type { ScenarioRequest, Zone, PlacedObject, EventTrigger, CorridorPolicy } from '../types';
+import type { Zone, PlacedObject, EventTrigger, CorridorPolicy } from '../types';
 
 type PlacementKind = PlacedObject['objectType'] | EventTrigger['eventType'];
 
 interface ScenarioFormProps {
   isRunning: boolean;
-  onSubmit: (
-      request: Pick<ScenarioRequest, 'agentCount' | 'steps'> & { corridorPolicies: CorridorPolicy[] }
-  ) => void;
+  steps: number;
   zones: Zone[];
 
   objects: PlacedObject[];
   onRemoveObject: (index: number) => void;
   events: EventTrigger[];
   onRemoveEvent: (index: number) => void;
-  // 2026-07-29 추가: 이미 배치된 이벤트의 발생 스텝을 리스트에서 바로 수정
   onUpdateEventTriggerStep: (index: number, value: number) => void;
 
   placementType: PlacementKind | null;
@@ -24,6 +21,10 @@ interface ScenarioFormProps {
 
   nextTriggerStep: number;
   onNextTriggerStepChange: (value: number) => void;
+
+  corridors: CorridorPolicy[];
+  onAddCorridor: (policy: CorridorPolicy) => void;
+  onRemoveCorridor: (index: number) => void;
 }
 
 const OBJECT_TYPE_OPTIONS: { value: PlacedObject['objectType']; label: string; hint: string }[] = [
@@ -50,7 +51,7 @@ function isEventType(kind: PlacementKind): kind is EventTrigger['eventType'] {
 
 export default function ScenarioForm({
                                         isRunning,
-                                        onSubmit,
+                                        steps,
                                         zones,
                                         objects,
                                         onRemoveObject,
@@ -63,11 +64,10 @@ export default function ScenarioForm({
                                         onNextIntensityChange,
                                         nextTriggerStep,
                                         onNextTriggerStepChange,
+                                        corridors,
+                                        onAddCorridor,
+                                        onRemoveCorridor,
                                       }: ScenarioFormProps) {
-  const [agentCount, setAgentCount] = useState(100);
-  const [steps, setSteps] = useState(50);
-
-  const [corridors, setCorridors] = useState<CorridorPolicy[]>([]);
   const [nextFromZoneId, setNextFromZoneId] = useState<number>(0);
   const [nextToZoneId, setNextToZoneId] = useState<number>(0);
   const [nextAction, setNextAction] = useState<CorridorPolicy['action']>('close');
@@ -98,54 +98,20 @@ export default function ScenarioForm({
 
   const handleAddCorridor = () => {
     if (!nextFromZoneId || !nextToZoneId || nextFromZoneId === nextToZoneId) return;
-    setCorridors((prev) => [
-      ...prev,
-      {
-        fromZoneId: nextFromZoneId,
-        toZoneId: nextToZoneId,
-        action: nextAction,
-        allowedDirection: nextAction === 'one_way' ? nextAllowedDirection : undefined,
-      },
-    ]);
+    onAddCorridor({
+      fromZoneId: nextFromZoneId,
+      toZoneId: nextToZoneId,
+      action: nextAction,
+      allowedDirection: nextAction === 'one_way' ? nextAllowedDirection : undefined,
+    });
   };
 
   const handleRemoveCorridor = (index: number) => {
-    setCorridors((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit({ agentCount, steps, corridorPolicies: corridors });
+    onRemoveCorridor(index);
   };
 
   return (
-      <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border border-slate-700 bg-slate-800 p-3">
-        <div>
-          <label className="mb-1 block text-xs text-slate-300">투입 인구 수 (명)</label>
-          <input
-              type="number"
-              min={1}
-              max={1000}
-              value={agentCount}
-              onChange={(e) => setAgentCount(Number(e.target.value))}
-              className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1.5 text-sm text-slate-200"
-              disabled={isRunning}
-          />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-xs text-slate-300">시뮬레이션 스텝 수</label>
-          <input
-              type="number"
-              min={10}
-              max={1000}
-              value={steps}
-              onChange={(e) => setSteps(Number(e.target.value))}
-              className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1.5 text-sm text-slate-200"
-              disabled={isRunning}
-          />
-        </div>
-
+      <div className="space-y-3 rounded-lg border border-slate-700 bg-slate-800 p-3">
         {/* 오브젝트 배치 */}
         <div className="rounded-lg border border-sky-800 bg-sky-950/40 p-2.5 space-y-2">
           <h3 className="text-xs font-semibold text-sky-300">오브젝트 배치</h3>
@@ -365,14 +331,6 @@ export default function ScenarioForm({
               </ul>
           )}
         </div>
-
-        <button
-            type="submit"
-            disabled={isRunning}
-            className="w-full rounded bg-blue-600 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
-        >
-          {isRunning ? '시뮬레이션 실행 중...' : '시뮬레이션 시작'}
-        </button>
-      </form>
+      </div>
   );
 }

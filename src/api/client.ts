@@ -9,6 +9,7 @@ import type {
   Zone,
   Corridor,
   Gate,
+  Building,
 } from '../types';
 import type { PostListResponse, PostDetail } from '../types/board';
 import { getToken, notifyUnauthorized } from '../auth/tokenStore';
@@ -40,8 +41,11 @@ apiClient.interceptors.response.use(
 
       // 2026-07-24 추가: 로그인/회원가입 자체의 401(예: 비밀번호 오류)은 "세션 만료"가
       // 아니므로 제외하고, 그 외 API가 401을 주면(토큰 만료/위조) 로그인 상태를 정리함.
+      // 2026-08-04 추가: 비밀번호 찾기(본인확인/재설정)도 로그인 전 상태에서 쓰는
+      // 흐름이라 같은 이유로 제외.
       const url: string = error?.config?.url ?? '';
-      const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/signup');
+      const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/signup')
+        || url.includes('/auth/verify-identity') || url.includes('/auth/reset-password');
       if (error?.response?.status === 401 && !isAuthEndpoint) {
         notifyUnauthorized();
       }
@@ -75,6 +79,12 @@ export async function fetchGates(marketId: number): Promise<Gate[]> {
   return data;
 }
 
+// 2026-08-XX 추가: 특정 시장의 상가/건물 폴리곤 목록 조회 (지도에 건물 형태 표시용).
+export async function fetchBuildings(marketId: number): Promise<Building[]> {
+  const { data } = await apiClient.get<Building[]>(`/markets/${marketId}/buildings`);
+  return data;
+}
+
 // 파이프라인 A: 관제 대시보드 - 실시간(또는 특정 시점) 스냅샷 조회
 export async function fetchDashboardSnapshot(
     marketId: number,
@@ -92,11 +102,20 @@ export async function fetchAvailableTimestamps(): Promise<string[]> {
   return data;
 }
 
+// 2026-08-XX 추가: 시뮬레이션(특히 화재 등 이벤트로 시장 전체가 대피하는 큰
+// 규모)은 계산량이 많아 공용 15초 타임아웃(apiClient 기본값)을 넘기기 쉽다.
+// 넘기면 브라우저가 먼저 연결을 끊어버리고 BE에 ClientAbortException이 찍히는데,
+// 실제로는 BE/SIM이 계속 계산 중이었을 뿐이다. 이 두 호출만 훨씬 긴 타임아웃을
+// 따로 준다(다른 API는 그대로 15초 유지 - 로그인/게시판 등은 오래 걸릴 이유가 없음).
+const SIMULATION_TIMEOUT_MS = 120_000; // 2분
+
 // 파이프라인 B: 사용자 지정 시나리오 시뮬레이션 실행
 export async function runScenarioSimulation(
     request: ScenarioRequest
 ): Promise<ScenarioResult> {
-  const { data } = await apiClient.post<ScenarioResult>('/simulation/run', request);
+  const { data } = await apiClient.post<ScenarioResult>('/simulation/run', request, {
+    timeout: SIMULATION_TIMEOUT_MS,
+  });
   return data;
 }
 
@@ -104,7 +123,9 @@ export async function runScenarioSimulation(
 export async function runPredictSimulation(
     request: PredictRequest
 ): Promise<PredictResult> {
-  const { data } = await apiClient.post<PredictResult>('/simulation/predict', request);
+  const { data } = await apiClient.post<PredictResult>('/simulation/predict', request, {
+    timeout: SIMULATION_TIMEOUT_MS,
+  });
   return data;
 }
 
@@ -170,6 +191,42 @@ export interface SignupResponse {
 export async function signup(request: SignupRequest): Promise<SignupResponse> {
   const { data } = await apiClient.post<SignupResponse>('/auth/signup', request);
   return data;
+}
+
+// 2026-08-04 추가 (비밀번호 찾기)
+// 본인확인은 이메일/SMS 없이 가입 시 입력한 필드(아이디+이름+소속기관+담당시장)
+// 일치 여부만으로 판단함(usrusrs01m에 이메일/휴대폰 컬럼이 없어 선택한 방식).
+// BE는 아직 이 두 엔드포인트가 없음 - /api/auth/verify-identity, /api/auth/reset-password
+// 추가 필요(둘 다 permitAll이어야 함 - 로그인 전 상태에서 쓰는 흐름이므로).
+export interface VerifyIdentityRequest {
+  loginId: string;
+  name: string;
+  orgCode: string;
+  marketCode: string;
+}
+
+export interface VerifyIdentityResponse {
+  verified: boolean;
+}
+
+export async function verifyIdentity(request: VerifyIdentityRequest): Promise<VerifyIdentityResponse> {
+  const { data } = await apiClient.post<VerifyIdentityResponse>('/auth/verify-identity', request);
+  return data;
+}
+
+// 재설정 시점에도 verify-identity와 동일한 4개 필드를 함께 보내 서버가 다시 한 번
+// 본인확인을 하도록 함(브라우저에서 state를 조작해 verify 단계를 건너뛰고 곧바로
+// reset-password를 호출하는 걸 막기 위한 방어적 설계 - FE 라우터 상태만 믿지 않음).
+export interface ResetPasswordRequest {
+  loginId: string;
+  name: string;
+  orgCode: string;
+  marketCode: string;
+  newPassword: string;
+}
+
+export async function resetPassword(request: ResetPasswordRequest): Promise<void> {
+  await apiClient.post('/auth/reset-password', request);
 }
 
 // ===== 공통코드 (2026-07-24 추가) =====
