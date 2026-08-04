@@ -115,35 +115,35 @@ export default function BoardDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-slate-800 bg-slate-900 p-6">
+      <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
             <div className="mb-2 flex items-center gap-2">
               {post.notice && (
-                <span className="inline-block rounded bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-300">
+                <span className="inline-block rounded bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
                   공지
                 </span>
               )}
-              <span className="inline-block rounded bg-slate-800 px-2 py-0.5 text-xs font-medium text-slate-300">
+              <span className="inline-block rounded bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-medium text-slate-700 dark:text-slate-300">
                 {categoryLabel(categoryOptions, post.categoryCode)}
               </span>
             </div>
-            <h1 className="text-xl font-semibold text-slate-100">{post.title}</h1>
+            <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{post.title}</h1>
             <p className="mt-1 text-sm text-slate-500">
               {post.writerName} · {formatDate(post.createdAt)}
               {post.updatedAt && ` (수정됨 ${formatDate(post.updatedAt)})`}
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-3 text-sm text-slate-400">
+          <div className="flex shrink-0 items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
             <span>조회 {post.viewCount}</span>
             <span>좋아요 {post.likeCount}</span>
             {(post.canEdit || post.canDelete) && (
-              <span className="flex gap-2 border-l border-slate-800 pl-3">
+              <span className="flex gap-2 border-l border-slate-200 dark:border-slate-800 pl-3">
                 {post.canEdit && (
                   <button
                     type="button"
                     onClick={() => navigate(`/board/${post.postId}/edit`)}
-                    className="rounded border border-slate-700 px-3 py-1 text-xs text-slate-300 hover:bg-slate-800"
+                    className="rounded border border-slate-300 dark:border-slate-700 px-3 py-1 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                   >
                     수정
                   </button>
@@ -153,7 +153,7 @@ export default function BoardDetailPage() {
                     type="button"
                     onClick={handleDelete}
                     disabled={isDeleting}
-                    className="rounded border border-red-500/40 px-3 py-1 text-xs text-red-300 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded border border-red-500/40 px-3 py-1 text-xs text-red-700 dark:text-red-300 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isDeleting ? '삭제 중...' : '삭제'}
                   </button>
@@ -166,20 +166,20 @@ export default function BoardDetailPage() {
         {/* 2026-07-24: content는 RichTextEditor(Tiptap)가 만든 HTML 문자열이라, 저장된
             값을 그대로 신뢰하지 않고 DOMPurify로 sanitize한 뒤에만 렌더링함(저장형 XSS 방지) */}
         <div
-          className="prose prose-invert prose-sm max-w-none text-slate-200"
+          className="prose prose-invert prose-sm max-w-none text-slate-800 dark:text-slate-200"
           dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}
         />
 
         {post.attachments.length > 0 && (
-          <div className="mt-6 border-t border-slate-800 pt-4">
-            <p className="mb-2 text-sm text-slate-400">첨부파일</p>
+          <div className="mt-6 border-t border-slate-200 dark:border-slate-800 pt-4">
+            <p className="mb-2 text-sm text-slate-500 dark:text-slate-400">첨부파일</p>
             <ul className="space-y-1">
               {post.attachments.map((attachment) => (
                 <li key={attachment.attachmentId}>
                   <button
                     type="button"
                     onClick={() => handleDownload(attachment.attachmentId, attachment.originalName)}
-                    className="text-sm text-blue-400 hover:underline"
+                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
                   >
                     📎 {attachment.originalName}{' '}
                     <span className="text-slate-500">({formatFileSize(attachment.fileSize)})</span>
@@ -202,19 +202,19 @@ export default function BoardDetailPage() {
             onClick={handleLike}
             className={`rounded border px-4 py-2 text-sm ${
               post.liked
-                ? 'border-blue-600 bg-blue-600/20 text-blue-300'
-                : 'border-slate-700 text-slate-300 hover:bg-slate-800'
+                ? 'border-blue-600 bg-blue-600/20 text-blue-700 dark:text-blue-300'
+                : 'border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
             {post.liked ? '좋아요 취소' : '좋아요'}
           </button>
         </div>
 
-        <div className="mt-4 flex justify-center border-t border-slate-800 pt-4">
+        <div className="mt-4 flex justify-center border-t border-slate-200 dark:border-slate-800 pt-4">
           <button
             type="button"
             onClick={() => navigate('/board')}
-            className="rounded border border-slate-700 px-6 py-2 text-sm text-slate-300 hover:bg-slate-800"
+            className="rounded border border-slate-300 dark:border-slate-700 px-6 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             ← 목록
           </button>

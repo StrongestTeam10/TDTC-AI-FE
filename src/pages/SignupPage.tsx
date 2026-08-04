@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TermsModal from '../components/TermsModal';
+import ThemeToggle from '../components/ui/ThemeToggle';
 import { PASSWORD_RULES, isPasswordValid } from '../utils/password';
 import { TERMS_TEXT, PRIVACY_TEXT } from '../constants/legalText';
 import { ORG_CODE_OPTIONS } from '../constants/orgCode';
@@ -178,9 +179,10 @@ export default function SignupPage() {
 
   if (submitted) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
-        <div className="w-full max-w-sm rounded-lg border border-slate-800 bg-slate-900 p-6 text-center">
-          <p className="mb-2 text-lg font-semibold text-slate-100">가입이 완료되었습니다</p>
+      <div className="relative flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950 px-4">
+        <ThemeToggle className="absolute right-6 top-6" />
+        <div className="w-full max-w-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 text-center">
+          <p className="mb-2 text-lg font-semibold text-slate-900 dark:text-slate-100">가입이 완료되었습니다</p>
           <p className="mb-6 text-sm text-slate-500">
             등록하신 아이디로 로그인해주세요.
           </p>
@@ -197,34 +199,35 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-12">
+    <div className="relative flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950 px-4 py-12">
+      <ThemeToggle className="absolute right-6 top-6" />
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
           <p className="mb-1 text-sm text-slate-500">KT Aivle School B2G 빅프로젝트</p>
-          <h1 className="text-xl font-semibold text-slate-100">관제 시스템 계정 등록</h1>
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">관제 시스템 계정 등록</h1>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="flex flex-col gap-5 rounded-lg border border-slate-800 bg-slate-900 p-6"
+          className="flex flex-col gap-5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6"
         >
           {/* 개인 식별 정보 입력 */}
           <div className="flex flex-col gap-4">
             <div>
-              <label htmlFor="loginId" className="mb-1 block text-sm text-slate-400">
-                아이디 <span className="text-red-400">*</span>
+              <label htmlFor="loginId" className="mb-1 block text-sm text-slate-500 dark:text-slate-400">
+                아이디 <span className="text-red-600 dark:text-red-400">*</span>
               </label>
               <input
                 id="loginId"
                 value={loginId}
                 onChange={(e) => setLoginId(e.target.value)}
                 autoComplete="username"
-                className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
               />
             </div>
             <div>
-              <label htmlFor="password" className="mb-1 block text-sm text-slate-400">
-                비밀번호 <span className="text-red-400">*</span>
+              <label htmlFor="password" className="mb-1 block text-sm text-slate-500 dark:text-slate-400">
+                비밀번호 <span className="text-red-600 dark:text-red-400">*</span>
               </label>
               <input
                 id="password"
@@ -232,7 +235,7 @@ export default function SignupPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="new-password"
-                className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
               />
               {/* 2026-07-24: 통상적인 비밀번호 조합 규칙 실시간 체크리스트 */}
               <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
@@ -241,7 +244,7 @@ export default function SignupPage() {
                   return (
                     <li
                       key={rule.key}
-                      className={met ? 'text-emerald-400' : 'text-slate-600'}
+                      className={met ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-600'}
                     >
                       {met ? '✓' : '·'} {rule.label}
                     </li>
@@ -250,8 +253,8 @@ export default function SignupPage() {
               </ul>
             </div>
             <div>
-              <label htmlFor="passwordConfirm" className="mb-1 block text-sm text-slate-400">
-                비밀번호 확인 <span className="text-red-400">*</span>
+              <label htmlFor="passwordConfirm" className="mb-1 block text-sm text-slate-500 dark:text-slate-400">
+                비밀번호 확인 <span className="text-red-600 dark:text-red-400">*</span>
               </label>
               <input
                 id="passwordConfirm"
@@ -259,30 +262,30 @@ export default function SignupPage() {
                 value={passwordConfirm}
                 onChange={(e) => setPasswordConfirm(e.target.value)}
                 autoComplete="new-password"
-                className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
               />
             </div>
             <div>
-              <label htmlFor="name" className="mb-1 block text-sm text-slate-400">
-                이름 <span className="text-red-400">*</span>
+              <label htmlFor="name" className="mb-1 block text-sm text-slate-500 dark:text-slate-400">
+                이름 <span className="text-red-600 dark:text-red-400">*</span>
               </label>
               <input
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 autoComplete="name"
-                className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
               />
             </div>
             <div>
-              <label htmlFor="orgCode" className="mb-1 block text-sm text-slate-400">
-                소속기관 <span className="text-red-400">*</span>
+              <label htmlFor="orgCode" className="mb-1 block text-sm text-slate-500 dark:text-slate-400">
+                소속기관 <span className="text-red-600 dark:text-red-400">*</span>
               </label>
               <select
                 id="orgCode"
                 value={orgCode}
                 onChange={(e) => setOrgCode(e.target.value)}
-                className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
               >
                 <option value="">선택해주세요</option>
                 {orgOptions.map((org) => (
@@ -293,14 +296,14 @@ export default function SignupPage() {
               </select>
             </div>
             <div>
-              <label htmlFor="marketCode" className="mb-1 block text-sm text-slate-400">
-                담당 시장 <span className="text-red-400">*</span>
+              <label htmlFor="marketCode" className="mb-1 block text-sm text-slate-500 dark:text-slate-400">
+                담당 시장 <span className="text-red-600 dark:text-red-400">*</span>
               </label>
               <select
                 id="marketCode"
                 value={marketCode}
                 onChange={(e) => setMarketCode(e.target.value)}
-                className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
               >
                 <option value="">선택해주세요</option>
                 {marketOptions.map((market) => (
@@ -313,13 +316,13 @@ export default function SignupPage() {
           </div>
 
           {/* 동의 */}
-          <div className="rounded border border-slate-800 bg-slate-950/60 p-4">
-            <label className="flex items-center gap-2 border-b border-slate-800 pb-3 text-sm font-medium text-slate-200">
+          <div className="rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 p-4">
+            <label className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 text-sm font-medium text-slate-800 dark:text-slate-200">
               <input
                 type="checkbox"
                 checked={allAgreed}
                 onChange={(e) => toggleAll(e.target.checked)}
-                className="h-4 w-4 rounded border-slate-600 bg-slate-900 accent-blue-600"
+                className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 accent-blue-600"
               />
               전체 동의합니다
             </label>
@@ -337,12 +340,12 @@ export default function SignupPage() {
                 onChange={(checked) => handleRequiredCheckboxChange('privacy', checked)}
                 onViewClick={() => setOpenModal('privacy')}
               />
-              <label className="flex items-center gap-2 text-sm text-slate-300">
+              <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                 <input
                   type="checkbox"
                   checked={consent.marketing}
                   onChange={(e) => setConsent((c) => ({ ...c, marketing: e.target.checked }))}
-                  className="h-4 w-4 rounded border-slate-600 bg-slate-900 accent-blue-600"
+                  className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 accent-blue-600"
                 />
                 [선택] 안내사항 수신 동의
               </label>
@@ -350,7 +353,7 @@ export default function SignupPage() {
           </div>
 
           {error && (
-            <p role="alert" className="text-sm text-red-400">
+            <p role="alert" className="text-sm text-red-600 dark:text-red-400">
               {error}
             </p>
           )}
@@ -366,7 +369,7 @@ export default function SignupPage() {
           <button
             type="button"
             onClick={() => navigate('/login')}
-            className="text-center text-sm text-slate-500 hover:text-slate-300"
+            className="text-center text-sm text-slate-500 hover:text-slate-900 dark:hover:text-slate-300"
           >
             이미 계정이 있으신가요? 로그인하기
           </button>
@@ -403,19 +406,19 @@ interface RequiredConsentRowProps {
 function RequiredConsentRow({ label, checked, onChange, onViewClick }: RequiredConsentRowProps) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <label className="flex items-center gap-2 text-sm text-slate-200">
+      <label className="flex items-center gap-2 text-sm text-slate-800 dark:text-slate-200">
         <input
           type="checkbox"
           checked={checked}
           onChange={(e) => onChange(e.target.checked)}
-          className="h-4 w-4 rounded border-slate-600 bg-slate-900 accent-blue-600"
+          className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 accent-blue-600"
         />
         {label}
       </label>
       <button
         type="button"
         onClick={onViewClick}
-        className="shrink-0 text-xs text-slate-500 underline hover:text-slate-300"
+        className="shrink-0 text-xs text-slate-500 underline hover:text-slate-900 dark:hover:text-slate-300"
       >
         내용 보기
       </button>

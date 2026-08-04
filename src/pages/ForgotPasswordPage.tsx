@@ -4,6 +4,7 @@ import { ORG_CODE_OPTIONS } from '../constants/orgCode';
 import { MARKET_CODE_OPTIONS } from '../constants/marketCode';
 import { fetchCommonCodes } from '../api/client';
 import { useAuthStore } from '../store/authStore';
+import ThemeToggle from '../components/ui/ThemeToggle';
 
 // 2026-08-04 추가 (비밀번호 찾기 1/2 - 본인확인)
 //
@@ -65,11 +66,12 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950 px-4">
+      <ThemeToggle className="absolute right-6 top-6" />
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
           <p className="mb-1 text-sm text-slate-500">KT Aivle School B2G 빅프로젝트</p>
-          <h1 className="text-xl font-semibold text-slate-100">비밀번호 찾기</h1>
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">비밀번호 찾기</h1>
           <p className="mt-2 text-sm text-slate-500">
             가입 시 입력하신 정보로 본인확인을 진행합니다.
           </p>
@@ -77,10 +79,10 @@ export default function ForgotPasswordPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="flex flex-col gap-4 rounded-lg border border-slate-800 bg-slate-900 p-6"
+          className="flex flex-col gap-4 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6"
         >
           <div>
-            <label htmlFor="loginId" className="mb-1 block text-sm text-slate-400">
+            <label htmlFor="loginId" className="mb-1 block text-sm text-slate-500 dark:text-slate-400">
               아이디
             </label>
             <input
@@ -88,11 +90,11 @@ export default function ForgotPasswordPage() {
               value={loginId}
               onChange={(e) => setLoginId(e.target.value)}
               autoComplete="username"
-              className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="w-full rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
             />
           </div>
           <div>
-            <label htmlFor="name" className="mb-1 block text-sm text-slate-400">
+            <label htmlFor="name" className="mb-1 block text-sm text-slate-500 dark:text-slate-400">
               이름
             </label>
             <input
@@ -100,18 +102,18 @@ export default function ForgotPasswordPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoComplete="name"
-              className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="w-full rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
             />
           </div>
           <div>
-            <label htmlFor="orgCode" className="mb-1 block text-sm text-slate-400">
+            <label htmlFor="orgCode" className="mb-1 block text-sm text-slate-500 dark:text-slate-400">
               소속기관
             </label>
             <select
               id="orgCode"
               value={orgCode}
               onChange={(e) => setOrgCode(e.target.value)}
-              className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="w-full rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
             >
               <option value="">선택해주세요</option>
               {orgOptions.map((org) => (
@@ -122,14 +124,14 @@ export default function ForgotPasswordPage() {
             </select>
           </div>
           <div>
-            <label htmlFor="marketCode" className="mb-1 block text-sm text-slate-400">
+            <label htmlFor="marketCode" className="mb-1 block text-sm text-slate-500 dark:text-slate-400">
               담당 시장
             </label>
             <select
               id="marketCode"
               value={marketCode}
               onChange={(e) => setMarketCode(e.target.value)}
-              className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="w-full rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
             >
               <option value="">선택해주세요</option>
               {marketOptions.map((market) => (
@@ -141,7 +143,7 @@ export default function ForgotPasswordPage() {
           </div>
 
           {error && (
-            <p role="alert" className="text-sm text-red-400">
+            <p role="alert" className="text-sm text-red-600 dark:text-red-400">
               {error}
             </p>
           )}
@@ -158,7 +160,7 @@ export default function ForgotPasswordPage() {
         <button
           type="button"
           onClick={() => navigate('/login')}
-          className="mt-3 w-full text-center text-sm text-slate-500 hover:text-slate-300"
+          className="mt-3 w-full text-center text-sm text-slate-500 hover:text-slate-900 dark:hover:text-slate-300"
         >
           로그인 화면으로 돌아가기
         </button>

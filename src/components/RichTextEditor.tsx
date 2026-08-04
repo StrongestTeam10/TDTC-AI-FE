@@ -44,7 +44,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
     editorProps: {
       attributes: {
         class:
-          'min-h-[240px] rounded-b border border-t-0 border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 focus:outline-none prose prose-invert prose-sm max-w-none',
+          'min-h-[240px] rounded-b border border-t-0 border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none prose prose-invert prose-sm max-w-none',
       },
     },
   });
@@ -88,7 +88,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
 
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-1 rounded-t border border-slate-700 bg-slate-900 p-2">
+      <div className="flex flex-wrap items-center gap-1 rounded-t border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-2">
         <ToolbarButton active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()} label="굵게">
           <span className="font-bold">B</span>
         </ToolbarButton>
@@ -131,12 +131,12 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
           🔗
         </ToolbarButton>
 
-        <label className="ml-1 flex cursor-pointer items-center gap-1 text-xs text-slate-400" title="글자 색">
+        <label className="ml-1 flex cursor-pointer items-center gap-1 text-xs text-slate-500 dark:text-slate-400" title="글자 색">
           색
           <input
             type="color"
             onChange={(e) => editor.chain().focus().setColor(e.target.value).run()}
-            className="h-6 w-6 cursor-pointer rounded border border-slate-700 bg-transparent p-0"
+            className="h-6 w-6 cursor-pointer rounded border border-slate-300 dark:border-slate-700 bg-transparent p-0"
           />
         </label>
       </div>
@@ -146,7 +146,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
 }
 
 function Divider() {
-  return <span className="mx-1 h-5 w-px bg-slate-700" />;
+  return <span className="mx-1 h-5 w-px bg-slate-200 dark:bg-slate-700" />;
 }
 
 function ToolbarButton({
@@ -167,7 +167,7 @@ function ToolbarButton({
       aria-label={label}
       onClick={onClick}
       className={`flex h-7 min-w-7 items-center justify-center rounded px-1.5 text-sm ${
-        active ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'
+        active ? 'bg-blue-600 text-white' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
       }`}
     >
       {children}

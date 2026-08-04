@@ -337,4 +337,123 @@ export async function downloadAttachment(
   window.URL.revokeObjectURL(blobUrl);
 }
 
+// ---------------------------------------------------------------------------
+// 2026-08-04 추가 (시설 관리 화면 - 상점 위치 등록)
+// 관리자(ROL01)/상인회(ORGMA)만 호출 가능(그 외 역할은 BE가 403). 사진은 previewExif로
+// EXIF 미리보기만 받은 뒤(저장 없음), 사용자가 지도에서 보정 + 방향 라벨링을 마치면
+// save로 실제 저장하는 2단계 흐름 - FacilityPhotoService 설계와 동일.
+// ---------------------------------------------------------------------------
+
+export interface Facility {
+  facilityId: number;
+  marketId: number;
+  facilityType: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  isActive: boolean;
+  rmk: string | null;
+  photoCount: number;
+  updatedAt: string | null;
+}
+
+export interface FacilityCreateRequest {
+  marketId: number;
+  facilityType: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  isActive?: boolean;
+  rmk?: string;
+}
+
+export interface FacilityUpdateRequest {
+  facilityType: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  isActive: boolean;
+  rmk?: string;
+}
+
+export async function fetchFacilities(marketId: number): Promise<Facility[]> {
+  const { data } = await apiClient.get<Facility[]>('/facilities', { params: { marketId } });
+  return data;
+}
+
+export async function createFacility(request: FacilityCreateRequest): Promise<Facility> {
+  const { data } = await apiClient.post<Facility>('/facilities', request);
+  return data;
+}
+
+export async function updateFacility(facilityId: number, request: FacilityUpdateRequest): Promise<Facility> {
+  const { data } = await apiClient.put<Facility>(`/facilities/${facilityId}`, request);
+  return data;
+}
+
+export async function deleteFacility(facilityId: number): Promise<void> {
+  await apiClient.delete(`/facilities/${facilityId}`);
+}
+
+export interface PhotoExifPreview {
+  hasGps: boolean;
+  exifLatitude: number | null;
+  exifLongitude: number | null;
+  capturedAt: string | null;
+}
+
+export interface FacilityPhoto {
+  photoId: number;
+  facilityId: number;
+  directionCode: string;
+  originalName: string;
+  downloadUrl: string;
+  exifLatitude: number | null;
+  exifLongitude: number | null;
+  correctedLatitude: number;
+  correctedLongitude: number;
+  capturedAt: string | null;
+  createdAt: string;
+}
+
+export async function previewFacilityPhotoExif(facilityId: number, file: File): Promise<PhotoExifPreview> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const { data } = await apiClient.post<PhotoExifPreview>(
+    `/facilities/${facilityId}/photos/exif`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  );
+  return data;
+}
+
+export async function saveFacilityPhoto(
+  facilityId: number,
+  file: File,
+  directionCode: string,
+  correctedLatitude: number,
+  correctedLongitude: number
+): Promise<FacilityPhoto> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('directionCode', directionCode);
+  formData.append('correctedLatitude', String(correctedLatitude));
+  formData.append('correctedLongitude', String(correctedLongitude));
+  const { data } = await apiClient.post<FacilityPhoto>(
+    `/facilities/${facilityId}/photos`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  );
+  return data;
+}
+
+export async function fetchFacilityPhotos(facilityId: number): Promise<FacilityPhoto[]> {
+  const { data } = await apiClient.get<FacilityPhoto[]>(`/facilities/${facilityId}/photos`);
+  return data;
+}
+
+export async function deleteFacilityPhoto(facilityId: number, photoId: number): Promise<void> {
+  await apiClient.delete(`/facilities/${facilityId}/photos/${photoId}`);
+}
+
 export default apiClient;

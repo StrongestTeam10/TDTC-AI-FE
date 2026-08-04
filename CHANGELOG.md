@@ -3,6 +3,88 @@
 이 파일은 Claude와의 작업 세션에서 변경된 내용을 기록합니다.
 각 항목은 zip으로 전달된 시점 기준입니다.
 
+### 2026-08-04 (3차 - 상점 위치 등록 화면 신규, 게시판 왼쪽 탭)
+- **요청**: 업로드해주신 `store-location-prototype.html`(손그림 와이어프레임)을 실제
+  사이트 톤으로 재구현, 게시판 탭 왼쪽에 새 탭으로 추가. 사진 첨부 기능도 포함(지난
+  세션에 만들어두고 보류했던 기능 편입). 3D 구현은 이번 범위 아님. "층/위치 메모"는
+  별도 입력칸을 만들지 않고 비고 하나로 합쳐서 BE `rmk` 컬럼에 저장
+- **접근 권한**: 관리자(ROL01) 또는 상인회(orgCode='ORGMA')만 탭이 보이고 화면에
+  들어갈 수 있음. 나머지 역할은 탭 자체가 안 보이고, 주소를 직접 입력해도
+  `RequireFacilityManager`가 `/dashboard`로 돌려보냄(실제 차단은 BE가 담당)
+- 🆕 `utils/kakaoLoader.ts`: `KakaoMapView.tsx`에 있던 카카오맵 SDK 로더를 공용
+  유틸로 분리(중복 제거, 이 화면도 실제 지도가 필요해서)
+- 🆕 `components/FacilityLocationPicker.tsx`: 프로토타입의 손그림 SVG 지도를 대체하는
+  실제 카카오맵. 클릭하면 위경도 자동 입력, 기존 등록 시설은 파란 마커, 지금 선택한
+  위치는 빨간 마커로 구분. `KakaoMapView`는 시뮬레이션 구역(zones)에 강하게 엮여
+  있어 재사용 대신 가벼운 전용 컴포넌트로 새로 만듦
+- 🆕 `components/RequireFacilityManager.tsx`: 역할 기반 라우트 가드
+- 🆕 `pages/FacilityManagePage.tsx`: 지도 + 등록/수정 폼(상점명/업종/좌표/비고/영업상태)
+  + 등록 목록 테이블 + 사진 관리 패널(파일 선택 → EXIF 자동 미리보기 → 좌표 보정 →
+  방향(동서남북) 선택 → 저장, 등록된 사진 썸네일 그리드 + 삭제). 관리자는 대시보드와
+  동일한 시장 전환 탭, 상인회는 본인 담당 시장으로 자동 고정
+- ✏️ `api/client.ts`: `fetchFacilities`/`createFacility`/`updateFacility`/
+  `deleteFacility` + 사진 관련 5개 함수(`previewFacilityPhotoExif`, `saveFacilityPhoto`,
+  `fetchFacilityPhotos`, `deleteFacilityPhoto`) 및 관련 타입 추가
+- ✏️ `components/layout/Header.tsx`: "관제 대시보드"와 "게시판" 사이에 "상점 위치 등록"
+  탭 추가(관리자/상인회에게만 노출)
+- ✏️ `App.tsx`: `/facilities` 라우트 추가(`RequireAuth` + `RequireFacilityManager` +
+  `AppLayout`으로 감쌈)
+- ✏️ `components/KakaoMapView.tsx`: SDK 로더 부분을 `utils/kakaoLoader.ts` import로
+  교체(동작 변화 없음, 순수 리팩터링)
+
+**업종/시설유형 값**: 프로토타입은 "상점"/"출입구" 등 한글 값을 썼지만, 실제 시드
+데이터와 `MarketService.getGates()`(게이트 판별 로직)는 `GATE`/`STALL` 같은 영문
+대문자 코드를 쓰고 있어서 그대로 맞춤(선택지: STALL/RESTAURANT/RESTROOM/GATE/OTHER,
+Korean 라벨만 화면에 표시)
+
+**검증**: `npx tsc -b`(무관한 기존 오류 1건 외 통과), `npx oxlint`(0 errors), `npx vite build`(성공)
+
+**참고 (사진 업로드 단계 좌표 보정)**: 이번 화면에서는 지도를 하나 더 띄우는 대신
+숫자 입력 필드로 좌표를 직접 보정하도록 단순화했습니다(시설 등록 자체는 실제 지도
+클릭 방식). 필요하면 다음에 사진 보정에도 지도 클릭 방식을 추가할 수 있습니다.
+
+### 2026-08-04 (2차 - 다크모드/라이트모드 전체 적용)
+- **범위**: 공통 레이아웃 + 전체 페이지/컴포넌트 한 번에 적용(요청 범위). 기본 테마는
+  시스템 설정(OS `prefers-color-scheme`)을 따르고, 사용자가 수동으로 바꾸면 그
+  이후로는 OS 설정 변경과 무관하게 선택한 테마 유지(다시 "시스템 설정"으로 돌아가는
+  것도 가능 - 3단계 순환)
+- 🆕 `store/themeStore.ts`: `mode`(`system`/`light`/`dark`) 상태 관리. `<html>`
+  태그에 `dark` 클래스를 붙였다 뗐다 하는 방식(Tailwind v4 `@custom-variant dark`).
+  localStorage(`tdtc-ai-theme`)에 사용자가 명시적으로 고른 테마만 저장, OS 설정
+  변경은 `matchMedia` 리스너로 실시간 반영(모드가 `system`일 때만)
+- 🆕 `components/ui/ThemeToggle.tsx`: 시스템 설정 → 라이트 → 다크 → 시스템 설정
+  순으로 순환하는 아이콘 버튼. 아이콘 라이브러리가 프로젝트에 없어 인라인 SVG로 직접
+  그림(새 의존성 추가 안 함)
+- ✏️ `index.css`: `@custom-variant dark (&:where(.dark, .dark *));` 추가(Tailwind
+  v4는 `tailwind.config.js` 없이 CSS에서 직접 정의). 기본 OS 미디어쿼리 방식 대신
+  클래스 기반으로 바꿔야 수동 토글이 가능함. 라이트/다크 각각의 기본 배경색 지정
+- ✏️ `index.html`: React 마운트 전에 저장된 테마를 먼저 적용하는 인라인 스크립트
+  추가(FOUC 방지 - "다크로 잠깐 보였다가 라이트로 바뀌는" 깜빡임 없이 처음부터
+  올바른 테마로 로드됨)
+- ✏️ **28개 파일**: 하드코딩된 다크 전용 색상(`bg-slate-900`, `text-slate-400` 등)을
+  `라이트클래스 dark:다크클래스` 쌍으로 일괄 변환(자동화 스크립트 + 수동 검수).
+  구조색(배경/테두리)은 라이트 모드에서 대응하는 밝은 톤으로, 빨강/파랑/호박/주황/
+  에메랄드 계열의 옅은 텍스트 색상(다크 배경 기준으로 고른 톤)은 흰 배경에서도 대비가
+  확보되도록 더 진한 톤을 짝지음. 경고/에러 패널(진한 배경+테두리 조합)도 동일하게
+  라이트 대응 톤 추가
+- **의도적으로 제외한 3개 파일**: `HeatmapView.tsx`, `KakaoMapView.tsx`,
+  `FramePlayer.tsx` - 지도/히트맵/영상 프레임 위에 겹쳐지는 범례·툴팁·컨트롤 바는
+  그 아래 실제 콘텐츠(지도 타일, 히트맵 색상, 영상 프레임)가 테마와 무관하게 계속
+  존재하므로, 영상 편집기 컨트롤 바처럼 앱 테마와 상관없이 항상 어둡게 고정해야
+  가독성이 유지됨. 같은 이유로 `ScenarioPage.tsx`의 히트맵 위 오버레이 배지 1곳도
+  개별적으로 고정 다크 유지
+- ✏️ `components/layout/Header.tsx`: 로그인 여부와 무관하게 유틸리티 영역에
+  `ThemeToggle` 노출(대시보드/시나리오/게시판/랜딩/404 등 `AppLayout`을 쓰는 모든
+  화면에 적용됨)
+- ✏️ `pages/LoginPage.tsx`, `SignupPage.tsx`, `ForgotPasswordPage.tsx`,
+  `ResetPasswordPage.tsx`: `AppLayout`을 쓰지 않는 독립 화면들이라 각각 우측 상단에
+  개별적으로 `ThemeToggle` 배치(회원가입/비밀번호 찾기 등 여러 화면 상태가 있는
+  페이지는 모든 상태에 빠짐없이 추가)
+
+**검증**: `npx tsc -b`(`HeatmapView.tsx`의 기존 미사용 변수 오류 1건 외 통과 - 이번
+변경과 무관), `npx oxlint`(0 errors, 기존 `KakaoMapView.tsx` warning 3건 외 없음),
+`npx vite build`(성공)
+
 ### 2026-08-04 (로그인 화면 - 비밀번호 찾기 신규, 회원가입 버튼 우상단으로 이동)
 - **요청**: 회원가입 링크를 눈에 덜 띄는 하단에서 화면 우측 상단 버튼으로 옮기고,
   그 자리(하단)에 비밀번호 찾기를 넣어줄 것. 상점 외관 사진 업로드 기능은 이번

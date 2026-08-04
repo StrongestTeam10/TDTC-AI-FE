@@ -13,8 +13,10 @@ import NotFoundPage from './pages/NotFoundPage';
 import BoardListPage from './pages/BoardListPage';
 import BoardDetailPage from './pages/BoardDetailPage';
 import BoardWritePage from './pages/BoardWritePage';
+import FacilityManagePage from './pages/FacilityManagePage';
 import AppLayout from './components/layout/AppLayout';
 import RequireAuth from './components/RequireAuth';
+import RequireFacilityManager from './components/RequireFacilityManager';
 import { useAuthStore } from './store/authStore';
 import { fetchMe } from './api/client';
 
@@ -94,6 +96,18 @@ export default function App() {
               <AppLayout>
                 <SimulationComparePage />
               </AppLayout>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/facilities"
+          element={
+            <RequireAuth>
+              <RequireFacilityManager>
+                <AppLayout>
+                  <FacilityManagePage />
+                </AppLayout>
+              </RequireFacilityManager>
             </RequireAuth>
           }
         />

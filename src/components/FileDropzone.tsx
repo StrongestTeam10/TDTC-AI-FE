@@ -58,8 +58,8 @@ export default function FileDropzone({ files, onChange, uploadProgress }: FileDr
         onClick={() => !isUploading && inputRef.current?.click()}
         className={`cursor-pointer rounded border-2 border-dashed px-4 py-6 text-center text-sm transition-colors ${
           isDragOver
-            ? 'border-blue-500 bg-blue-500/10 text-blue-300'
-            : 'border-slate-700 text-slate-400 hover:border-slate-600'
+            ? 'border-blue-500 bg-blue-500/10 text-blue-700 dark:text-blue-300'
+            : 'border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-400 dark:hover:border-slate-600'
         } ${isUploading ? 'pointer-events-none opacity-60' : ''}`}
       >
         드래그 앤 드롭 또는 클릭하여 파일 추가 (다중 가능)
@@ -77,7 +77,7 @@ export default function FileDropzone({ files, onChange, uploadProgress }: FileDr
           {files.map((file, index) => (
             <li
               key={`${file.name}-${file.size}-${index}`}
-              className="flex items-center justify-between rounded border border-slate-800 bg-slate-950/60 px-3 py-1.5 text-sm text-slate-300"
+              className="flex items-center justify-between rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 px-3 py-1.5 text-sm text-slate-700 dark:text-slate-300"
             >
               <span className="truncate">
                 📎 {file.name} <span className="text-slate-500">({formatFileSize(file.size)})</span>
@@ -85,13 +85,13 @@ export default function FileDropzone({ files, onChange, uploadProgress }: FileDr
               {isUploading ? (
                 <span
                   aria-hidden
-                  className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-slate-600 border-t-blue-500"
+                  className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-slate-300 dark:border-slate-600 border-t-blue-500"
                 />
               ) : (
                 <button
                   type="button"
                   onClick={() => removeFile(index)}
-                  className="shrink-0 text-slate-500 hover:text-red-400"
+                  className="shrink-0 text-slate-500 hover:text-red-600 dark:hover:text-red-400"
                   aria-label={`${file.name} 제거`}
                 >
                   ✕
@@ -104,7 +104,7 @@ export default function FileDropzone({ files, onChange, uploadProgress }: FileDr
 
       {isUploading && (
         <div className="mt-2">
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
             <div
               className="h-full bg-blue-600 transition-all"
               style={{ width: `${uploadProgress}%` }}
