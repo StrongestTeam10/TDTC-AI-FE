@@ -74,9 +74,6 @@ export default function HeatmapView({
   height = 480,
   transitionMs = 0,
 }: HeatmapViewProps) {
-  const internalWidth = typeof width === 'number' ? width : 640;
-  const internalHeight = typeof height === 'number' ? height : 480;
-  
   const PADDING = 32;
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ x: number; y: number } | null>(null);
@@ -101,7 +98,13 @@ export default function HeatmapView({
     return () => observer.disconnect();
   }, [width]);
 
+  // 2026-08-04 수정: renderWidth가 계산만 되고 실제로는 안 쓰이고 있었음(CI
+  // tsc -b가 미사용 변수로 빌드 자체를 막음). internalWidth가 원래 width prop만
+  // 보고 있던 걸 renderWidth(= 명시적 width 우선, 없으면 ResizeObserver로 측정한
+  // 값)를 보도록 고쳐서 위 주석에 적힌 반응형 동작이 실제로 동작하게 함.
   const renderWidth = width ?? measuredWidth;
+  const internalWidth = typeof renderWidth === 'number' ? renderWidth : 640;
+  const internalHeight = typeof height === 'number' ? height : 480;
 
   // 마우스 휠 확대/축소. React의 합성 onWheel은 기본적으로 passive라 preventDefault가
   // 안 먹혀서(경고 발생) 네이티브 리스너를 직접 붙인다. 커서 위치를 기준으로 확대해서
