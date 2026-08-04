@@ -23,7 +23,7 @@ export default function RiskTrendChart({ riskTrend, beforeTrend, afterTrend }: R
 
   if (!hasData) {
     return (
-        <div className="rounded-lg border border-slate-700 bg-slate-900 p-8 text-center text-slate-500 text-sm">
+        <div className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-8 text-center text-slate-500 text-sm">
           시뮬레이션을 실행하면 위험도 추이가 표시됩니다.
         </div>
     );
@@ -50,8 +50,8 @@ export default function RiskTrendChart({ riskTrend, beforeTrend, afterTrend }: R
   });
 
   return (
-      <div className="rounded-lg border border-slate-700 bg-slate-900 p-4">
-        <h3 className="mb-2 text-sm text-slate-400">스텝별 위험도 추이</h3>
+      <div className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+        <h3 className="mb-2 text-sm text-slate-500 dark:text-slate-400">스텝별 위험도 추이</h3>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: -16 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#334155" />

@@ -17,7 +17,7 @@ export default function PredictForm({ marketId, isRunning, onSubmit }: PredictFo
   };
 
   return (
-      <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-slate-700 bg-slate-800 p-4">
+      <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-4">
         <div className="text-xs text-slate-500">
           현재 실측 상태(센서 관측값)를 출발점으로, 매대 매력도 기반 이동과 게이트를 통한
           신규 유입만으로 위험도가 어떻게 전개되는지 예측합니다. 화재 등 이벤트는 다루지
@@ -25,20 +25,20 @@ export default function PredictForm({ marketId, isRunning, onSubmit }: PredictFo
         </div>
 
         <div>
-          <label className="mb-1 block text-sm text-slate-300">예측 스텝 수</label>
+          <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">예측 스텝 수</label>
           <input
               type="number"
               min={1}
               max={1000}
               value={steps}
               onChange={(e) => setSteps(Number(e.target.value))}
-              className="w-full rounded border border-slate-600 bg-slate-900 px-3 py-2 text-slate-200"
+              className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-slate-800 dark:text-slate-200"
               disabled={isRunning}
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-sm text-slate-300">
+          <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
             총 유입 인원 (전체 스텝에 무작위로 분산)
           </label>
           <input
@@ -47,7 +47,7 @@ export default function PredictForm({ marketId, isRunning, onSubmit }: PredictFo
               max={100000}
               value={totalInflow}
               onChange={(e) => setTotalInflow(Number(e.target.value))}
-              className="w-full rounded border border-slate-600 bg-slate-900 px-3 py-2 text-slate-200"
+              className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-slate-800 dark:text-slate-200"
               disabled={isRunning}
           />
           <p className="mt-1 text-xs text-slate-500">

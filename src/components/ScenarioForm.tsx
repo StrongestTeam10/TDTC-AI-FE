@@ -119,29 +119,29 @@ export default function ScenarioForm({
   };
 
   return (
-      <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border border-slate-700 bg-slate-800 p-3">
+      <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-3">
         <div>
-          <label className="mb-1 block text-xs text-slate-300">투입 인구 수 (명)</label>
+          <label className="mb-1 block text-xs text-slate-700 dark:text-slate-300">투입 인구 수 (명)</label>
           <input
               type="number"
               min={1}
               max={1000}
               value={agentCount}
               onChange={(e) => setAgentCount(Number(e.target.value))}
-              className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1.5 text-sm text-slate-200"
+              className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-2 py-1.5 text-sm text-slate-800 dark:text-slate-200"
               disabled={isRunning}
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-xs text-slate-300">시뮬레이션 스텝 수</label>
+          <label className="mb-1 block text-xs text-slate-700 dark:text-slate-300">시뮬레이션 스텝 수</label>
           <input
               type="number"
               min={10}
               max={1000}
               value={steps}
               onChange={(e) => setSteps(Number(e.target.value))}
-              className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1.5 text-sm text-slate-200"
+              className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-2 py-1.5 text-sm text-slate-800 dark:text-slate-200"
               disabled={isRunning}
           />
         </div>
@@ -149,7 +149,7 @@ export default function ScenarioForm({
         {/* 오브젝트 배치 */}
         <div className="rounded-lg border border-sky-800 bg-sky-950/40 p-2.5 space-y-2">
           <h3 className="text-xs font-semibold text-sky-300">오브젝트 배치</h3>
-          <p className="text-[11px] text-slate-400">
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
             {placementType
                 ? `배치 모드: ${placementLabel(placementType)} — 지도를 클릭하세요`
                 : '종류를 선택한 뒤 지도를 클릭하세요'}
@@ -165,7 +165,7 @@ export default function ScenarioForm({
                     className={`rounded border px-1.5 py-1 text-[11px] text-left ${
                         placementType === opt.value
                             ? 'border-sky-400 bg-sky-900/60 text-sky-100'
-                            : 'border-slate-700 text-slate-300 hover:border-slate-500'
+                            : 'border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-400 dark:hover:border-slate-500'
                     }`}
                     title={opt.hint}
                 >
@@ -175,7 +175,7 @@ export default function ScenarioForm({
           </div>
 
           <div>
-            <label className="mb-1 block text-[11px] text-slate-400">배치 강도 (0.0 ~ 1.0)</label>
+            <label className="mb-1 block text-[11px] text-slate-500 dark:text-slate-400">배치 강도 (0.0 ~ 1.0)</label>
             <input
                 type="number"
                 step="0.1"
@@ -183,7 +183,7 @@ export default function ScenarioForm({
                 max={1.0}
                 value={nextIntensity}
                 onChange={(e) => onNextIntensityChange(Number(e.target.value))}
-                className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-[11px] text-slate-200"
+                className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-2 py-1 text-[11px] text-slate-800 dark:text-slate-200"
                 disabled={isRunning}
             />
           </div>
@@ -191,13 +191,13 @@ export default function ScenarioForm({
           {objects.length > 0 && (
               <ul className="space-y-1 max-h-28 overflow-y-auto">
                 {objects.map((obj, i) => (
-                    <li key={i} className="flex items-center justify-between rounded bg-slate-900/60 px-2 py-1 text-[11px] text-slate-300">
+                    <li key={i} className="flex items-center justify-between rounded bg-slate-100 dark:bg-slate-900/60 px-2 py-1 text-[11px] text-slate-700 dark:text-slate-300">
                       <span>{objectTypeLabel(obj.objectType)} · {obj.intensity}</span>
                       <button
                           type="button"
                           onClick={() => onRemoveObject(i)}
                           disabled={isRunning}
-                          className="text-slate-500 hover:text-red-400"
+                          className="text-slate-500 hover:text-red-600 dark:hover:text-red-400"
                       >
                         삭제
                       </button>
@@ -208,9 +208,9 @@ export default function ScenarioForm({
         </div>
 
         {/* 이벤트 발생 (화재/음향 이상) */}
-        <div className="rounded-lg border border-red-800 bg-red-950/30 p-2.5 space-y-2">
-          <h3 className="text-xs font-semibold text-red-300">이벤트 발생</h3>
-          <p className="text-[11px] text-slate-400">
+        <div className="rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/30 p-2.5 space-y-2">
+          <h3 className="text-xs font-semibold text-red-700 dark:text-red-300">이벤트 발생</h3>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
             {placementType && isEventType(placementType)
                 ? `배치 모드: ${placementLabel(placementType)} — 지도를 클릭하세요`
                 : '화재/음향 이상을 선택한 뒤 지도를 클릭하세요'}
@@ -225,8 +225,8 @@ export default function ScenarioForm({
                     onClick={() => handleTogglePlacement(opt.value)}
                     className={`rounded border px-1.5 py-1 text-[11px] text-left ${
                         placementType === opt.value
-                            ? 'border-red-400 bg-red-900/60 text-red-100'
-                            : 'border-slate-700 text-slate-300 hover:border-slate-500'
+                            ? 'border-red-500 dark:border-red-400 bg-red-100 dark:bg-red-900/60 text-red-900 dark:text-red-100'
+                            : 'border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-400 dark:hover:border-slate-500'
                     }`}
                     title={opt.hint}
                 >
@@ -236,7 +236,7 @@ export default function ScenarioForm({
           </div>
 
           <div>
-            <label className="mb-1 block text-[11px] text-slate-400">
+            <label className="mb-1 block text-[11px] text-slate-500 dark:text-slate-400">
               발생 스텝 (1 ~ {steps})
             </label>
             <input
@@ -245,7 +245,7 @@ export default function ScenarioForm({
                 max={steps}
                 value={nextTriggerStep}
                 onChange={(e) => onNextTriggerStepChange(Number(e.target.value))}
-                className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-[11px] text-slate-200"
+                className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-2 py-1 text-[11px] text-slate-800 dark:text-slate-200"
                 disabled={isRunning}
             />
           </div>
@@ -253,7 +253,7 @@ export default function ScenarioForm({
           {events.length > 0 && (
               <ul className="space-y-1 max-h-28 overflow-y-auto">
                 {events.map((ev, i) => (
-                    <li key={i} className="flex items-center justify-between gap-1 rounded bg-slate-900/60 px-2 py-1 text-[11px] text-slate-300">
+                    <li key={i} className="flex items-center justify-between gap-1 rounded bg-slate-100 dark:bg-slate-900/60 px-2 py-1 text-[11px] text-slate-700 dark:text-slate-300">
                       <span className="flex-1">
                         {eventTypeLabel(ev.eventType)} · 강도 {ev.intensity}
                       </span>
@@ -264,7 +264,7 @@ export default function ScenarioForm({
                           value={ev.triggerStep ?? 1}
                           onChange={(e) => onUpdateEventTriggerStep(i, Number(e.target.value))}
                           disabled={isRunning}
-                          className="w-14 rounded border border-slate-600 bg-slate-800 px-1 py-0.5 text-[11px] text-slate-200"
+                          className="w-14 rounded border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 px-1 py-0.5 text-[11px] text-slate-800 dark:text-slate-200"
                           title="발생 스텝 수정"
                       />
                       <span className="text-slate-500">스텝</span>
@@ -272,7 +272,7 @@ export default function ScenarioForm({
                           type="button"
                           onClick={() => onRemoveEvent(i)}
                           disabled={isRunning}
-                          className="text-slate-500 hover:text-red-400"
+                          className="text-slate-500 hover:text-red-600 dark:hover:text-red-400"
                       >
                         삭제
                       </button>
@@ -283,14 +283,14 @@ export default function ScenarioForm({
         </div>
 
         {/* 통로 정책 */}
-        <div className="rounded-lg border border-amber-800 bg-amber-950/30 p-2.5 space-y-2">
-          <h3 className="text-xs font-semibold text-amber-300">통로 정책</h3>
+        <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-2.5 space-y-2">
+          <h3 className="text-xs font-semibold text-amber-700 dark:text-amber-300">통로 정책</h3>
 
           <div className="grid grid-cols-2 gap-1.5">
             <select
                 value={nextFromZoneId}
                 onChange={(e) => setNextFromZoneId(Number(e.target.value))}
-                className="rounded border border-slate-600 bg-slate-900 px-1.5 py-1 text-[11px] text-slate-200"
+                className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-1.5 py-1 text-[11px] text-slate-800 dark:text-slate-200"
                 disabled={isRunning || zones.length === 0}
             >
               {zones.map((z) => (
@@ -300,7 +300,7 @@ export default function ScenarioForm({
             <select
                 value={nextToZoneId}
                 onChange={(e) => setNextToZoneId(Number(e.target.value))}
-                className="rounded border border-slate-600 bg-slate-900 px-1.5 py-1 text-[11px] text-slate-200"
+                className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-1.5 py-1 text-[11px] text-slate-800 dark:text-slate-200"
                 disabled={isRunning || zones.length === 0}
             >
               {zones.map((z) => (
@@ -313,7 +313,7 @@ export default function ScenarioForm({
             <select
                 value={nextAction}
                 onChange={(e) => setNextAction(e.target.value as CorridorPolicy['action'])}
-                className="rounded border border-slate-600 bg-slate-900 px-1.5 py-1 text-[11px] text-slate-200"
+                className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-1.5 py-1 text-[11px] text-slate-800 dark:text-slate-200"
                 disabled={isRunning}
             >
               {CORRIDOR_ACTION_OPTIONS.map((opt) => (
@@ -324,7 +324,7 @@ export default function ScenarioForm({
                 <select
                     value={nextAllowedDirection}
                     onChange={(e) => setNextAllowedDirection(e.target.value as 'from_to' | 'to_from')}
-                    className="rounded border border-slate-600 bg-slate-900 px-1.5 py-1 text-[11px] text-slate-200"
+                    className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-1.5 py-1 text-[11px] text-slate-800 dark:text-slate-200"
                     disabled={isRunning}
                 >
                   <option value="from_to">→ 방향만 허용</option>
@@ -339,7 +339,7 @@ export default function ScenarioForm({
               type="button"
               onClick={handleAddCorridor}
               disabled={isRunning || zones.length < 2}
-              className="w-full rounded border border-amber-700 py-1 text-[11px] text-amber-200 hover:bg-amber-900/40 disabled:opacity-50"
+              className="w-full rounded border border-amber-400 dark:border-amber-700 py-1 text-[11px] text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/40 disabled:opacity-50"
           >
             + 통로 정책 추가
           </button>
@@ -347,7 +347,7 @@ export default function ScenarioForm({
           {corridors.length > 0 && (
               <ul className="space-y-1 max-h-28 overflow-y-auto">
                 {corridors.map((c, i) => (
-                    <li key={i} className="flex items-center justify-between rounded bg-slate-900/60 px-2 py-1 text-[11px] text-slate-300">
+                    <li key={i} className="flex items-center justify-between rounded bg-slate-100 dark:bg-slate-900/60 px-2 py-1 text-[11px] text-slate-700 dark:text-slate-300">
                       <span>
                         {zoneName(c.fromZoneId)} ↔ {zoneName(c.toZoneId)} · {actionLabel(c.action)}
                         {c.action === 'one_way' ? ` (${c.allowedDirection === 'to_from' ? '←' : '→'})` : ''}
@@ -356,7 +356,7 @@ export default function ScenarioForm({
                           type="button"
                           onClick={() => handleRemoveCorridor(i)}
                           disabled={isRunning}
-                          className="text-slate-500 hover:text-red-400"
+                          className="text-slate-500 hover:text-red-600 dark:hover:text-red-400"
                       >
                         삭제
                       </button>

@@ -44,16 +44,16 @@ export default function TermsModal({ title, children, onConfirm, onClose }: Term
       onClick={onClose}
     >
       <div
-        className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-lg border border-slate-700 bg-slate-900 shadow-xl"
+        className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
-          <h2 className="text-base font-semibold text-slate-100">{title}</h2>
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 px-5 py-4">
+          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="닫기"
-            className="text-slate-500 hover:text-slate-300"
+            className="text-slate-500 hover:text-slate-900 dark:hover:text-slate-300"
           >
             ✕
           </button>
@@ -62,20 +62,20 @@ export default function TermsModal({ title, children, onConfirm, onClose }: Term
         <div
           ref={handleBodyRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto whitespace-pre-line px-5 py-4 text-sm leading-relaxed text-slate-400"
+          className="flex-1 overflow-y-auto whitespace-pre-line px-5 py-4 text-sm leading-relaxed text-slate-500 dark:text-slate-400"
         >
           {children}
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-slate-800 px-5 py-4">
-          <p className="text-xs text-slate-600">
+        <div className="flex items-center justify-between gap-3 border-t border-slate-200 dark:border-slate-800 px-5 py-4">
+          <p className="text-xs text-slate-400 dark:text-slate-600">
             {reachedBottom ? '내용을 모두 확인했습니다.' : '끝까지 읽으면 확인 버튼이 활성화됩니다.'}
           </p>
           <div className="flex shrink-0 gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="rounded border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800"
+              className="rounded border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
             >
               닫기
             </button>
@@ -83,7 +83,7 @@ export default function TermsModal({ title, children, onConfirm, onClose }: Term
               type="button"
               onClick={onConfirm}
               disabled={!reachedBottom}
-              className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
+              className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-500"
             >
               확인하고 동의
             </button>

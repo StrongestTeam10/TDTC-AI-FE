@@ -12,11 +12,11 @@ export default function Spinner({ label = '불러오는 중...', className = '' 
   return (
     <div
       role="status"
-      className={`flex items-center justify-center gap-2 py-10 text-sm text-slate-400 ${className}`}
+      className={`flex items-center justify-center gap-2 py-10 text-sm text-slate-500 dark:text-slate-400 ${className}`}
     >
       <span
         aria-hidden
-        className="h-4 w-4 animate-spin rounded-full border-2 border-slate-600 border-t-blue-500"
+        className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 dark:border-slate-600 border-t-blue-500"
       />
       <span>{label}</span>
     </div>

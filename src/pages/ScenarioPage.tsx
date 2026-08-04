@@ -200,7 +200,7 @@ export default function ScenarioPage() {
 
   return (
       <div className="space-y-6">
-        <h1 className="text-xl font-semibold text-slate-100">
+        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
           시나리오 기반 What-if 실험
         </h1>
 
@@ -258,7 +258,7 @@ export default function ScenarioPage() {
                         <select
                             value={playSpeed}
                             onChange={(e) => setPlaySpeed(Number(e.target.value))}
-                            className="rounded border border-slate-600 bg-slate-800 px-1 py-0.5 text-slate-200"
+                            className="rounded border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 px-1 py-0.5 text-slate-800 dark:text-slate-200"
                         >
                           {SPEED_OPTIONS.map((s) => (
                               <option key={s} value={s}>{s}x</option>
@@ -282,10 +282,10 @@ export default function ScenarioPage() {
                         }
                       ] : []}
                   />
-                  <div className="rounded-lg border border-slate-700 bg-slate-900 p-4">
-                    <h3 className="text-sm text-slate-400 mb-2">실험 결과 요약</h3>
+                  <div className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+                    <h3 className="text-sm text-slate-500 dark:text-slate-400 mb-2">실험 결과 요약</h3>
                     {scenarioResult ? (
-                        <div className="space-y-2 text-slate-200 text-sm">
+                        <div className="space-y-2 text-slate-800 dark:text-slate-200 text-sm">
                           <div className="flex justify-between">
                             <span className="opacity-80">대피 소요 시간</span>
                             <span className="font-semibold">
