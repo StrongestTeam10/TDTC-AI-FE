@@ -1,6 +1,7 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { ROLE_LABELS } from '../../types/auth';
+import ThemeToggle from '../ui/ThemeToggle';
 
 // 2026-07-24 추가
 // 행안부 가이드라인 - Identity 영역 - 헤더 구조 반영:
@@ -18,13 +19,15 @@ import { ROLE_LABELS } from '../../types/auth';
 // 용도로 쓰는 게 일반적인 관례와도 맞음.
 const navClass = ({ isActive }: { isActive: boolean }) =>
   `px-3 py-2 rounded text-sm transition-colors ${
-    isActive ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+    isActive ? 'bg-blue-600 text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
   }`;
 
 export default function Header() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
+  // 2026-08-04 추가: 상점 위치 등록 탭은 관리자(ROL01) 또는 상인회(ORGMA)에게만 노출
+  const canManageFacilities = user?.rulesCode === 'ROL01' || user?.orgCode === 'ORGMA';
 
   const handleLogout = () => {
     logout();
@@ -32,7 +35,7 @@ export default function Header() {
   };
 
   return (
-    <header className="border-b border-slate-800">
+    <header className="border-b border-slate-200 dark:border-slate-800">
       {/* 가이드라인: 건너뛰기 링크 - 마우스 대신 키보드로 본문 콘텐츠 구조 탐색을 돕는 보조 수단 */}
       <a
         href="#main-content"
@@ -44,7 +47,7 @@ export default function Header() {
       <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
         <Link
           to="/"
-          className="font-semibold text-slate-100 hover:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 rounded"
+          className="font-semibold text-slate-900 dark:text-slate-100 hover:text-slate-900 dark:hover:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 rounded"
         >
           Home
         </Link>
@@ -56,21 +59,27 @@ export default function Header() {
           <NavLink to="/dashboard" className={navClass}>
             관제 대시보드
           </NavLink>
+          {canManageFacilities && (
+            <NavLink to="/facilities" className={navClass}>
+              상점 위치 등록
+            </NavLink>
+          )}
           <NavLink to="/board" className={navClass}>
             게시판
           </NavLink>
         </nav>
 
-        <div className="flex items-center gap-3 text-sm text-slate-400">
+        <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+          <ThemeToggle />
           {user ? (
             <>
               <span>
-                {user.name} <span className="text-slate-600">· {ROLE_LABELS[user.rulesCode]}</span>
+                {user.name} <span className="text-slate-400 dark:text-slate-600">· {ROLE_LABELS[user.rulesCode]}</span>
               </span>
               <button
                 type="button"
                 onClick={handleLogout}
-                className="rounded border border-slate-700 px-2 py-1 text-slate-300 hover:bg-slate-800"
+                className="rounded border border-slate-300 dark:border-slate-700 px-2 py-1 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 로그아웃
               </button>
@@ -78,7 +87,7 @@ export default function Header() {
           ) : (
             <NavLink
               to="/login"
-              className="rounded border border-slate-700 px-3 py-1.5 text-slate-300 hover:bg-slate-800"
+              className="rounded border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
             >
               로그인
             </NavLink>

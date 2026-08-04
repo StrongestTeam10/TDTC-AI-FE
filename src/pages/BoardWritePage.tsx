@@ -138,23 +138,23 @@ export default function BoardWritePage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-slate-100">
+      <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
         {isEditMode ? '게시글 수정' : '게시글 작성'}
       </h1>
 
       <form
         onSubmit={handleSubmit}
-        className="flex flex-col gap-4 rounded-lg border border-slate-800 bg-slate-900 p-6"
+        className="flex flex-col gap-4 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6"
       >
         <div>
-          <label htmlFor="category" className="mb-1 block text-sm text-slate-400">
+          <label htmlFor="category" className="mb-1 block text-sm text-slate-500 dark:text-slate-400">
             카테고리
           </label>
           <select
             id="category"
             value={categoryCode}
             onChange={(e) => setCategoryCode(e.target.value)}
-            className="w-full max-w-xs rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+            className="w-full max-w-xs rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
           >
             <option value="">선택해주세요</option>
             {categoryOptions.map((c) => (
@@ -167,29 +167,29 @@ export default function BoardWritePage() {
         </div>
 
         <div>
-          <label htmlFor="title" className="mb-1 block text-sm text-slate-400">
+          <label htmlFor="title" className="mb-1 block text-sm text-slate-500 dark:text-slate-400">
             제목
           </label>
           <input
             id="title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+            className="w-full rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-sm text-slate-400">내용</label>
+          <label className="mb-1 block text-sm text-slate-500 dark:text-slate-400">내용</label>
           <RichTextEditor value={content} onChange={setContent} />
         </div>
 
         {isAdmin && (
-          <label className="flex items-center gap-2 text-sm text-slate-300">
+          <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
             <input
               type="checkbox"
               checked={notice}
               onChange={(e) => setNotice(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-700 bg-slate-950"
+              className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
             />
             공지사항으로 상단 고정
           </label>
@@ -197,17 +197,17 @@ export default function BoardWritePage() {
 
         {isEditMode && existingAttachments.length > 0 && (
           <div>
-            <p className="mb-1 text-sm text-slate-400">기존 첨부파일 (체크하면 삭제됨)</p>
+            <p className="mb-1 text-sm text-slate-500 dark:text-slate-400">기존 첨부파일 (체크하면 삭제됨)</p>
             <ul className="space-y-1">
               {existingAttachments.map((attachment) => (
-                <li key={attachment.attachmentId} className="flex items-center gap-2 text-sm text-slate-300">
+                <li key={attachment.attachmentId} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                   <input
                     type="checkbox"
                     checked={deleteAttachmentIds.includes(attachment.attachmentId)}
                     onChange={() => toggleDeleteAttachment(attachment.attachmentId)}
-                    className="h-4 w-4 rounded border-slate-700 bg-slate-950"
+                    className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
                   />
-                  <span className={deleteAttachmentIds.includes(attachment.attachmentId) ? 'line-through text-slate-600' : ''}>
+                  <span className={deleteAttachmentIds.includes(attachment.attachmentId) ? 'line-through text-slate-400 dark:text-slate-600' : ''}>
                     {attachment.originalName}
                   </span>
                 </li>
@@ -217,14 +217,14 @@ export default function BoardWritePage() {
         )}
 
         <div>
-          <label className="mb-1 block text-sm text-slate-400">
+          <label className="mb-1 block text-sm text-slate-500 dark:text-slate-400">
             {isEditMode ? '새 첨부파일 추가' : '첨부파일'}
           </label>
           <FileDropzone files={newFiles} onChange={setNewFiles} uploadProgress={isSubmitting ? uploadProgress : null} />
         </div>
 
         {submitError && (
-          <p role="alert" className="text-sm text-red-400">
+          <p role="alert" className="text-sm text-red-600 dark:text-red-400">
             {submitError}
           </p>
         )}
@@ -241,7 +241,7 @@ export default function BoardWritePage() {
             type="button"
             onClick={() => navigate(-1)}
             disabled={isSubmitting}
-            className="rounded border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded border border-slate-300 dark:border-slate-700 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             취소
           </button>

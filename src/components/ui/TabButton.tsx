@@ -20,8 +20,8 @@ export default function TabButton({
           onClick={onClick}
           className={`rounded-full border px-3 ${small ? 'py-1 text-xs' : 'py-1.5 text-sm'} ${
               active
-                  ? 'border-blue-600 bg-blue-600/20 text-blue-300'
-                  : 'border-slate-700 text-slate-400 hover:bg-slate-800'
+                  ? 'border-blue-600 bg-blue-600/20 text-blue-700 dark:text-blue-300'
+                  : 'border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
       >
         {children}

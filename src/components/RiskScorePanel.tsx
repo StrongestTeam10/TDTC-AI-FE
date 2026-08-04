@@ -5,16 +5,16 @@ interface RiskScorePanelProps {
 }
 
 const LEVEL_STYLE: Record<string, string> = {
-  low: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
-  medium: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
-  high: 'bg-orange-500/20 text-orange-300 border-orange-500/40',
-  critical: 'bg-red-500/20 text-red-300 border-red-500/40',
+  low: 'bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/40',
+  medium: 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/40',
+  high: 'bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-500/40',
+  critical: 'bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/40',
 };
 
 export default function RiskScorePanel({ risks }: RiskScorePanelProps) {
   if (risks.length === 0) {
     return (
-        <div className="rounded-lg border border-slate-700 bg-slate-900 p-4 text-slate-500 text-sm">
+        <div className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 text-slate-500 text-sm">
           위험도 데이터 없음
         </div>
     );
@@ -34,8 +34,8 @@ export default function RiskScorePanel({ risks }: RiskScorePanelProps) {
         </div>
         <div className="mt-1 text-3xl font-semibold">{highestRisk.riskScore.toFixed(1)}</div>
 
-        <div className="mt-3 pt-3 border-t border-slate-600/30 text-xs opacity-80">
-          <div className="mb-2 text-slate-200 font-semibold">다른 구역 현황</div>
+        <div className="mt-3 pt-3 border-t border-slate-300/30 dark:border-slate-600/30 text-xs opacity-80">
+          <div className="mb-2 text-slate-800 dark:text-slate-200 font-semibold">다른 구역 현황</div>
           {sortedRisks.slice(1, 4).map((r) => (
               <div key={r.riskId} className="flex justify-between py-0.5">
                 <span>Zone {r.zoneId} ({r.reasonCode})</span>

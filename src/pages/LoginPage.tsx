@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useLocation, useNavigate, type Location } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import ThemeToggle from '../components/ui/ThemeToggle';
 
 // 2026-07-24 추가 (1차)
 // 행안부 가이드라인 - 로그인 영역 반영 (아이디/비밀번호 로그인 정보입력 패턴 기준).
@@ -15,6 +16,9 @@ import { useAuthStore } from '../store/authStore';
 // 아니면 로그인이 실패하므로 제거함 — 화면 전체를 확인할 관리자 계정이 필요하면
 // /signup으로 가입한 뒤, BE에서 해당 계정의 rules_code를 ROL01(관리자)로 한 번
 // 수동 변경해두는 걸 권장(BE README 참고 - 자가 가입은 기본적으로 ROL03 부여).
+// 2026-08-04 변경: 하단의 "계정이 없으신가요? 회원가입" 링크를 "비밀번호를
+// 잊으셨나요? 비밀번호 찾기"로 교체하고, 회원가입은 화면 우측 상단에 눈에 띄는
+// 버튼으로 분리해서 더 명시적으로 노출함.
 export default function LoginPage() {
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
@@ -41,20 +45,31 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950 px-4">
+      <div className="absolute right-6 top-6 flex items-center gap-2">
+        <ThemeToggle />
+        <button
+          type="button"
+          onClick={() => navigate('/signup')}
+          className="rounded border border-slate-300 dark:border-slate-700 px-4 py-2 text-sm font-medium text-slate-800 dark:text-slate-200 hover:border-blue-600 hover:text-blue-600 dark:hover:text-blue-400"
+        >
+          회원가입
+        </button>
+      </div>
+
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
           <p className="mb-1 text-sm text-slate-500">KT Aivle School B2G 빅프로젝트</p>
-          <h1 className="text-xl font-semibold text-slate-100">시켜줘 네 장터매니저</h1>
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">시켜줘 네 장터매니저</h1>
           <p className="mt-2 text-sm text-slate-500">관제 시스템 로그인이 필요합니다.</p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="flex flex-col gap-4 rounded-lg border border-slate-800 bg-slate-900 p-6"
+          className="flex flex-col gap-4 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6"
         >
           <div>
-            <label htmlFor="loginId" className="mb-1 block text-sm text-slate-400">
+            <label htmlFor="loginId" className="mb-1 block text-sm text-slate-500 dark:text-slate-400">
               아이디
             </label>
             <input
@@ -62,11 +77,11 @@ export default function LoginPage() {
               value={loginId}
               onChange={(e) => setLoginId(e.target.value)}
               autoComplete="username"
-              className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="w-full rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
             />
           </div>
           <div>
-            <label htmlFor="password" className="mb-1 block text-sm text-slate-400">
+            <label htmlFor="password" className="mb-1 block text-sm text-slate-500 dark:text-slate-400">
               비밀번호
             </label>
             <input
@@ -75,12 +90,12 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
-              className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="w-full rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
             />
           </div>
 
           {error && (
-            <p role="alert" className="text-sm text-red-400">
+            <p role="alert" className="text-sm text-red-600 dark:text-red-400">
               {error}
             </p>
           )}
@@ -96,10 +111,10 @@ export default function LoginPage() {
 
         <button
           type="button"
-          onClick={() => navigate('/signup')}
-          className="mt-3 w-full text-center text-sm text-slate-500 hover:text-slate-300"
+          onClick={() => navigate('/forgot-password')}
+          className="mt-3 w-full text-center text-sm text-slate-500 hover:text-slate-900 dark:hover:text-slate-300"
         >
-          계정이 없으신가요? 회원가입
+          비밀번호를 잊으셨나요? 비밀번호 찾기
         </button>
       </div>
     </div>

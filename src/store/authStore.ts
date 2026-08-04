@@ -1,8 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { AuthUser, UserRole } from '../types/auth';
-import { login as loginRequest, signup as signupRequest } from '../api/client';
-import type { SignupRequest } from '../api/client';
+import {
+  login as loginRequest,
+  signup as signupRequest,
+  verifyIdentity as verifyIdentityRequest,
+  resetPassword as resetPasswordRequest,
+} from '../api/client';
+import type { SignupRequest, VerifyIdentityRequest, ResetPasswordRequest } from '../api/client';
 import { getToken, setToken, setUnauthorizedHandler } from '../auth/tokenStore';
 import { toDisplayErrorMessage } from '../utils/errorMessage';
 
@@ -17,12 +22,17 @@ import { toDisplayErrorMessage } from '../utils/errorMessage';
 
 type LoginResult = { ok: true } | { ok: false; message: string };
 type SignupResult = { ok: true } | { ok: false; message: string };
+// 2026-08-04 추가 (비밀번호 찾기)
+type VerifyIdentityResult = { ok: true } | { ok: false; message: string };
+type ResetPasswordResult = { ok: true } | { ok: false; message: string };
 
 interface AuthStore {
   user: AuthUser | null;
   token: string | null;
   login: (loginId: string, password: string) => Promise<LoginResult>;
   signup: (request: SignupRequest) => Promise<SignupResult>;
+  verifyIdentity: (request: VerifyIdentityRequest) => Promise<VerifyIdentityResult>;
+  resetPassword: (request: ResetPasswordRequest) => Promise<ResetPasswordResult>;
   logout: () => void;
 }
 
@@ -59,6 +69,29 @@ export const useAuthStore = create<AuthStore>()(
           return { ok: true };
         } catch (err) {
           return { ok: false, message: toDisplayErrorMessage(err, '회원가입에 실패했습니다.') };
+        }
+      },
+
+      // 2026-08-04 추가 (비밀번호 찾기)
+      // 인증 상태와 무관한 흐름이라 토큰/user를 건드리지 않음. 성공/실패만 페이지에 알려줌.
+      verifyIdentity: async (request) => {
+        try {
+          const response = await verifyIdentityRequest(request);
+          if (!response.verified) {
+            return { ok: false, message: '입력하신 정보와 일치하는 계정을 찾을 수 없습니다.' };
+          }
+          return { ok: true };
+        } catch (err) {
+          return { ok: false, message: toDisplayErrorMessage(err, '본인확인에 실패했습니다.') };
+        }
+      },
+
+      resetPassword: async (request) => {
+        try {
+          await resetPasswordRequest(request);
+          return { ok: true };
+        } catch (err) {
+          return { ok: false, message: toDisplayErrorMessage(err, '비밀번호 재설정에 실패했습니다.') };
         }
       },
 

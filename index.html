@@ -5,6 +5,30 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>market-digital-twin-frontend</title>
+    <!-- 2026-08-04 추가: React가 마운트되기 전에 테마를 먼저 적용해서 "다크로 로드된 뒤
+         라이트로 바뀌는" 깜빡임(FOUC)을 막음. store/themeStore.ts의 zustand persist가
+         쓰는 localStorage 키('tdtc-ai-theme')와 저장 포맷을 그대로 읽음. -->
+    <script>
+      (function () {
+        try {
+          var raw = localStorage.getItem('tdtc-ai-theme');
+          var mode = 'system';
+          if (raw) {
+            var parsed = JSON.parse(raw);
+            mode = (parsed && parsed.state && parsed.state.mode) || 'system';
+          }
+          var resolved =
+            mode === 'system'
+              ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+              : mode;
+          if (resolved === 'dark') {
+            document.documentElement.classList.add('dark');
+          }
+        } catch (e) {
+          // localStorage 접근 불가(프라이빗 모드 등) 시 기본값(라이트)으로 조용히 진행
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

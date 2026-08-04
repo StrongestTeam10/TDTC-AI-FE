@@ -160,6 +160,35 @@ export default function HeatmapView({
   const [viewport, setViewport] = useState<Viewport>({ zoom: 1, panX: 0, panY: 0 });
   const [hoveredAgent, setHoveredAgent] = useState<{ agent: AgentState; x: number; y: number } | null>(null);
 
+  // 2026-07-27: width를 고정 픽셀로 강제하던 것을 제거하고, width prop을 명시적으로
+  // 넘기지 않으면(예: 대시보드에서 그리드 셀을 꽉 채우고 싶은 경우) 컨테이너의 실제
+  // 렌더링 너비를 ResizeObserver로 관찰해서 그 값을 내부 좌표 계산(viewBox/투영)에
+  // 사용한다. 640은 컨테이너가 측정되기 전(최초 렌더) 임시 fallback일 뿐이다.
+  const [measuredWidth, setMeasuredWidth] = useState(640);
+
+  useEffect(() => {
+    if (width !== undefined) return; // 명시적 width가 있으면 컨테이너 측정 불필요
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width;
+      if (w) setMeasuredWidth(Math.round(w));
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [width]);
+
+  // 2026-08-04 수정: renderWidth가 계산만 되고 실제로는 안 쓰이고 있었음(CI
+  // tsc -b가 미사용 변수로 빌드 자체를 막음). internalWidth가 원래 width prop만
+  // 보고 있던 걸 renderWidth(= 명시적 width 우선, 없으면 ResizeObserver로 측정한
+  // 값)를 보도록 고쳐서 위 주석에 적힌 반응형 동작이 실제로 동작하게 함.
+  const renderWidth = width ?? measuredWidth;
+  const internalWidth = typeof renderWidth === 'number' ? renderWidth : 640;
+  const internalHeight = typeof height === 'number' ? height : 480;
+
+  // 마우스 휠 확대/축소. React의 합성 onWheel은 기본적으로 passive라 preventDefault가
+  // 안 먹혀서(경고 발생) 네이티브 리스너를 직접 붙인다. 커서 위치를 기준으로 확대해서
+  // 커서 아래 지점이 화면에서 안 움직이게 한다 (구글맵과 동일한 조작감).
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;

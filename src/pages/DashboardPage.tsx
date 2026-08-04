@@ -73,11 +73,11 @@ export default function DashboardPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold text-slate-100">
+            <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
               전통시장 실시간 위험도 관제
             </h1>
             {isPolling && (
-                <span className="flex items-center gap-1.5 text-xs text-emerald-400">
+                <span className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   2초마다 자동 갱신 중
                 </span>
@@ -87,7 +87,7 @@ export default function DashboardPage() {
             <select
                 value={capturedAt ?? ''}
                 onChange={(e) => setCapturedAt(e.target.value || undefined)}
-                className="rounded border border-slate-600 bg-slate-800 px-2 py-1.5 text-sm text-slate-200"
+                className="rounded border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 px-2 py-1.5 text-sm text-slate-800 dark:text-slate-200"
             >
               <option value="">최신 (실시간)</option>
               {availableTimestamps.map((ts) => (
@@ -99,7 +99,7 @@ export default function DashboardPage() {
             <button
                 onClick={() => refetch()}
                 disabled={isDashboardLoading}
-                className="rounded bg-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600 disabled:opacity-50"
+                className="rounded bg-slate-200 dark:bg-slate-700 px-3 py-1.5 text-sm text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 disabled:opacity-50"
             >
               {isDashboardLoading ? '갱신 중...' : '새로고침'}
             </button>
@@ -109,7 +109,7 @@ export default function DashboardPage() {
         {/* 2026-07-27 추가: 관리자 전용 시장 전환 탭. 비관리자는 markets 배열 자체가
             본인 담당 시장 1개로 이미 필터링되어 내려오므로 탭을 보여줄 필요가 없다. */}
         {isAdmin && markets.length > 0 && (
-            <div className="flex flex-wrap gap-2 border-t border-slate-800 pt-3">
+            <div className="flex flex-wrap gap-2 border-t border-slate-200 dark:border-slate-800 pt-3">
               {markets.map((m) => (
                   <TabButton
                       key={m.marketId}
@@ -140,7 +140,7 @@ export default function DashboardPage() {
                 <div className="space-y-4">
                   <RiskScorePanel risks={risks} />
                   <div>
-                    <h2 className="text-sm font-semibold text-slate-300 mb-2">구역별 위험 알림 이력</h2>
+                    <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">구역별 위험 알림 이력</h2>
                     <AlertLogTable risks={risks} />
                   </div>
                 </div>

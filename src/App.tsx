@@ -6,13 +6,17 @@ import PredictionPage from './pages/PredictionPage';
 import SimulationComparePage from './pages/SimulationComparePage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import LandingPage from './pages/LandingPage';
 import NotFoundPage from './pages/NotFoundPage';
 import BoardListPage from './pages/BoardListPage';
 import BoardDetailPage from './pages/BoardDetailPage';
 import BoardWritePage from './pages/BoardWritePage';
+import FacilityManagePage from './pages/FacilityManagePage';
 import AppLayout from './components/layout/AppLayout';
 import RequireAuth from './components/RequireAuth';
+import RequireFacilityManager from './components/RequireFacilityManager';
 import { useAuthStore } from './store/authStore';
 import { fetchMe } from './api/client';
 
@@ -53,6 +57,8 @@ export default function App() {
         />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route
           path="/dashboard"
           element={
@@ -90,6 +96,18 @@ export default function App() {
               <AppLayout>
                 <SimulationComparePage />
               </AppLayout>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/facilities"
+          element={
+            <RequireAuth>
+              <RequireFacilityManager>
+                <AppLayout>
+                  <FacilityManagePage />
+                </AppLayout>
+              </RequireFacilityManager>
             </RequireAuth>
           }
         />

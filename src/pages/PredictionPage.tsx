@@ -75,7 +75,7 @@ export default function PredictionPage() {
   return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-xl font-semibold text-slate-100">
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
             인구 유입 예측 시뮬레이션
           </h1>
           <p className="mt-1 text-sm text-slate-500">
@@ -108,9 +108,9 @@ export default function PredictionPage() {
                 <RiskTrendChart riskTrend={predictResult?.riskTrend ?? []} />
 
                 {predictResult && (
-                    <div className="rounded-lg border border-slate-700 bg-slate-900 p-4">
-                      <h3 className="mb-2 text-sm text-slate-400">예측 결과 요약</h3>
-                      <div className="flex justify-between text-sm text-slate-200">
+                    <div className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+                      <h3 className="mb-2 text-sm text-slate-500 dark:text-slate-400">예측 결과 요약</h3>
+                      <div className="flex justify-between text-sm text-slate-800 dark:text-slate-200">
                         <span className="opacity-80">최종 종합 위험도</span>
                         <span className="font-semibold">
                       {predictResult.finalOverallRiskScore.toFixed(2)}

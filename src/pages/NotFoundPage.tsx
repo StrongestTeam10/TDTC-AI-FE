@@ -10,7 +10,7 @@ export default function NotFoundPage() {
   return (
     <div className="flex flex-col items-center justify-center gap-4 px-4 py-24 text-center">
       <p className="text-sm font-semibold text-blue-500">404</p>
-      <h1 className="text-2xl font-semibold text-slate-100">페이지를 찾을 수 없습니다</h1>
+      <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">페이지를 찾을 수 없습니다</h1>
       <p className="max-w-md text-sm text-slate-500">
         주소가 잘못되었거나, 이동/삭제된 화면입니다. 주소를 다시 확인해주세요.
       </p>
@@ -25,7 +25,7 @@ export default function NotFoundPage() {
         <button
           type="button"
           onClick={() => navigate('/dashboard')}
-          className="rounded border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+          className="rounded border border-slate-300 dark:border-slate-700 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
         >
           관제 대시보드로 가기
         </button>

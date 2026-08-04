@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentState, Zone, PlacedObject, Gate, EventTrigger } from '../types';
+import { loadKakaoSdk } from '../utils/kakaoLoader';
 
 export interface ZoneRisk {
   zoneId: number;
@@ -32,44 +33,6 @@ interface HeatmapViewProps {
   viewCenter?: { lon: number; lat: number };
   viewZoom?: number;
   onViewportChange?: (v: { lon: number; lat: number; zoom: number }) => void;
-}
-
-declare global {
-  interface Window {
-    kakao: any;
-  }
-}
-
-const KAKAO_APP_KEY = import.meta.env.VITE_KAKAO_JS_KEY;
-
-let kakaoLoaderPromise: Promise<void> | null = null;
-
-function loadKakaoSdk(): Promise<void> {
-  if (window.kakao?.maps) {
-    return Promise.resolve();
-  }
-  if (kakaoLoaderPromise) {
-    return kakaoLoaderPromise;
-  }
-  if (!KAKAO_APP_KEY) {
-    return Promise.reject(new Error('VITE_KAKAO_JS_KEY 환경변수가 설정되지 않았습니다.'));
-  }
-  kakaoLoaderPromise = new Promise((resolve, reject) => {
-    const existing = document.getElementById('kakao-map-sdk');
-    if (existing) {
-      existing.addEventListener('load', () => window.kakao.maps.load(() => resolve()));
-      existing.addEventListener('error', () => reject(new Error('카카오맵 SDK 로드 실패')));
-      return;
-    }
-    const script = document.createElement('script');
-    script.id = 'kakao-map-sdk';
-    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_APP_KEY}&autoload=false`;
-    script.async = true;
-    script.onload = () => window.kakao.maps.load(() => resolve());
-    script.onerror = () => reject(new Error('카카오맵 SDK 로드 실패'));
-    document.head.appendChild(script);
-  });
-  return kakaoLoaderPromise;
 }
 
 type LonLat = [number, number];

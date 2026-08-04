@@ -123,7 +123,7 @@ export default function BoardListPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-100">게시판</h1>
+        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">게시판</h1>
         <button
           type="button"
           onClick={() => navigate('/board/write')}
@@ -147,7 +147,7 @@ export default function BoardListPage() {
 
       {/* 관리자 전용 시장 전환 탭 */}
       {isAdmin && (
-        <div className="flex flex-wrap gap-2 border-t border-slate-800 pt-3">
+        <div className="flex flex-wrap gap-2 border-t border-slate-200 dark:border-slate-800 pt-3">
           <TabButton active={marketParam === ALL_VALUE} onClick={() => updateParams({ market: ALL_VALUE })} small>
             전체 시장
           </TabButton>
@@ -165,12 +165,12 @@ export default function BoardListPage() {
           onChange={(e) => setKeywordInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
           placeholder="제목·내용·작성자 검색"
-          className="w-full max-w-sm rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+          className="w-full max-w-sm rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
         />
         <button
           type="button"
           onClick={handleSearch}
-          className="rounded border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+          className="rounded border border-slate-300 dark:border-slate-700 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
         >
           검색
         </button>
@@ -180,14 +180,14 @@ export default function BoardListPage() {
       {!isLoading && loadError && <ErrorBanner message={loadError} onRetry={load} />}
 
       {!isLoading && !loadError && data && (
-        <div className="overflow-x-auto rounded-lg border border-slate-800">
+        <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
           {/* 2026-07-25 변경: table-fixed + 고정폭 컬럼 조합이 한글 컬럼값(예: "망원시장")마다
               계속 잘리는 문제를 반복해서 일으켜서, 폭을 내용에 맞게 자동으로 늘어나는
               기본 테이블 레이아웃으로 교체함. 대신 각 셀에 whitespace-nowrap을 줘서
               줄바꿈으로 잘리는 일이 없게 하고, 화면보다 테이블이 넓어지면(작은 화면 등)
               컬럼을 줄이는 대신 가로 스크롤(overflow-x-auto, 위 래퍼)로 대응함. */}
           <table className="w-full min-w-[860px] text-left text-sm">
-            <thead className="bg-slate-900 text-slate-400">
+            <thead className="bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400">
               <tr>
                 <th className="whitespace-nowrap px-3 py-3">구분</th>
                 <th className="whitespace-nowrap px-3 py-3">시장</th>
@@ -199,7 +199,7 @@ export default function BoardListPage() {
                 <th className="whitespace-nowrap px-3 py-3">작성일</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
               {data.pinned.map((post) => (
                 <BoardRow key={post.postId} post={post} categoryOptions={categoryOptions} marketOptions={marketOptions} />
               ))}
@@ -228,7 +228,7 @@ export default function BoardListPage() {
               className={`h-8 w-8 rounded text-sm ${
                 p === data.page.page
                   ? 'bg-blue-600 text-white'
-                  : 'text-slate-400 hover:bg-slate-800'
+                  : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
               }`}
             >
               {p + 1}
@@ -250,31 +250,31 @@ function BoardRow({
   marketOptions: { code: string; name: string }[];
 }) {
   return (
-    <tr className="text-slate-200 hover:bg-slate-900/60">
+    <tr className="text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-900/60">
       <td className="whitespace-nowrap px-3 py-3">
         {post.notice && (
-          <span className="inline-block whitespace-nowrap rounded bg-amber-500/20 px-1.5 py-0.5 text-xs font-medium text-amber-300">
+          <span className="inline-block whitespace-nowrap rounded bg-amber-500/20 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
             공지
           </span>
         )}
       </td>
-      <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-400">
+      <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-500 dark:text-slate-400">
         {marketLabel(marketOptions, post.marketCode)}
       </td>
-      <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-400">
+      <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-500 dark:text-slate-400">
         {categoryLabel(categoryOptions, post.categoryCode)}
       </td>
       <td className="px-4 py-3">
-        <Link to={`/board/${post.postId}`} className="hover:text-blue-400 hover:underline">
+        <Link to={`/board/${post.postId}`} className="hover:text-blue-600 dark:hover:text-blue-400 hover:underline">
           {post.title}
         </Link>
         {post.attachmentCount > 0 && (
           <span className="ml-1 text-xs text-slate-500">📎{post.attachmentCount}</span>
         )}
       </td>
-      <td className="whitespace-nowrap px-4 py-3 text-slate-400">{post.writerName}</td>
-      <td className="whitespace-nowrap px-2 py-3 text-slate-400">{post.viewCount}</td>
-      <td className="whitespace-nowrap px-2 py-3 text-slate-400">{post.likeCount}</td>
+      <td className="whitespace-nowrap px-4 py-3 text-slate-500 dark:text-slate-400">{post.writerName}</td>
+      <td className="whitespace-nowrap px-2 py-3 text-slate-500 dark:text-slate-400">{post.viewCount}</td>
+      <td className="whitespace-nowrap px-2 py-3 text-slate-500 dark:text-slate-400">{post.likeCount}</td>
       <td className="whitespace-nowrap px-3 py-3 text-slate-500">{formatDate(post.createdAt)}</td>
     </tr>
   );
