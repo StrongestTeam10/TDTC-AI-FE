@@ -3,6 +3,42 @@
 이 파일은 Claude와의 작업 세션에서 변경된 내용을 기록합니다.
 각 항목은 zip으로 전달된 시점 기준입니다.
 
+### 2026-08-04 (로그인 화면 - 비밀번호 찾기 신규, 회원가입 버튼 우상단으로 이동)
+- **요청**: 회원가입 링크를 눈에 덜 띄는 하단에서 화면 우측 상단 버튼으로 옮기고,
+  그 자리(하단)에 비밀번호 찾기를 넣어줄 것. 상점 외관 사진 업로드 기능은 이번
+  세션에서 보류(BE는 이미 구현돼 있으나 이번 딜리버리에는 미포함)
+- **본인확인 방식**: `usrusrs01m`에 이메일/휴대폰 컬럼이 없어 이메일 인증코드
+  방식은 불가 → 재재님 결정으로 회원가입 때 입력한 필드(아이디+이름+소속기관+
+  담당시장) 일치 여부만으로 확인. BE에 `/api/auth/verify-identity`,
+  `/api/auth/reset-password` 두 엔드포인트가 아직 없음 - 다음 세션에 BE 쪽 구현 필요
+- 🆕 `pages/ForgotPasswordPage.tsx`: 아이디/이름/소속기관/담당시장 입력 → 본인확인 →
+  성공 시 `/reset-password`로 이동(입력값을 `location.state`로 함께 전달)
+- 🆕 `pages/ResetPasswordPage.tsx`: 새 비밀번호 입력(회원가입과 동일한 비밀번호 규칙
+  체크리스트 재사용) → 재설정 API 호출. `location.state`에 본인확인 결과가 없으면
+  (URL 직접 접근 등) 비밀번호 찾기 화면으로 돌려보냄. 재설정 API 호출 시에도
+  본인확인 4개 필드를 함께 보내 서버가 다시 검증하도록 함(브라우저 state 조작으로
+  본인확인 단계를 우회하는 것에 대한 최소한의 방어 - 실제 방어는 BE가 필드 일치를
+  다시 검사해야 완성됨)
+- ✏️ `pages/LoginPage.tsx`: 하단 "계정이 없으신가요? 회원가입" 링크를 "비밀번호를
+  잊으셨나요? 비밀번호 찾기"로 교체(`/forgot-password`로 이동). 회원가입은 화면
+  우측 상단 버튼으로 분리
+- ✏️ `api/client.ts`: `verifyIdentity`/`resetPassword` 함수 및 요청/응답 타입 추가
+  (`/api/auth/verify-identity`, `/api/auth/reset-password`). 401 응답 시 자동
+  로그아웃 처리 예외 목록에도 두 엔드포인트 추가(로그인 전 상태에서 쓰는 흐름이라
+  로그인/회원가입과 동일하게 취급)
+- ✏️ `store/authStore.ts`: `verifyIdentity`/`resetPassword` 액션 추가(기존
+  `signup`과 동일한 try/catch + 에러 메시지 변환 패턴)
+- ✏️ `App.tsx`: `/forgot-password`, `/reset-password` 라우트 추가(둘 다 로그인
+  화면과 동일하게 `RequireAuth` 밖 - 비로그인 상태에서 접근하는 흐름)
+
+**검증**: `npx oxlint`(0 errors) / `npx vite build`(성공) 통과. `npx tsc -b`는
+`HeatmapView.tsx`(104행, `renderWidth` 미사용 변수)에서 기존부터 있던 오류 1건이
+있음 - 이번 세션에서 손대지 않은 파일이며 이번 변경과 무관.
+
+**다음에 할 일**: BE에 `POST /api/auth/verify-identity`, `POST /api/auth/reset-password`
+구현 필요(둘 다 `permitAll`, 아이디+이름+소속기관+담당시장 일치 여부로 본인확인 후
+비밀번호 변경). 구현 전까지는 이 화면들이 실제로 동작하지 않음(BE 라우트 없음).
+
 ### 2026-07-27 (파이프라인 A 대시보드 - 관리자 전용 시장 전환 탭, 폴링 주기 2초 반영)
 - **요청**: 상인회/지자체는 본인 담당 구역만, 관리자는 전체 + 페이지(시장) 전환
   가능하게(게시판과 동일한 패턴) - BE 권한 분리에 대응하는 FE 작업
