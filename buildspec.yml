@@ -1,0 +1,32 @@
+version: 0.2
+
+# 2026-08-04 추가 (AWS CodePipeline "FE-ST10-github" Build 단계용)
+#
+# Vite + React + TypeScript 프로젝트라, GitHub 소스(.tsx/.ts 원본)를 그대로 S3에
+# 올리면 브라우저가 실행할 수 없다. 이 buildspec이 npm run build(tsc -b && vite
+# build)로 만든 dist/ 결과물만 아티팩트로 넘겨야 Deploy(S3) 단계가 정상 동작한다.
+#
+# VITE_API_BASE_URL, VITE_KAKAO_JS_KEY는 여기 값을 직접 쓰지 않고 CodeBuild
+# 프로젝트 설정의 "환경 변수"에 등록해서 주입받는다(빌드 시점에 번들에 박히는
+# 값이라 소스에 커밋하지 않음 - CodeBuild 프로젝트 편집 화면에서 등록).
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+    commands:
+      - npm ci
+  build:
+    commands:
+      - npm run build
+
+artifacts:
+  # dist/ 안의 내용물만 아티팩트 루트에 오도록 base-directory 지정
+  # (그래야 S3 배포 시 index.html이 버킷 루트에 그대로 위치함)
+  base-directory: dist
+  files:
+    - '**/*'
+
+cache:
+  paths:
+    - node_modules/**/*
