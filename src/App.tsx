@@ -14,6 +14,7 @@ import BoardListPage from './pages/BoardListPage';
 import BoardDetailPage from './pages/BoardDetailPage';
 import BoardWritePage from './pages/BoardWritePage';
 import FacilityManagePage from './pages/FacilityManagePage';
+import UserAdminPage from './pages/UserAdminPage';
 import AppLayout from './components/layout/AppLayout';
 import RequireAuth from './components/RequireAuth';
 import RequireFacilityManager from './components/RequireFacilityManager';
@@ -147,6 +148,18 @@ export default function App() {
             <RequireAuth>
               <AppLayout>
                 <BoardWritePage />
+              </AppLayout>
+            </RequireAuth>
+          }
+        />
+        {/* 2026-08-05 추가 (회원관리) - 관리자(ROL01) 전용, requireRole로 그 외 권한은 /dashboard로 리다이렉트.
+            2026-08-05(2차): 회원 승인은 별도 화면 대신 이 페이지의 "회원 승인" 탭으로 통합됨 - /admin/approvals 라우트 제거 */}
+        <Route
+          path="/admin/users"
+          element={
+            <RequireAuth requireRole="ROL01">
+              <AppLayout>
+                <UserAdminPage />
               </AppLayout>
             </RequireAuth>
           }

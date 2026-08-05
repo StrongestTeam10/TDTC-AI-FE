@@ -48,13 +48,6 @@ export default function LoginPage() {
     <div className="relative flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950 px-4">
       <div className="absolute right-6 top-6 flex items-center gap-2">
         <ThemeToggle />
-        <button
-          type="button"
-          onClick={() => navigate('/signup')}
-          className="rounded border border-slate-300 dark:border-slate-700 px-4 py-2 text-sm font-medium text-slate-800 dark:text-slate-200 hover:border-blue-600 hover:text-blue-600 dark:hover:text-blue-400"
-        >
-          회원가입
-        </button>
       </div>
 
       <div className="w-full max-w-sm">
@@ -106,6 +99,14 @@ export default function LoginPage() {
             className="w-full rounded bg-blue-600 py-2 font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting ? '로그인 중...' : '로그인'}
+          </button>
+
+          <button
+              type="button"
+              onClick={() => navigate('/signup')}
+              className="rounded border border-slate-300 dark:border-slate-700 px-4 py-2 text-sm font-medium text-slate-800 dark:text-slate-200 hover:border-blue-600 hover:text-blue-600 dark:hover:text-blue-400"
+          >
+            회원가입
           </button>
         </form>
 

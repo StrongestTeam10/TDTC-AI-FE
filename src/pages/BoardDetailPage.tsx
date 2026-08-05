@@ -99,11 +99,11 @@ export default function BoardDetailPage() {
     }
   };
 
-  const handleDownload = async (attachmentId: number, originalName: string) => {
+  const handleDownload = async (attachmentId: number) => {
     if (!postId) return;
     setActionError('');
     try {
-      await downloadAttachment(Number(postId), attachmentId, originalName);
+      await downloadAttachment(Number(postId), attachmentId);
     } catch (err) {
       setActionError(toDisplayErrorMessage(err, '파일 다운로드에 실패했습니다.'));
     }
@@ -178,7 +178,7 @@ export default function BoardDetailPage() {
                 <li key={attachment.attachmentId}>
                   <button
                     type="button"
-                    onClick={() => handleDownload(attachment.attachmentId, attachment.originalName)}
+                    onClick={() => handleDownload(attachment.attachmentId)}
                     className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
                   >
                     📎 {attachment.originalName}{' '}
