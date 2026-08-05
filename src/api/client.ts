@@ -456,4 +456,48 @@ export async function deleteFacilityPhoto(facilityId: number, photoId: number): 
   await apiClient.delete(`/facilities/${facilityId}/photos/${photoId}`);
 }
 
+// ===== 회원관리 (2026-08-05 추가) =====
+// BE UserAdminController(/api/admin/users/**)와 대응. 관리자(ROL01) 전용 - BE가
+// 403을 내려주므로 여기서는 별도 권한 체크 없이 그대로 요청함(화면 자체는
+// RequireAuth의 requireRole 가드로 관리자가 아니면 아예 못 들어옴).
+
+export async function fetchAdminUsers(
+    params: { marketCode?: string; pendingOnly?: boolean } = {}
+): Promise<UserSummary[]> {
+  const { data } = await apiClient.get<UserSummary[]>('/admin/users', { params });
+  return data;
+}
+
+export async function updateUserRole(userId: number, rulesCode: string): Promise<UserSummary> {
+  const { data } = await apiClient.patch<UserSummary>(`/admin/users/${userId}/role`, { rulesCode });
+  return data;
+}
+
+// ===== 회원가입 관리자 승인 (2026-08-04 추가) =====
+// BE UserApprovalController(/api/admin/users/pending, /approve, /reject)와 대응.
+// UserAdminPage(/admin/users)의 "회원 승인" 탭과 별도로, 승인 대기자만 보여주는
+// 전용 화면(UserApprovalPage, /admin/approvals)에서 사용.
+export interface PendingUser {
+  userId: number;
+  loginId: string;
+  name: string;
+  orgCode: string;
+  marketCode: string | null;
+  approvalStatus: string;
+  createdAt: string;
+}
+
+export async function fetchPendingUsers(): Promise<PendingUser[]> {
+  const { data } = await apiClient.get<PendingUser[]>('/admin/users/pending');
+  return data;
+}
+
+export async function approveUser(userId: number): Promise<void> {
+  await apiClient.post(`/admin/users/${userId}/approve`);
+}
+
+export async function rejectUser(userId: number): Promise<void> {
+  await apiClient.post(`/admin/users/${userId}/reject`);
+}
+
 export default apiClient;

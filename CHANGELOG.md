@@ -3,6 +3,75 @@
 이 파일은 Claude와의 작업 세션에서 변경된 내용을 기록합니다.
 각 항목은 zip으로 전달된 시점 기준입니다.
 
+### 2026-08-05 (4차 - 회원 승인을 별도 화면 대신 탭 하나로 통일 + 체크박스 일괄 승인/거부)
+- **요청**: 지난 항목에서 발견한 "회원관리"/"회원 승인" 중복을 정리 - 별도 화면
+  (`UserApprovalPage`, `/admin/approvals`)을 없애고 `UserAdminPage`의 "회원 승인"
+  탭 하나로 통일. 체크박스로 승인 대상을 여러 명 선택해서 한 번에 처리할 수 있게
+  스크린샷으로 UI 방향 지정해주심
+- 🗑️ `pages/UserApprovalPage.tsx`, `components/RequireAdmin.tsx` 삭제
+- ✏️ `pages/UserAdminPage.tsx`: "회원 승인" 탭을 `fetchAdminUsers(pendingOnly)`/
+  `updateUserRole`(역할 드롭다운) 방식에서 `fetchPendingUsers`/`approveUser`/
+  `rejectUser`(승인/거부 전용 API) 방식으로 교체. 체크박스 컬럼 + 상단 "선택 항목
+  승인/거부" 일괄 처리 버튼 추가, 행별 개별 승인/거부 버튼도 유지. 시장 필터는 BE에
+  파라미터가 없어서 프론트에서 한 번 더 걸러냄(대기자 수가 적어 성능 영향 없음).
+  "사용자 관리" 탭(기존 회원 권한 변경)은 그대로 유지
+- ✏️ `App.tsx`: `/admin/approvals` 라우트 제거
+- ✏️ `components/layout/Header.tsx`: "회원 승인" 별도 메뉴 제거("회원관리" 메뉴 하나로 통일)
+- `npx tsc -b`/`npx oxlint` 재검증: 신규 오류 없음(`BoardDetailPage.tsx` 기존 이슈는 그대로 남아있음)
+
+### 2026-08-05 (3차 - 회원가입 관리자 승인 화면 연동 누락분 복구 + 정정)
+- **정정**: 직전 항목에서 `UserApprovalPage.tsx`를 "팀원이 만든 것으로 보임"이라고
+  잘못 적었습니다. 실제로는 이전 세션에서 만들어 드렸던 기능(BE `UserApprovalController`/
+  `UserApprovalService`와 한 세트)인데, 새 대화창으로 넘어오면서 그 컨텍스트를 놓친
+  채 "저와 무관한 이슈"로 잘못 분류했습니다
+- **원인**: 2번째 사고(client.ts/App.tsx/Header.tsx 복구) 때 `PendingUser` 타입과
+  `fetchPendingUsers`/`approveUser`/`rejectUser` 함수를 `client.ts`에 다시 추가하지
+  않아서 `UserApprovalPage.tsx`의 import가 깨진 채로 남아있었음. 게다가 라우팅
+  (`/admin/approvals`, `RequireAdmin` 가드)과 헤더 메뉴도 애초에 연결이 안 되어 있던
+  상태였음(파일 자체 주석엔 "App.tsx 라우트에서 가드"라고 적혀있었는데 실제로는 누락)
+- ✏️ `api/client.ts`: `PendingUser` 타입 + `fetchPendingUsers`/`approveUser`/
+  `rejectUser` 추가
+- ✏️ `App.tsx`: `/admin/approvals` 라우트 추가(`RequireAdmin` 가드, `RequireFacilityManager`와
+  동일 패턴)
+- ✏️ `components/layout/Header.tsx`: "회원 승인" 메뉴 추가(관리자 전용)
+- `npx tsc -b`/`npx oxlint` 재검증: `UserApprovalPage.tsx` 관련 오류 해소 확인.
+  `BoardDetailPage.tsx`의 `downloadAttachment` 인자 개수 오류는 여전히 남아있음(제가
+  만들거나 건드린 파일이 아니라 확인 후 별도로 알려주시면 처리하겠습니다)
+- **정리 필요 사항**: `UserAdminPage`(`/admin/users`)의 "회원 승인" 탭과
+  `UserApprovalPage`(`/admin/approvals`)가 사실상 같은 기능(가입 승인 대기자 처리)을
+  서로 다른 BE 엔드포인트(`UserAdminController` vs `UserApprovalController`)로 중복
+  구현하고 있습니다. 지금은 둘 다 살려뒀는데, 하나로 합칠지 역할을 나눌지 결정해
+  주시면 정리해드리겠습니다
+
+
+- **원인**: BE 때와 같은 사고 - 직전 세션(회원관리 기능)에 드린 `client.ts`/`App.tsx`/
+  `Header.tsx`가 구버전 스냅샷 기준이라, 그 사이 이미 구현돼 있던 비밀번호 찾기
+  (`verifyIdentity`/`resetPassword`), 시설(상점 위치) 관리 API 전체, 다크모드
+  (`ThemeToggle`), "상점 위치 등록" 메뉴, `/forgot-password`·`/reset-password`·
+  `/facilities` 라우트를 전부 덮어써서 날려버림 → `authStore.ts`가 더 이상 존재하지
+  않는 `resetPassword` export를 import하면서 흰 화면 + 콘솔 SyntaxError 발생
+- **복구 방법**: GitHub에 이미 올라와있던 온전한 버전을 기준으로 삼고, 그 위에 제
+  회원관리 기능(`fetchAdminUsers`/`updateUserRole`, `/admin/users` 라우트, 헤더
+  "회원관리" 메뉴)만 다시 얹는 방식으로 재작업(지난번처럼 임의 재구성 아님)
+- ✏️ `api/client.ts`: `verifyIdentity`/`resetPassword`/시설 관리 API 전체 복원 +
+  `fetchAdminUsers`/`updateUserRole` 유지
+- ✏️ `App.tsx`: `/forgot-password`/`/reset-password`/`/facilities` 라우트 복원 +
+  `/admin/users` 라우트 유지
+- ✏️ `components/layout/Header.tsx`: 다크모드(`ThemeToggle`), "상점 위치 등록" 메뉴
+  복원 + "회원관리" 메뉴 유지
+- `components/RequireAuth.tsx`는 이번엔 유실 없었음(변경 없음)
+- 병합 후 `npx tsc -b`로 검증: 제가 건드린 3개 파일 관련 오류는 없음. 다만 검증
+  과정에서 **저와 무관한 기존 이슈 2건**을 발견함(고치지 않고 그대로 둠):
+  1. `pages/BoardDetailPage.tsx`의 `handleDownload`가 `downloadAttachment`를 인자
+     2개로 호출하는데 실제 함수는 3개(postId, attachmentId, originalName) 필요 -
+     지금 이 상태로는 전체 빌드가 안 됨
+  2. `pages/UserApprovalPage.tsx`(→ 이전 세션에서 만든 기능으로 확인됨, 아래 3차
+     항목 참고)가
+     `fetchPendingUsers`/`approveUser`/`rejectUser`/`PendingUser`를 `api/client.ts`에서
+     import하는데, 그 함수/타입 자체가 어느 버전에도 없음(페이지는 만들어졌는데
+     API 연동이 아직 안 된 상태로 보임). 참고로 제가 만든 `UserAdminPage.tsx`의
+     "회원 승인" 탭과 기능이 겹치는 것 같아, 정리가 필요할 수 있습니다
+
 ### 2026-08-04 (3차 - 상점 위치 등록 화면 신규, 게시판 왼쪽 탭)
 - **요청**: 업로드해주신 `store-location-prototype.html`(손그림 와이어프레임)을 실제
   사이트 톤으로 재구현, 게시판 탭 왼쪽에 새 탭으로 추가. 사진 첨부 기능도 포함(지난

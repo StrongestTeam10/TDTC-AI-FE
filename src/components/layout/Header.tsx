@@ -64,6 +64,13 @@ export default function Header() {
               상점 위치 등록
             </NavLink>
           )}
+          {/* 2026-08-05 추가 (회원관리) - 관리자만 노출. RequireAuth가 URL 직접 접근도 막아주지만, 메뉴 자체를 숨겨서 혼란을 줄임.
+              회원 승인은 별도 메뉴 대신 이 페이지 안의 탭1으로 통합됨(2026-08-05 2차) */}
+          {user?.rulesCode === 'ROL01' && (
+              <NavLink to="/admin/users" className={navClass}>
+                회원관리
+              </NavLink>
+          )}
           <NavLink to="/board" className={navClass}>
             게시판
           </NavLink>

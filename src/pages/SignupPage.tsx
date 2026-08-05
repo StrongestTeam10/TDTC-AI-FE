@@ -182,9 +182,9 @@ export default function SignupPage() {
       <div className="relative flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950 px-4">
         <ThemeToggle className="absolute right-6 top-6" />
         <div className="w-full max-w-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 text-center">
-          <p className="mb-2 text-lg font-semibold text-slate-900 dark:text-slate-100">가입이 완료되었습니다</p>
+          <p className="mb-2 text-lg font-semibold text-slate-900 dark:text-slate-100">가입 신청이 접수되었습니다</p>
           <p className="mb-6 text-sm text-slate-500">
-            등록하신 아이디로 로그인해주세요.
+            관리자 승인 후 로그인할 수 있습니다. 승인까지 다소 시간이 걸릴 수 있습니다.
           </p>
           <button
             type="button"
