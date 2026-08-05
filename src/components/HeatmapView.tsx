@@ -149,9 +149,6 @@ export default function HeatmapView({
   viewZoom,
   onViewportChange,
 }: HeatmapViewProps) {
-  const internalWidth = typeof width === 'number' ? width : 640;
-  const internalHeight = typeof height === 'number' ? height : 480;
-
   const PADDING = 32;
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);

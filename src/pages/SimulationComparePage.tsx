@@ -262,298 +262,253 @@ export default function SimulationComparePage() {
       {layoutError && <ErrorBanner message={layoutError} onRetry={loadLayout} />}
 
       {isLayoutLoading ? (
-          <Spinner label="레이아웃 정보를 불러오는 중..." />
+        <Spinner label="레이아웃 정보를 불러오는 중..." />
       ) : (
-          <div className="flex flex-col xl:flex-row gap-6">
+        <div className="flex flex-col xl:flex-row gap-6">
+          <div className="w-full xl:w-[350px] space-y-4 shrink-0">
+            {runError && <ErrorBanner message={runError} />}
 
-            <div className="w-full xl:w-[350px] space-y-4 shrink-0">
-              {runError && <ErrorBanner message={runError} />}
-
-              <div className="rounded-lg border border-slate-700 bg-slate-900 overflow-hidden">
-                <div className="px-4 py-3 font-medium text-slate-200 bg-slate-800 flex justify-between items-center">
-                  <span>시뮬레이션 실행</span>
-                  <span className="text-xs px-2 py-1 bg-slate-950 rounded text-slate-400">
-                    {predictResult && scenarioResult ? '완료' : '대기'}
-                  </span>
-                </div>
-                <div className="p-4 border-t border-slate-700 h-[650px] overflow-y-auto custom-scrollbar space-y-4">
-                  <div className="text-xs text-slate-500">
-                    현재 실측 상태(센서 관측값)를 출발점으로, 같은 스텝 수·유입 인원 조건에서
-                    Before(정책 개입 없음)와 After(아래 정책 개입 반영)를 동시에 실행해서 비교합니다.
-                  </div>
-
-              <div className="space-y-4">
-                <div className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
-                  <button
-                    className="w-full px-4 py-3 text-left font-medium text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex justify-between items-center"
-                    onClick={() => setActiveStep('before')}
-                  >
-                    <span>1. 상태 예측 (Before)</span>
-                    <span className="text-xs px-2 py-1 bg-slate-50 dark:bg-slate-950 rounded text-slate-500 dark:text-slate-400">
-                      {predictResult ? '완료' : '대기'}
-                    </span>
-                  </button>
-                  {activeStep === 'before' && (
-                    <div className="p-4 border-t border-slate-300 dark:border-slate-700">
-                      <PredictForm
-                          marketId={markets[0]?.marketId ?? 0}
-                          isRunning={isPredicting}
-                          onSubmit={handleRunPredict}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                  <div>
-                    <label className="mb-1 block text-sm text-slate-300">예측 스텝 수</label>
-                    <input
-                        type="number"
-                        min={1}
-                        max={1000}
-                        value={steps}
-                        onChange={(e) => setSteps(Number(e.target.value))}
-                        className="w-full rounded border border-slate-600 bg-slate-900 px-3 py-2 text-slate-200"
-                        disabled={isPredicting || isScenarioRunning}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-sm text-slate-300">
-                      총 유입 인원 (전체 스텝에 무작위로 분산)
-                    </label>
-                    <input
-                        type="number"
-                        min={0}
-                        max={100000}
-                        value={agentCount}
-                        onChange={(e) => setAgentCount(Number(e.target.value))}
-                        className="w-full rounded border border-slate-600 bg-slate-900 px-3 py-2 text-slate-200"
-                        disabled={isPredicting || isScenarioRunning}
-                    />
-                    <p className="mt-1 text-xs text-slate-500">
-                      스텝마다 인원수가 들쭉날쭉하게 무작위로 유입되고, 전체 합계가 이 값에
-                      맞춰집니다. 0으로 두면 신규 유입 없이 현재 인원의 자연스러운 이동만 봅니다.
-                    </p>
-                  </div>
-
-                  <div className="border-t border-slate-700 pt-3">
-                    <h3 className="mb-2 text-xs font-semibold text-slate-400">
-                      정책 개입 · 이벤트
-                      <span className="block font-normal text-slate-500 normal-case">
-                        오브젝트/통로정책/게이트는 After 전용, 이벤트(화재·음향이상)는
-                        Before·After 양쪽 지도 어디서 찍든 같은 위치에 동시 반영됩니다.
-                      </span>
-                    </h3>
-                    <ScenarioForm
-                        isRunning={isPredicting || isScenarioRunning}
-                        steps={steps}
-                        zones={zones}
-                        objects={objects}
-                        onRemoveObject={(idx) => setObjects(prev => prev.filter((_, i) => i !== idx))}
-                        events={events}
-                        onRemoveEvent={(idx) => setEvents(prev => prev.filter((_, i) => i !== idx))}
-                        onUpdateEventTriggerStep={(idx, val) => setEvents(prev => prev.map((ev, i) => i === idx ? { ...ev, triggerStep: val } : ev))}
-                        placementType={placementType}
-                        onSelectPlacementType={setPlacementType}
-                        nextIntensity={nextIntensity}
-                        onNextIntensityChange={setNextIntensity}
-                        nextTriggerStep={nextTriggerStep}
-                        onNextTriggerStepChange={setNextTriggerStep}
-                        corridors={corridorPolicies}
-                        onAddCorridor={handleAddCorridor}
-                        onRemoveCorridor={handleRemoveCorridor}
-                    />
-                  </div>
-
-                  <button
-                      type="button"
-                      onClick={handleRunSimulation}
-                      disabled={isPredicting || isScenarioRunning}
-                      className="w-full rounded bg-orange-600 py-2 text-sm font-semibold text-white hover:bg-orange-500 disabled:opacity-50"
-                  >
-                    {isPredicting || isScenarioRunning ? '시뮬레이션 실행 중...' : '시뮬레이션 실행'}
-                  </button>
-
-                  <button
-                      type="button"
-                      onClick={handleReset}
-                      disabled={isPredicting || isScenarioRunning}
-                      className="w-full rounded border border-slate-600 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 disabled:opacity-50"
-                  >
-                    초기화
-                  </button>
-                <div className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
-                  <button
-                    className="w-full px-4 py-3 text-left font-medium text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex justify-between items-center"
-                    onClick={() => setActiveStep('after')}
-                  >
-                    <span>2. 정책 개입 (After)</span>
-                    <span className="text-xs px-2 py-1 bg-slate-50 dark:bg-slate-950 rounded text-slate-500 dark:text-slate-400">
-                      {scenarioResult ? '완료' : '대기'}
-                    </span>
-                  </button>
-                  {activeStep === 'after' && (
-                    <div className="p-4 border-t border-slate-300 dark:border-slate-700 h-[600px] overflow-y-auto custom-scrollbar">
-                      <ScenarioForm
-                          isRunning={isScenarioRunning}
-                          onSubmit={handleRunScenario}
-                          zones={zones}
-                          objects={objects}
-                          onRemoveObject={(idx) => setObjects(prev => prev.filter((_, i) => i !== idx))}
-                          events={events}
-                          onRemoveEvent={(idx) => setEvents(prev => prev.filter((_, i) => i !== idx))}
-                          onUpdateEventTriggerStep={(idx, val) => setEvents(prev => prev.map((ev, i) => i === idx ? { ...ev, triggerStep: val } : ev))}
-                          placementType={placementType}
-                          onSelectPlacementType={setPlacementType}
-                          nextIntensity={nextIntensity}
-                          onNextIntensityChange={setNextIntensity}
-                          nextTriggerStep={nextTriggerStep}
-                          onNextTriggerStepChange={setNextTriggerStep}
-                      />
-                    </div>
-                  )}
-                </div>
+            <div className="rounded-lg border border-slate-700 bg-slate-900 overflow-hidden">
+              <div className="px-4 py-3 font-medium text-slate-200 bg-slate-800 flex justify-between items-center">
+                <span>시뮬레이션 설정</span>
+                <span className="text-xs px-2 py-1 bg-slate-950 rounded text-slate-400">
+                  {predictResult && scenarioResult ? '완료' : '대기'}
+                </span>
               </div>
-            </div>
-
-            <div className="flex-1 flex flex-col gap-6 overflow-hidden">
-              <div className="flex flex-col md:flex-row gap-4 h-[450px]">
-                <div className="flex-1 flex flex-col min-w-0">
-                  <div className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">개입 전 (Before)</div>
-                  <div className="flex-1 relative rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900">
-                    <HeatmapView
-                        zones={zones}
-                        agents={getBeforeAgents()}
-                        width="100%"
-                        height="100%"
-                        transitionMs={intervalMs}
-                        buildings={buildings}
-                        placementType={beforePlacementType}
-                        onPlaceObject={handlePlaceObject}
-                        events={visibleEvents}
-                        focusEvent={focusEvent}
-                        viewCenter={mapViewport ? { lon: mapViewport.lon, lat: mapViewport.lat } : undefined}
-                        viewZoom={mapViewport?.zoom}
-                        onViewportChange={setMapViewport}
-                    />
-                    {!predictResult && (
-                      <div className="absolute inset-0 bg-white/50 dark:bg-slate-900/50 flex items-center justify-center text-sm text-slate-500 dark:text-slate-400 z-10 backdrop-blur-[2px]">
-                        예측을 실행해주세요
-                      </div>
-                    )}
-                  </div>
+              <div className="p-4 border-t border-slate-700 h-[650px] overflow-y-auto custom-scrollbar space-y-4">
+                <div className="text-xs text-slate-500">
+                  현재 실측 상태(센서 관측값)를 출발점으로, 같은 스텝 수·유입 인원 조건에서
+                  Before(정책 개입 없음)와 After(아래 정책 개입 반영)를 동시에 실행해서 비교합니다.
                 </div>
 
-                <div className="flex-1 flex flex-col min-w-0">
-                  <div className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex justify-between items-center">
-                    <span>개입 후 (After)</span>
-                  </div>
-                  <div className="flex-1 relative rounded-lg border border-slate-700 overflow-hidden bg-slate-900">
-                    <HeatmapView
-
-                        zones={zones}
-                        agents={getAfterAgents()}
-                        width="100%"
-                        height="100%"
-                        transitionMs={intervalMs}
-                        buildings={buildings}
-                        corridors={corridors}
-                        gates={gates}
-                        closedGateIds={closedGateIds}
-                        onGateClick={handleGateClick}
-                        placementType={placementType}
-                        onPlaceObject={handlePlaceObject}
-                        placedObjects={objects}
-                        events={visibleEvents}
-                        focusEvent={focusEvent}
-                        viewCenter={mapViewport ? { lon: mapViewport.lon, lat: mapViewport.lat } : undefined}
-                        viewZoom={mapViewport?.zoom}
-                        onViewportChange={setMapViewport}
-                    />
-                  </div>
+                <div>
+                  <label className="mb-1 block text-sm text-slate-300">예측 스텝 수</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={1000}
+                    value={steps}
+                    onChange={(e) => setSteps(Number(e.target.value))}
+                    className="w-full rounded border border-slate-600 bg-slate-900 px-3 py-2 text-slate-200"
+                    disabled={isPredicting || isScenarioRunning}
+                  />
                 </div>
-              </div>
 
-              <div className="flex items-center gap-3 rounded bg-slate-900 px-4 py-3 text-xs text-slate-300 shadow-sm border border-slate-700">
-                <button
-                  onClick={() => {
-                    if (!isPlaying && maxFrames > 0 && playIndex >= maxFrames - 1) {
-                      setPlayIndex(0);
+                <div>
+                  <label className="mb-1 block text-sm text-slate-300">
+                    총 유입 인원 (전체 스텝에 무작위로 분산)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100000}
+                    value={agentCount}
+                    onChange={(e) => setAgentCount(Number(e.target.value))}
+                    className="w-full rounded border border-slate-600 bg-slate-900 px-3 py-2 text-slate-200"
+                    disabled={isPredicting || isScenarioRunning}
+                  />
+                  <p className="mt-1 text-xs text-slate-500">
+                    스텝마다 인원수가 들쭉날쭉하게 무작위로 유입되고, 전체 합계가 이 값에
+                    맞춰집니다. 0으로 두면 신규 유입 없이 현재 인원의 자연스러운 이동만 봅니다.
+                  </p>
+                </div>
+
+                <div className="border-t border-slate-700 pt-3">
+                  <h3 className="mb-2 text-xs font-semibold text-slate-400">
+                    정책 개입 · 이벤트
+                    <span className="block font-normal text-slate-500 normal-case mt-1">
+                      오브젝트/통로정책/게이트는 After 전용, 이벤트(화재·음향이상)는
+                      Before·After 양쪽 지도 어디서 찍든 같은 위치에 동시 반영됩니다.
+                    </span>
+                  </h3>
+                  <ScenarioForm
+                    isRunning={isPredicting || isScenarioRunning}
+                    steps={steps}
+                    zones={zones}
+                    objects={objects}
+                    onRemoveObject={(idx) => setObjects((prev) => prev.filter((_, i) => i !== idx))}
+                    events={events}
+                    onRemoveEvent={(idx) => setEvents((prev) => prev.filter((_, i) => i !== idx))}
+                    onUpdateEventTriggerStep={(idx, val) =>
+                      setEvents((prev) => prev.map((ev, i) => (i === idx ? { ...ev, triggerStep: val } : ev)))
                     }
-                    setIsPlaying(!isPlaying);
-                  }}
-                  disabled={maxFrames === 0}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
+                    placementType={placementType}
+                    onSelectPlacementType={setPlacementType}
+                    nextIntensity={nextIntensity}
+                    onNextIntensityChange={setNextIntensity}
+                    nextTriggerStep={nextTriggerStep}
+                    onNextTriggerStepChange={setNextTriggerStep}
+                    corridors={corridorPolicies}
+                    onAddCorridor={handleAddCorridor}
+                    onRemoveCorridor={handleRemoveCorridor}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleRunSimulation}
+                  disabled={isPredicting || isScenarioRunning}
+                  className="w-full rounded bg-orange-600 py-2 text-sm font-semibold text-white hover:bg-orange-500 disabled:opacity-50"
                 >
-                  {isPlaying ? '⏸' : '▶'}
+                  {isPredicting || isScenarioRunning ? '시뮬레이션 실행 중...' : '시뮬레이션 실행'}
                 </button>
 
-                <input
-                  type="range"
-                  min={0}
-                  max={Math.max(0, maxFrames - 1)}
-                  value={playIndex}
-                  disabled={maxFrames === 0}
-                  onChange={(e) => {
-                    setPlayIndex(Number(e.target.value));
-                    setIsPlaying(false);
-                  }}
-                  className="flex-1 accent-blue-500 cursor-pointer disabled:opacity-50"
-                />
-
-                <div className="flex flex-col items-end min-w-[70px] shrink-0">
-                  <span className="font-mono">{playIndex + 1} / {Math.max(1, maxFrames)}</span>
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400">~{(playIndex + 1) * STEP_DURATION_SECONDS}초</span>
-                </div>
-
-                <select
-                    value={playSpeed}
-                    onChange={(e) => setPlaySpeed(Number(e.target.value))}
-                    className="rounded border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 px-1 py-1 text-slate-800 dark:text-slate-200 outline-none shrink-0"
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  disabled={isPredicting || isScenarioRunning}
+                  className="w-full rounded border border-slate-600 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 disabled:opacity-50"
                 >
-                  {SPEED_OPTIONS.map((s) => (
-                      <option key={s} value={s}>{s}x</option>
-                  ))}
-                </select>
+                  초기화
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1 flex flex-col gap-6 overflow-hidden">
+            <div className="flex flex-col md:flex-row gap-4 h-[450px]">
+              <div className="flex-1 flex flex-col min-w-0">
+                <div className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">개입 전 (Before)</div>
+                <div className="flex-1 relative rounded-lg border border-slate-700 overflow-hidden bg-slate-900">
+                  <HeatmapView
+                    zones={zones}
+                    agents={getBeforeAgents()}
+                    width="100%"
+                    height="100%"
+                    transitionMs={intervalMs}
+                    buildings={buildings}
+                    placementType={beforePlacementType}
+                    onPlaceObject={handlePlaceObject}
+                    events={visibleEvents}
+                    focusEvent={focusEvent}
+                    viewCenter={mapViewport ? { lon: mapViewport.lon, lat: mapViewport.lat } : undefined}
+                    viewZoom={mapViewport?.zoom}
+                    onViewportChange={setMapViewport}
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-1 rounded-lg border border-slate-700 bg-slate-900 p-4 space-y-4">
-                  <h3 className="text-sm font-medium text-slate-400 border-b border-slate-800 pb-2">비교 결과 요약</h3>
-
-                  <div className="space-y-3">
-                    <div>
-                      <div className="text-xs text-slate-500 mb-1">최종 위험도</div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-slate-700 dark:text-slate-300">Before</span>
-                        <span className="font-semibold text-orange-600 dark:text-orange-400">{predictResult?.finalOverallRiskScore.toFixed(2) ?? '-'}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-slate-700 dark:text-slate-300">After</span>
-                        <span className="font-semibold text-blue-600 dark:text-blue-400">{scenarioResult?.finalRiskScore?.score.toFixed(2) ?? '-'}</span>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
-                      <div className="text-xs text-slate-500 mb-1">대피 소요 시간</div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-slate-700 dark:text-slate-300">After (시나리오)</span>
-                        <span className="font-semibold text-slate-800 dark:text-slate-200">
-                          {scenarioResult?.evacuationTimeSeconds ? `${scenarioResult.evacuationTimeSeconds} 초` : (scenarioResult ? '대피 미완료' : '-')}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+              <div className="flex-1 flex flex-col min-w-0">
+                <div className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex justify-between items-center">
+                  <span>개입 후 (After)</span>
                 </div>
-
-                <div className="md:col-span-2">
-                  <RiskTrendChart
-                    beforeTrend={predictResult?.riskTrend}
+                <div className="flex-1 relative rounded-lg border border-slate-700 overflow-hidden bg-slate-900">
+                  <HeatmapView
+                    zones={zones}
+                    agents={getAfterAgents()}
+                    width="100%"
+                    height="100%"
+                    transitionMs={intervalMs}
+                    buildings={buildings}
+                    corridors={corridors}
+                    gates={gates}
+                    closedGateIds={closedGateIds}
+                    onGateClick={handleGateClick}
+                    placementType={placementType}
+                    onPlaceObject={handlePlaceObject}
+                    placedObjects={objects}
+                    events={visibleEvents}
+                    focusEvent={focusEvent}
+                    viewCenter={mapViewport ? { lon: mapViewport.lon, lat: mapViewport.lat } : undefined}
+                    viewZoom={mapViewport?.zoom}
+                    onViewportChange={setMapViewport}
                   />
                 </div>
               </div>
             </div>
+
+            <div className="flex items-center gap-3 rounded bg-slate-900 px-4 py-3 text-xs text-slate-300 shadow-sm border border-slate-700">
+              <button
+                onClick={() => {
+                  if (!isPlaying && maxFrames > 0 && playIndex >= maxFrames - 1) {
+                    setPlayIndex(0);
+                  }
+                  setIsPlaying(!isPlaying);
+                }}
+                disabled={maxFrames === 0}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
+              >
+                {isPlaying ? '⏸' : '▶'}
+              </button>
+
+              <input
+                type="range"
+                min={0}
+                max={Math.max(0, maxFrames - 1)}
+                value={playIndex}
+                disabled={maxFrames === 0}
+                onChange={(e) => {
+                  setPlayIndex(Number(e.target.value));
+                  setIsPlaying(false);
+                }}
+                className="flex-1 accent-blue-500 cursor-pointer disabled:opacity-50"
+              />
+
+              <div className="flex flex-col items-end min-w-[70px] shrink-0">
+                <span className="font-mono">
+                  {playIndex + 1} / {Math.max(1, maxFrames)}
+                </span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                  ~{(playIndex + 1) * STEP_DURATION_SECONDS}초
+                </span>
+              </div>
+
+              <select
+                value={playSpeed}
+                onChange={(e) => setPlaySpeed(Number(e.target.value))}
+                className="rounded border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 px-1 py-1 text-slate-800 dark:text-slate-200 outline-none shrink-0"
+              >
+                {SPEED_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}x
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-1 rounded-lg border border-slate-700 bg-slate-900 p-4 space-y-4">
+                <h3 className="text-sm font-medium text-slate-400 border-b border-slate-800 pb-2">비교 결과 요약</h3>
+
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-xs text-slate-500 mb-1">최종 위험도</div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-slate-700 dark:text-slate-300">Before</span>
+                      <span className="font-semibold text-orange-600 dark:text-orange-400">
+                        {predictResult?.finalOverallRiskScore.toFixed(2) ?? '-'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-slate-700 dark:text-slate-300">After</span>
+                      <span className="font-semibold text-blue-600 dark:text-blue-400">
+                        {scenarioResult?.finalRiskScore?.score.toFixed(2) ?? '-'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+                    <div className="text-xs text-slate-500 mb-1">대피 소요 시간</div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-slate-700 dark:text-slate-300">After (시나리오)</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">
+                        {scenarioResult?.evacuationTimeSeconds
+                          ? `${scenarioResult.evacuationTimeSeconds} 초`
+                          : scenarioResult
+                          ? '대피 미완료'
+                          : '-'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="md:col-span-2">
+                <RiskTrendChart beforeTrend={predictResult?.riskTrend} />
+              </div>
+            </div>
           </div>
+        </div>
       )}
     </div>
   );
