@@ -30,6 +30,9 @@ interface HeatmapViewProps {
   placedObjects?: PlacedObject[];
   events?: EventTrigger[];
   focusEvent?: EventTrigger | null;
+  viewCenter?: { lon: number; lat: number };
+  viewZoom?: number;
+  onViewportChange?: (v: { lon: number; lat: number; zoom: number }) => void;
 }
 
 type LonLat = [number, number];
@@ -146,20 +149,32 @@ export default function HeatmapView({
                                        placedObjects,
                                        events,
                                        focusEvent = null,
+                                       viewCenter,
+                                       viewZoom,
+                                       onViewportChange,
                                      }: HeatmapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // zoom(1=기본) <-> Kakao level 변환 기준점. 초기 setBounds() 직후의 level을
+  // "zoom=1"로 삼는다(레벨은 이산값이라 정확히 log2 배율이 아니지만, Kakao 레벨
+  // 한 칸이 대략 2배 축척이라 근사로 충분하다).
+  const baseLevelRef = useRef<number>(3);
+  // 프로그램적으로 setCenter/setLevel을 호출하는 동안에는 idle 이벤트로 인한
+  // onViewportChange 재발화를 막아서 부모<->자식 무한 루프를 끊는다.
+  const isApplyingExternalRef = useRef(false);
 
   const placementTypeRef = useRef(placementType);
   const onPlaceObjectRef = useRef(onPlaceObject);
   const onGateClickRef = useRef(onGateClick);
   const zonesRef = useRef(zones);
+  const onViewportChangeRef = useRef(onViewportChange);
   useEffect(() => { placementTypeRef.current = placementType; }, [placementType]);
   useEffect(() => { onPlaceObjectRef.current = onPlaceObject; }, [onPlaceObject]);
   useEffect(() => { onGateClickRef.current = onGateClick; }, [onGateClick]);
   useEffect(() => { zonesRef.current = zones; }, [zones]);
+  useEffect(() => { onViewportChangeRef.current = onViewportChange; }, [onViewportChange]);
 
   const zonePolygonPoints = useMemo(() => {
     return zones
@@ -195,6 +210,7 @@ export default function HeatmapView({
             );
             map.setBounds(bounds);
           }
+          baseLevelRef.current = map.getLevel();
 
           window.kakao.maps.event.addListener(map, 'click', (mouseEvent: any) => {
             const kind = placementTypeRef.current;
@@ -207,6 +223,17 @@ export default function HeatmapView({
                 .find((z): z is { zone: Zone; points: LonLat[] } => z.points !== null && pointInPolygon(lon, lat, z.points));
             if (!containing) return;
             onPlaceObjectRef.current(containing.zone.zoneId, lat, lon);
+          });
+
+          // 사용자가 이 지도를 직접 드래그/휠 조작해서 이동이 끝나면(idle) 부모에 알림.
+          // 프로그램적으로 setCenter/setLevel한 경우(controlled 동기화)는
+          // isApplyingExternalRef로 걸러서 재알림하지 않는다.
+          window.kakao.maps.event.addListener(map, 'idle', () => {
+            if (isApplyingExternalRef.current || !onViewportChangeRef.current) return;
+            const center = map.getCenter();
+            const level = map.getLevel();
+            const zoom = Math.pow(2, baseLevelRef.current - level);
+            onViewportChangeRef.current({ lon: center.getLng(), lat: center.getLat(), zoom });
           });
 
           setReady(true);
@@ -384,10 +411,6 @@ export default function HeatmapView({
   }, [ready, events, zonePolygonPoints]);
 
   // ---------- 이벤트 발동 시점: 지도 자동 이동 + 펄스 강조 ----------
-  // 2026-07-29 추가: focusEvent는 "지금 막 발동한 이벤트"만 잠깐 채워지는 값이다
-  // (ScenarioPage가 현재 재생 스텝과 triggerStep이 일치하는 순간에만 넘겨줌).
-  // 값이 들어오면 그 위치로 지도를 살짝 이동시키고, 눈에 띄는 펄스 원을 잠깐
-  // 띄웠다가 자동으로 제거한다.
   useEffect(() => {
     if (!ready || !mapRef.current || !focusEvent) return;
 
@@ -433,11 +456,7 @@ export default function HeatmapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, focusEvent]);
 
-  // ---------- 에이전트: agents 바뀔 때마다(2초 폴링 등) 위치를 부드럽게 보간 이동 ----------
-  // 2026-07-27 추가: 카카오 CustomOverlay는 setPosition()으로 옮기면 즉시 순간이동해서
-  // CSS transition이 안 먹는다(내부적으로 픽셀 좌표를 다시 계산해서 바로 반영하기
-  // 때문). 그래서 requestAnimationFrame으로 이전 위치 -> 새 위치를 직접 보간하며
-  // setPosition을 여러 번 호출하는 방식으로 부드러운 이동을 구현한다.
+  // ---------- 에이전트: agents 바뀔 때마다 위치를 부드럽게 보간 이동 ----------
   interface AgentOverlayEntry {
     overlay: any;
     el: HTMLDivElement;
@@ -452,7 +471,6 @@ export default function HeatmapView({
 
     const currentIds = new Set(agents.map((a) => a.agentId));
 
-    // 더 이상 없는 에이전트(퇴장 등) 정리
     agentOverlayMapRef.current.forEach((entry, id) => {
       if (!currentIds.has(id)) {
         if (entry.animFrameId !== null) cancelAnimationFrame(entry.animFrameId);
@@ -529,7 +547,6 @@ export default function HeatmapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, agents, transitionMs]);
 
-  // 컴포넌트 언마운트 시 모든 애니메이션/오버레이 정리
   useEffect(() => {
     return () => {
       agentOverlayMapRef.current.forEach((entry) => {
@@ -546,6 +563,30 @@ export default function HeatmapView({
       mapRef.current.relayout();
     }
   }, [width, height]);
+
+  // ---------- 뷰(중심+zoom) 동기화: 부모 -> 이 지도 ----------
+  useEffect(() => {
+    if (!ready || !mapRef.current || viewCenter === undefined || viewZoom === undefined) return;
+    const map = mapRef.current;
+
+    const currentCenter = map.getCenter();
+    const currentLevel = map.getLevel();
+    const targetLevel = Math.round(baseLevelRef.current - Math.log2(viewZoom));
+    const clampedLevel = Math.min(14, Math.max(1, targetLevel));
+
+    const centerUnchanged =
+      Math.abs(currentCenter.getLat() - viewCenter.lat) < 1e-7 &&
+      Math.abs(currentCenter.getLng() - viewCenter.lon) < 1e-7;
+    const levelUnchanged = currentLevel === clampedLevel;
+    if (centerUnchanged && levelUnchanged) return;
+
+    isApplyingExternalRef.current = true;
+    map.setCenter(new window.kakao.maps.LatLng(viewCenter.lat, viewCenter.lon));
+    map.setLevel(clampedLevel);
+    window.setTimeout(() => {
+      isApplyingExternalRef.current = false;
+    }, 0);
+  }, [ready, viewCenter?.lon, viewCenter?.lat, viewZoom]);
 
   if (loadError) {
     return (

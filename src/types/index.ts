@@ -75,6 +75,19 @@ export interface Zone {
   polygonCoordinates: string;
 }
 
+// 2026-08-XX 추가: 상가/건물 폴리곤. BE BuildingDto와 1:1 매칭.
+// polygonCoordinates는 Zone과 동일하게 GeoJSON [경도,위도] 문자열이라,
+// 같은 파싱 함수를 그대로 재사용한다.
+export interface Building {
+  buildingId: number;
+  marketId: number;
+  pnuCode: string;
+  polygonCoordinates: string;
+  heightM: number;
+  heightEstimated: boolean;
+  floors: number;
+}
+
 // 파이프라인 A: 관제 대시보드 조회 응답
 export interface DashboardSnapshot {
   marketId: number;
@@ -99,8 +112,6 @@ export interface PlacedObject {
 }
 
 // 통로 정책. SIM CorridorPolicy / BE CorridorPolicyDto와 1:1 매칭.
-// 2026-07-25: UI에서는 뺐지만(폼/지도 조작 제거), 백엔드/SIM 로직은 그대로 두고
-// 타입과 요청 필드만 유지한다(항상 빈 배열로 보냄).
 export interface CorridorPolicy {
   fromZoneId: number;
   toZoneId: number;
@@ -127,8 +138,6 @@ export interface Gate {
 }
 
 // 2026-07-25 추가: 화재/음향 이상 이벤트. SIM EventTrigger / BE EventTriggerDto와 1:1 매칭.
-// 오브젝트 배치와 같은 방식(지도 클릭 -> zoneId + 위경도 + intensity)으로 배치한다.
-// 2026-07-29 추가: triggerStep - 이 이벤트가 실제로 발동하는 스텝 번호(1부터 시작).
 export interface EventTrigger {
   eventType: 'fire' | 'acoustic_anomaly';
   zoneId: number;
@@ -139,8 +148,6 @@ export interface EventTrigger {
 }
 
 // 파이프라인 B: 사용자 지정 시뮬레이션 요청/응답
-// 2026-07-25: scenarioType/eventZoneId/eventIntensity 삭제 - 화면에 입력창만 있고
-// 실제로는 아무 효과가 없던 죽은 필드였다. events로 대체해 실제 효과를 낸다.
 export interface ScenarioRequest {
   marketId: number;
   agentCount: number;
@@ -165,6 +172,8 @@ export interface PredictRequest {
   capturedAt?: string;
   steps: number;
   totalInflow: number;
+  // 2026-08-XX 추가: 이벤트(화재/음향이상)만 Before/After 공통으로 반영.
+  events?: EventTrigger[];
   seed?: number;
 }
 

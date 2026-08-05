@@ -9,6 +9,7 @@ import type {
   Zone,
   Corridor,
   Gate,
+  Building,
 } from '../types';
 import type { PostListResponse, PostDetail } from '../types/board';
 import { getToken, notifyUnauthorized } from '../auth/tokenStore';
@@ -78,6 +79,12 @@ export async function fetchGates(marketId: number): Promise<Gate[]> {
   return data;
 }
 
+// 2026-08-XX 추가: 특정 시장의 상가/건물 폴리곤 목록 조회 (지도에 건물 형태 표시용).
+export async function fetchBuildings(marketId: number): Promise<Building[]> {
+  const { data } = await apiClient.get<Building[]>(`/markets/${marketId}/buildings`);
+  return data;
+}
+
 // 파이프라인 A: 관제 대시보드 - 실시간(또는 특정 시점) 스냅샷 조회
 export async function fetchDashboardSnapshot(
     marketId: number,
@@ -95,11 +102,20 @@ export async function fetchAvailableTimestamps(): Promise<string[]> {
   return data;
 }
 
+// 2026-08-XX 추가: 시뮬레이션(특히 화재 등 이벤트로 시장 전체가 대피하는 큰
+// 규모)은 계산량이 많아 공용 15초 타임아웃(apiClient 기본값)을 넘기기 쉽다.
+// 넘기면 브라우저가 먼저 연결을 끊어버리고 BE에 ClientAbortException이 찍히는데,
+// 실제로는 BE/SIM이 계속 계산 중이었을 뿐이다. 이 두 호출만 훨씬 긴 타임아웃을
+// 따로 준다(다른 API는 그대로 15초 유지 - 로그인/게시판 등은 오래 걸릴 이유가 없음).
+const SIMULATION_TIMEOUT_MS = 120_000; // 2분
+
 // 파이프라인 B: 사용자 지정 시나리오 시뮬레이션 실행
 export async function runScenarioSimulation(
     request: ScenarioRequest
 ): Promise<ScenarioResult> {
-  const { data } = await apiClient.post<ScenarioResult>('/simulation/run', request);
+  const { data } = await apiClient.post<ScenarioResult>('/simulation/run', request, {
+    timeout: SIMULATION_TIMEOUT_MS,
+  });
   return data;
 }
 
@@ -107,7 +123,9 @@ export async function runScenarioSimulation(
 export async function runPredictSimulation(
     request: PredictRequest
 ): Promise<PredictResult> {
-  const { data } = await apiClient.post<PredictResult>('/simulation/predict', request);
+  const { data } = await apiClient.post<PredictResult>('/simulation/predict', request, {
+    timeout: SIMULATION_TIMEOUT_MS,
+  });
   return data;
 }
 

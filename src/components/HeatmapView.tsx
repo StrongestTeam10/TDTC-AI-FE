@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { AgentState, Zone } from '../types';
+import type { AgentState, Zone, PlacedObject, Gate, EventTrigger, Building } from '../types';
 
 // 특정 구역의 위험도 정보 (파이프라인 A: SIM ZoneResult 기반, 선택적)
 export interface ZoneRisk {
@@ -8,22 +8,44 @@ export interface ZoneRisk {
   riskScore?: number;
 }
 
+export interface CorridorEdge {
+  fromZoneId: number;
+  toZoneId: number;
+  pathCoordinates: string | null;
+}
+
+// 2026-08-XX 변경: BE가 실제로 내려주는 형태(GeoJSON [경도,위도] 문자열, Zone과 동일 형식)로
+// 맞췄다. 예전엔 origin+로컬미터 vertices를 상정했었는데, 실제 BuildingDto(= types의
+// Building)는 polygonCoordinates가 Zone.polygonCoordinates와 똑같은 GeoJSON이라
+// 별도 좌표 변환이 필요 없다 - parsePolygon()을 그대로 재사용한다.
+
 interface HeatmapViewProps {
   zones: Zone[];
   agents: AgentState[];
   zoneRisks?: ZoneRisk[];
+  buildings?: Building[];
   width?: number | string;
   height?: number | string;
-  // 프레임이 바뀔 때 점이 순간이동하지 않고 부드럽게 미끄러지도록 하는 트랜지션
-  // 시간(ms). FramePlayer가 재생 간격과 맞춰서 넘겨준다. 미지정(0)이면 순간이동.
   transitionMs?: number;
+  corridors?: CorridorEdge[];
+  gates?: Gate[];
+  closedGateIds?: Set<number>;
+  onGateClick?: (facilityId: number) => void;
+  placementType?: PlacedObject['objectType'] | EventTrigger['eventType'] | null;
+  onPlaceObject?: (zoneId: number, latitude: number, longitude: number) => void;
+  placedObjects?: PlacedObject[];
+  events?: EventTrigger[];
+  focusEvent?: EventTrigger | null;
+  viewCenter?: { lon: number; lat: number };
+  viewZoom?: number;
+  onViewportChange?: (v: { lon: number; lat: number; zoom: number }) => void;
 }
 
 const RISK_FILL: Record<string, string> = {
-  low: 'rgba(59, 130, 246, 0.25)',      // blue
-  medium: 'rgba(245, 158, 11, 0.3)',    // amber
-  high: 'rgba(249, 115, 22, 0.35)',     // orange
-  critical: 'rgba(239, 68, 68, 0.4)',   // red
+  low: 'rgba(59, 130, 246, 0.25)',
+  medium: 'rgba(245, 158, 11, 0.3)',
+  high: 'rgba(249, 115, 22, 0.35)',
+  critical: 'rgba(239, 68, 68, 0.4)',
 };
 const RISK_STROKE: Record<string, string> = {
   low: '#3b82f6',
@@ -31,7 +53,7 @@ const RISK_STROKE: Record<string, string> = {
   high: '#f97316',
   critical: '#ef4444',
 };
-const DEFAULT_FILL = 'rgba(100, 116, 139, 0.2)'; // slate, 위험도 정보 없을 때
+const DEFAULT_FILL = 'rgba(100, 116, 139, 0.2)';
 const DEFAULT_STROKE = '#64748b';
 
 const AGENT_COLOR: Record<string, string> = {
@@ -40,12 +62,29 @@ const AGENT_COLOR: Record<string, string> = {
   evacuating: '#ef4444',
 };
 
-// 확대/축소 상태. 지금은 SVG viewBox에 반영하지만, 나중에 구글맵 API로 바꿔도
-// 이 zoom/center 개념을 그대로 map.setZoom()/setCenter()에 넘기면 되도록
-// "확대 배율 + 중심점"이라는 지도 API 공통 개념으로 설계함 (2026-07-24 추가).
+const OBJECT_COLOR: Record<PlacedObject['objectType'], string> = {
+  food_truck: '#f97316',
+  event_zone: '#a855f7',
+  rest_area: '#22c55e',
+  obstacle: '#78350f',
+};
+
+const EVENT_COLOR: Record<EventTrigger['eventType'], string> = {
+  fire: '#dc2626',
+  acoustic_anomaly: '#eab308',
+};
+
+const GATE_OPEN_COLOR = '#22c55e';
+const GATE_CLOSED_COLOR = '#ef4444';
+
+const BUILDING_FILL_MEASURED = 'rgba(148, 163, 184, 0.45)';
+const BUILDING_STROKE_MEASURED = '#94a3b8';
+const BUILDING_FILL_ESTIMATED = 'rgba(148, 163, 184, 0.2)';
+const BUILDING_STROKE_ESTIMATED = '#64748b';
+
 interface Viewport {
-  zoom: number;   // 1 = 기본, 커질수록 확대
-  panX: number;   // 보이는 영역의 좌상단 x (SVG 로컬 좌표)
+  zoom: number;
+  panX: number;
   panY: number;
 }
 
@@ -66,17 +105,55 @@ function parsePolygon(polygonCoordinates: string): LonLat[] | null {
   }
 }
 
+function parseLineString(coordinates: string): LonLat[] | null {
+  try {
+    const geo = JSON.parse(coordinates);
+    const line = geo?.coordinates;
+    if (!Array.isArray(line) || line.length < 2) return null;
+    return line.map((pt: number[]) => [pt[0], pt[1]] as LonLat);
+  } catch {
+    return null;
+  }
+}
+
+function pointInPolygon(lon: number, lat: number, polygon: LonLat[]): boolean {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const [xi, yi] = polygon[i];
+    const [xj, yj] = polygon[j];
+    const intersects =
+      yi > lat !== yj > lat && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
+    if (intersects) inside = !inside;
+  }
+  return inside;
+}
+
 export default function HeatmapView({
   zones,
   agents,
   zoneRisks,
+  buildings,
   width = 640,
   height = 480,
   transitionMs = 0,
+  corridors,
+  gates,
+  closedGateIds,
+  onGateClick,
+  placementType = null,
+  onPlaceObject,
+  placedObjects,
+  events,
+  focusEvent = null,
+  viewCenter,
+  viewZoom,
+  onViewportChange,
 }: HeatmapViewProps) {
   const PADDING = 32;
   const containerRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const dragRef = useRef<{ x: number; y: number } | null>(null);
+  const isApplyingExternalRef = useRef(false);
   const [viewport, setViewport] = useState<Viewport>({ zoom: 1, panX: 0, panY: 0 });
   const [hoveredAgent, setHoveredAgent] = useState<{ agent: AgentState; x: number; y: number } | null>(null);
 
@@ -147,10 +224,16 @@ export default function HeatmapView({
     (e.target as Element).setPointerCapture(e.pointerId);
   };
 
+  const DRAG_THRESHOLD_PX = 4;
+  const pointerMovedRef = useRef(false);
+
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!dragRef.current) return;
     const dx = e.clientX - dragRef.current.x;
     const dy = e.clientY - dragRef.current.y;
+    if (Math.abs(dx) > DRAG_THRESHOLD_PX || Math.abs(dy) > DRAG_THRESHOLD_PX) {
+      pointerMovedRef.current = true;
+    }
     dragRef.current = { x: e.clientX, y: e.clientY };
     setViewport((v) => ({
       ...v,
@@ -166,7 +249,6 @@ export default function HeatmapView({
   const zoomBy = (factor: number) => {
     setViewport((v) => {
       const nextZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.zoom * factor));
-      // 화면 중앙을 기준으로 확대/축소
       const oldVbW = internalWidth / v.zoom, oldVbH = internalHeight / v.zoom;
       const newVbW = internalWidth / nextZoom, newVbH = internalHeight / nextZoom;
       const centerX = v.panX + oldVbW / 2;
@@ -177,12 +259,15 @@ export default function HeatmapView({
 
   const resetViewport = () => setViewport({ zoom: 1, panX: 0, panY: 0 });
 
-  const layout = useMemo(() => {
+  const bounds = useMemo(() => {
     const zonePolygons = zones
       .map((zone) => ({ zone, points: parsePolygon(zone.polygonCoordinates) }))
       .filter((z): z is { zone: Zone; points: LonLat[] } => z.points !== null);
 
-    // 구역 폴리곤 좌표 + 에이전트 좌표를 모두 포함해 경계 산출
+    const buildingLonLat = (buildings ?? [])
+      .map((b) => ({ ...b, points: parsePolygon(b.polygonCoordinates) }))
+      .filter((b): b is Building & { points: LonLat[] } => b.points !== null);
+
     const allLons: number[] = [];
     const allLats: number[] = [];
     zonePolygons.forEach(({ points }) =>
@@ -191,10 +276,14 @@ export default function HeatmapView({
         allLats.push(lat);
       })
     );
+    buildingLonLat.forEach(({ points }) =>
+      points.forEach(([lon, lat]) => {
+        allLons.push(lon);
+        allLats.push(lat);
+      })
+    );
 
-    if (allLons.length === 0) {
-      return null;
-    }
+    if (allLons.length === 0) return null;
 
     const minLon = Math.min(...allLons);
     const maxLon = Math.max(...allLons);
@@ -210,8 +299,20 @@ export default function HeatmapView({
 
     const project = ([lon, lat]: LonLat): [number, number] => [
       PADDING + (lon - minLon) * scale,
-      PADDING + (maxLat - lat) * scale, // 위도가 클수록(북쪽) 화면 위쪽(작은 y)
+      PADDING + (maxLat - lat) * scale,
     ];
+
+    const unproject = (x: number, y: number): LonLat => [
+      minLon + (x - PADDING) / scale,
+      maxLat - (y - PADDING) / scale,
+    ];
+
+    return { zonePolygons, buildingLonLat, minLon, maxLat, scale, project, unproject };
+  }, [zones, buildings, internalWidth, internalHeight]);
+
+  const layout = useMemo(() => {
+    if (!bounds) return null;
+    const { zonePolygons, buildingLonLat, project, unproject, minLon, maxLat, scale } = bounds;
 
     const riskByZoneId = new Map((zoneRisks ?? []).map((r) => [r.zoneId, r]));
 
@@ -234,13 +335,141 @@ export default function HeatmapView({
       };
     });
 
+    const renderedBuildings = buildingLonLat.map((b) => {
+      const projected = b.points.map(project);
+      return {
+        buildingId: b.buildingId,
+        pointsAttr: projected.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' '),
+        heightEstimated: b.heightEstimated,
+        height: b.heightM,
+        floors: b.floors,
+      };
+    });
+
     const renderedAgents = agents.map((agent) => {
       const [x, y] = project([agent.longitude, agent.latitude]);
       return { ...agent, x, y };
     });
 
-    return { renderedZones, renderedAgents };
-  }, [zones, agents, zoneRisks, internalWidth, internalHeight]);
+    const renderedCorridors = (corridors ?? [])
+      .map((c) => (c.pathCoordinates ? parseLineString(c.pathCoordinates) : null))
+      .filter((pts): pts is LonLat[] => pts !== null)
+      .map((pts) => pts.map(project).map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' '));
+
+    const renderedGates = (gates ?? []).map((gate) => {
+      const [x, y] = project([gate.longitude, gate.latitude]);
+      return { ...gate, x, y };
+    });
+
+    const renderedObjects = (placedObjects ?? []).map((obj, idx) => {
+      const lonLat: LonLat | null =
+        obj.latitude !== undefined && obj.longitude !== undefined
+          ? [obj.longitude, obj.latitude]
+          : null;
+      if (!lonLat) return null;
+      const [x, y] = project(lonLat);
+      return { ...obj, idx, x, y };
+    }).filter((o): o is NonNullable<typeof o> => o !== null);
+
+    const renderedEvents = (events ?? []).map((ev, idx) => {
+      const lonLat: LonLat | null =
+        ev.latitude !== undefined && ev.longitude !== undefined
+          ? [ev.longitude, ev.latitude]
+          : null;
+      if (!lonLat) return null;
+      const [x, y] = project(lonLat);
+      return { ...ev, idx, x, y };
+    }).filter((e): e is NonNullable<typeof e> => e !== null);
+
+    let renderedFocusEvent: { x: number; y: number; eventType: EventTrigger['eventType'] } | null = null;
+    if (focusEvent) {
+      const hasCoords = focusEvent.latitude != null && focusEvent.longitude != null;
+      const lonLat: LonLat | undefined = hasCoords
+        ? [focusEvent.longitude as number, focusEvent.latitude as number]
+        : zonePolygons.find(({ zone }) => zone.zoneId === focusEvent.zoneId)?.points.reduce(
+            (acc, [lon, lat], _i, arr) => [acc[0] + lon / arr.length, acc[1] + lat / arr.length],
+            [0, 0] as LonLat
+          );
+      if (lonLat) {
+        const [x, y] = project(lonLat);
+        renderedFocusEvent = { x, y, eventType: focusEvent.eventType };
+      }
+    }
+
+    return {
+      renderedZones,
+      renderedBuildings,
+      renderedCorridors,
+      renderedAgents,
+      renderedGates,
+      renderedObjects,
+      renderedEvents,
+      renderedFocusEvent,
+      unproject,
+      zonePolygons,
+      minLon,
+      maxLat,
+      scale,
+    };
+  }, [bounds, agents, zoneRisks, gates, placedObjects, events, focusEvent, corridors]);
+
+  useEffect(() => {
+    if (viewCenter === undefined || viewZoom === undefined || !bounds) return;
+    const { minLon, maxLat, scale } = bounds;
+    const vbW = internalWidth / viewZoom;
+    const vbH = internalHeight / viewZoom;
+    const centerLocalX = PADDING + (viewCenter.lon - minLon) * scale;
+    const centerLocalY = PADDING + (maxLat - viewCenter.lat) * scale;
+    const nextPanX = centerLocalX - vbW / 2;
+    const nextPanY = centerLocalY - vbH / 2;
+
+    setViewport((v) => {
+      const unchanged =
+        Math.abs(v.panX - nextPanX) < 0.05 &&
+        Math.abs(v.panY - nextPanY) < 0.05 &&
+        Math.abs(v.zoom - viewZoom) < 0.001;
+      if (unchanged) return v;
+      isApplyingExternalRef.current = true;
+      return { zoom: viewZoom, panX: nextPanX, panY: nextPanY };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewCenter?.lon, viewCenter?.lat, viewZoom, bounds, internalWidth, internalHeight]);
+
+  useEffect(() => {
+    if (!onViewportChange || !bounds) return;
+    if (isApplyingExternalRef.current) {
+      isApplyingExternalRef.current = false;
+      return;
+    }
+    const { minLon, maxLat, scale } = bounds;
+    const vbW = internalWidth / viewport.zoom;
+    const vbH = internalHeight / viewport.zoom;
+    const centerLocalX = viewport.panX + vbW / 2;
+    const centerLocalY = viewport.panY + vbH / 2;
+    const lon = minLon + (centerLocalX - PADDING) / scale;
+    const lat = maxLat - (centerLocalY - PADDING) / scale;
+    onViewportChange({ lon, lat, zoom: viewport.zoom });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewport, bounds, internalWidth, internalHeight]);
+
+  const handleSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (pointerMovedRef.current) {
+      pointerMovedRef.current = false;
+      return;
+    }
+    if (!placementType || !onPlaceObject || !layout) return;
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    const vbWidth = internalWidth / viewport.zoom;
+    const vbHeight = internalHeight / viewport.zoom;
+    const svgX = viewport.panX + ((e.clientX - rect.left) / rect.width) * vbWidth;
+    const svgY = viewport.panY + ((e.clientY - rect.top) / rect.height) * vbHeight;
+    const [lon, lat] = layout.unproject(svgX, svgY);
+    const containing = layout.zonePolygons.find(({ points }) => pointInPolygon(lon, lat, points));
+    if (!containing) return;
+    onPlaceObject(containing.zone.zoneId, lat, lon);
+  };
 
   if (!layout) {
     return (
@@ -261,17 +490,19 @@ export default function HeatmapView({
     <div
       ref={containerRef}
       className="relative rounded-lg border border-slate-700 bg-slate-900 overflow-hidden touch-none select-none"
-      style={{ width, minHeight: height, cursor: 'grab' }}
+      style={{ width, minHeight: height, cursor: placementType ? 'crosshair' : 'grab' }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
     >
       <svg
+        ref={svgRef}
         viewBox={`${viewport.panX} ${viewport.panY} ${vbWidth} ${vbHeight}`}
         width="100%"
         height={height}
         className="block"
+        onClick={handleSvgClick}
       >
         {layout.renderedZones.map((z) => (
           <g key={z.zoneId}>
@@ -294,6 +525,88 @@ export default function HeatmapView({
             </text>
           </g>
         ))}
+
+        {layout.renderedCorridors.map((pointsAttr, idx) => (
+          <polyline
+            key={`corridor-${idx}`}
+            points={pointsAttr}
+            fill="none"
+            stroke="#334155"
+            strokeWidth={2}
+            strokeDasharray="4 3"
+          />
+        ))}
+
+        {layout.renderedBuildings.map((b) => (
+          <polygon
+            key={b.buildingId}
+            points={b.pointsAttr}
+            fill={b.heightEstimated ? BUILDING_FILL_ESTIMATED : BUILDING_FILL_MEASURED}
+            stroke={b.heightEstimated ? BUILDING_STROKE_ESTIMATED : BUILDING_STROKE_MEASURED}
+            strokeWidth={0.75}
+            strokeDasharray={b.heightEstimated ? '3 2' : undefined}
+          />
+        ))}
+
+        {layout.renderedObjects.map((obj) => (
+          <circle
+            key={`obj-${obj.idx}`}
+            cx={obj.x}
+            cy={obj.y}
+            r={5}
+            fill={OBJECT_COLOR[obj.objectType]}
+            stroke="#0f172a"
+            strokeWidth={1}
+          />
+        ))}
+
+        {layout.renderedEvents.map((ev) => (
+          <circle
+            key={`ev-${ev.idx}`}
+            cx={ev.x}
+            cy={ev.y}
+            r={6}
+            fill="none"
+            stroke={EVENT_COLOR[ev.eventType]}
+            strokeWidth={2}
+          />
+        ))}
+
+        {layout.renderedFocusEvent && (
+          <circle
+            cx={layout.renderedFocusEvent.x}
+            cy={layout.renderedFocusEvent.y}
+            r={14}
+            fill="none"
+            stroke={EVENT_COLOR[layout.renderedFocusEvent.eventType]}
+            strokeWidth={2}
+            opacity={0.7}
+          />
+        )}
+
+        {layout.renderedGates.map((gate) => {
+          const isClosed = closedGateIds?.has(gate.facilityId) ?? false;
+          return (
+            <g
+              key={gate.facilityId}
+              onClick={(e) => {
+                e.stopPropagation();
+                onGateClick?.(gate.facilityId);
+              }}
+              style={{ cursor: onGateClick ? 'pointer' : 'default' }}
+            >
+              <rect
+                x={gate.x - 5}
+                y={gate.y - 5}
+                width={10}
+                height={10}
+                fill={isClosed ? GATE_CLOSED_COLOR : GATE_OPEN_COLOR}
+                stroke="#0f172a"
+                strokeWidth={1}
+              />
+            </g>
+          );
+        })}
 
         {layout.renderedAgents.map((agent) => (
           <g key={agent.agentId}>
@@ -323,7 +636,14 @@ export default function HeatmapView({
 
       <div className="absolute top-2 left-2 text-xs text-slate-400 bg-slate-900/70 rounded px-2 py-1">
         구역 {zones.length}개 · 유동 인구 {agents.length}명
+        {buildings ? ` · 건물 ${buildings.length}개` : ''}
       </div>
+
+      {placementType && (
+        <div className="absolute top-2 right-2 text-xs text-sky-100 bg-sky-900/90 rounded px-2 py-1 pointer-events-none">
+          클릭한 위치에 배치됩니다
+        </div>
+      )}
 
       <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded bg-slate-900/70 px-1 py-1">
         <button
