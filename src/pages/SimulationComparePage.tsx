@@ -93,7 +93,7 @@ export default function SimulationComparePage() {
   };
 
   useEffect(() => {
-    if (markets.length === 0) loadLayout();
+    loadLayout();
     // eslint-disable-next-line
   }, []);
 
