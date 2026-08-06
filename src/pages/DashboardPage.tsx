@@ -70,11 +70,6 @@ export default function DashboardPage() {
 //       : [];
 
 
-
-
-
-
-
   return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -122,9 +117,8 @@ export default function DashboardPage() {
             </div>
         )}*/}
 
-
-    {isAdmin && (
-                <div className="flex flex-wrap gap-2 border-t border-slate-200 dark:border-slate-800 pt-3">
+        {isAdmin && (
+            <div className="flex flex-wrap gap-2 border-t border-slate-200 dark:border-slate-800 pt-3">
                   <TabButton
                       active={selectedMarketId === 1}
                       onClick={() => setSelectedMarketId(1)}
@@ -132,17 +126,15 @@ export default function DashboardPage() {
                   >
                     망원시장
                   </TabButton>
-                </div>
-            )}
-
-
+            </div>
+        )}
 
         <div className="w-full min-h-[85vh] rounded-xl overflow-hidden shadow-xl border border-slate-200 dark:border-slate-700 bg-[#0f172a]">
-                  <iframe
-                      src="/mangwon/index.html"
-                      title="망원시장 스마트 CCTV 라이브 관제 대시보드"
-                      className="w-full h-full border-none min-h-[85vh]"
-                  />
+            <iframe
+                src="/mangwon/index.html"
+                title="망원시장 스마트 CCTV 라이브 관제 대시보드"
+                className="w-full h-full border-none min-h-[120vh]"
+            />
         </div>
       </div>
   );
