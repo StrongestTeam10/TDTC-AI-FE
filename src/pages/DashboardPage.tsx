@@ -69,6 +69,12 @@ export default function DashboardPage() {
 //       }))
 //       : [];
 
+
+
+
+
+
+
   return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -100,6 +106,7 @@ export default function DashboardPage() {
 
         {/* 2026-07-27 추가: 관리자 전용 시장 전환 탭. 비관리자는 markets 배열 자체가
             본인 담당 시장 1개로 이미 필터링되어 내려오므로 탭을 보여줄 필요가 없다. */}
+        {/*
         {isAdmin && markets.length > 0 && (
             <div className="flex flex-wrap gap-2 border-t border-slate-200 dark:border-slate-800 pt-3">
               {markets.map((m) => (
@@ -113,8 +120,9 @@ export default function DashboardPage() {
                   </TabButton>
               ))}
             </div>
-        )}
-    {/*
+        )}*/}
+
+
     {isAdmin && (
                 <div className="flex flex-wrap gap-2 border-t border-slate-200 dark:border-slate-800 pt-3">
                   <TabButton
@@ -126,7 +134,7 @@ export default function DashboardPage() {
                   </TabButton>
                 </div>
             )}
-        */}
+
 
 
         <div className="w-full min-h-[85vh] rounded-xl overflow-hidden shadow-xl border border-slate-200 dark:border-slate-700 bg-[#0f172a]">
