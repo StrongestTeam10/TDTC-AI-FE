@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let totalFrames = 604;
     let lastRenderTime = 0; // 렌더링 스로틀용 타임스탬프
     let lastChartUpdateTime = 0; // 차트 업데이트 스로틀용
-    
+
     // 실시간 WebSocket / API 스트리밍 데이터 수신 인터페이스
     window.latestLivePedestrianCount = null;
     window.pushRealtimePedestrianFrame = function (pedestrianCount, customCriScore = null) {
@@ -376,7 +376,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnPlayPause && video) {
         btnPlayPause.addEventListener('click', () => {
             if (video.paused) {
-                video.play().catch(() => {});
+                video.play().catch(() => { });
                 btnPlayPause.innerText = 'PAUSE';
                 isPlaying = true;
             } else {
@@ -434,11 +434,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 파일 형식 검증 (video/ 타입 또는 .mov, .mp4, .webm 등 확장자 수용)
         const fileNameLower = file.name.toLowerCase();
-        const isValidVideo = file.type.startsWith('video/') || 
-                             fileNameLower.endsWith('.mov') || 
-                             fileNameLower.endsWith('.mp4') || 
-                             fileNameLower.endsWith('.webm') || 
-                             fileNameLower.endsWith('.avi');
+        const isValidVideo = file.type.startsWith('video/') ||
+            fileNameLower.endsWith('.mov') ||
+            fileNameLower.endsWith('.mp4') ||
+            fileNameLower.endsWith('.webm') ||
+            fileNameLower.endsWith('.avi');
 
         if (!isValidVideo) {
             alert('⚠️ 올바른 비디오 파일(MP4, MOV, WebM, AVI 등)을 선택해 주세요.');
@@ -468,7 +468,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (video) {
                 video.src = objectURL;
                 video.load();
-                video.play().catch(() => {});
+                video.play().catch(() => { });
                 isPlaying = true;
                 if (btnPlayPause) btnPlayPause.innerText = 'PAUSE';
             }
@@ -558,7 +558,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (aiLoadingOverlay) {
             aiLoadingOverlay.classList.remove('active');
             if (video) {
-                video.play().catch(() => {});
+                video.play().catch(() => { });
             }
         }
         const placeholderOverlay = document.getElementById('video-placeholder-overlay');
@@ -579,7 +579,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            // FastAPI / Python 파이프라인 백엔드 API 주소
+            // FastAPI / Python 파이프라인 백엔드 API 주소 (백엔드 작업 중이므로 임시 차단)
+            throw new Error('API 연동 임시 차단');
+            ////////////////////////////////////////////////////
             const response = await fetch('http://localhost:8000/api/v1/cctv/upload', {
                 method: 'POST',
                 body: formData
@@ -618,6 +620,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let cctvWebSocket = null;
 
     function initCCTVWebSocket() {
+        // 백엔드 구현 전까지 웹소켓 연결 임시 차단
+        console.log('✅ [WebSocket Info] 백엔드 웹소켓 연결 임시 차단 중');
+        return;
+        /////////////////////////////////////////////////////////////////////
         const wsUrl = 'ws://localhost:8000/ws/cctv-stream';
         try {
             cctvWebSocket = new WebSocket(wsUrl);
@@ -638,7 +644,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         updateAILoadingProgress(100);
                         setTimeout(() => {
                             hideAILoadingOverlay();
-                            
+
                             // 백엔드에서 비식별화(원형 블러) 가공이 완료된 실제 결과 동영상으로 비디오 소스 교체
                             if (video) {
                                 const backendVideoUrl = `http://localhost:8000/api/v1/cctv/video/${encodeURIComponent(data.filename)}?t=${Date.now()}`;
@@ -849,7 +855,7 @@ document.addEventListener('DOMContentLoaded', () => {
             statusText = "CONGESTED / 혼잡주의";
             statusClass = "warning";
             barColor = "#f59e0b";
-            
+
             // 위험 해제 시 비상 타이머 및 서랍 리셋
             emergencyStartTime = null;
             isEmergencyConfirmed = false;
