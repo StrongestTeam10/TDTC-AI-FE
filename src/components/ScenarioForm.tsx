@@ -13,6 +13,7 @@ interface ScenarioFormProps {
   events: EventTrigger[];
   onRemoveEvent: (index: number) => void;
   onUpdateEventTriggerStep: (index: number, value: number) => void;
+  onUpdateEventExtinguishStep: (index: number, value: number) => void;
 
   placementType: PlacementKind | null;
   onSelectPlacementType: (type: PlacementKind | null) => void;
@@ -21,6 +22,10 @@ interface ScenarioFormProps {
 
   nextTriggerStep: number;
   onNextTriggerStepChange: (value: number) => void;
+
+  // 2026-08-XX: 화재 진압 스텝(발생~진압 사이가 연소 기간).
+  nextExtinguishStep: number;
+  onNextExtinguishStepChange: (value: number) => void;
 
   corridors: CorridorPolicy[];
   onAddCorridor: (policy: CorridorPolicy) => void;
@@ -58,12 +63,15 @@ export default function ScenarioForm({
   events,
   onRemoveEvent,
   onUpdateEventTriggerStep,
+  onUpdateEventExtinguishStep,
   placementType,
   onSelectPlacementType,
   nextIntensity,
   onNextIntensityChange,
   nextTriggerStep,
   onNextTriggerStepChange,
+  nextExtinguishStep,
+  onNextExtinguishStepChange,
   corridors,
   onAddCorridor,
   onRemoveCorridor,
@@ -181,11 +189,12 @@ export default function ScenarioForm({
 
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div>
-            <label className="block text-[10px] text-slate-400 mb-0.5">강도</label>
+            <label className="block text-[10px] text-slate-400 mb-0.5">강도 (0~1)</label>
             <input
               type="number"
-              min={1}
-              max={10}
+              min={0}
+              max={1}
+              step={0.1}
               value={nextIntensity}
               onChange={(e) => onNextIntensityChange(Number(e.target.value))}
               className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-200"
@@ -204,6 +213,18 @@ export default function ScenarioForm({
               disabled={isRunning}
             />
           </div>
+          <div>
+            <label className="block text-[10px] text-slate-400 mb-0.5">진압 스텝</label>
+            <input
+              type="number"
+              min={0}
+              max={steps}
+              value={nextExtinguishStep}
+              onChange={(e) => onNextExtinguishStepChange(Number(e.target.value))}
+              className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-200"
+              disabled={isRunning}
+            />
+          </div>
         </div>
 
         {/* 이벤트 목록 */}
@@ -213,13 +234,23 @@ export default function ScenarioForm({
             {events.map((ev, idx) => (
               <div key={idx} className="flex items-center justify-between text-xs text-slate-300 bg-slate-900/40 px-2 py-1 rounded">
                 <span>{eventTypeLabel(ev.eventType)} ({zoneName(ev.zoneId)})</span>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] text-slate-500">발생</span>
                   <input
                     type="number"
                     min={0}
                     value={ev.triggerStep}
                     onChange={(e) => onUpdateEventTriggerStep(idx, Number(e.target.value))}
-                    className="w-12 rounded border border-slate-700 bg-slate-900 px-1 text-[10px] text-slate-200"
+                    className="w-10 rounded border border-slate-700 bg-slate-900 px-1 text-[10px] text-slate-200"
+                    disabled={isRunning}
+                  />
+                  <span className="text-[10px] text-slate-500">진압</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={ev.extinguishStep ?? ''}
+                    onChange={(e) => onUpdateEventExtinguishStep(idx, Number(e.target.value))}
+                    className="w-10 rounded border border-slate-700 bg-slate-900 px-1 text-[10px] text-slate-200"
                     disabled={isRunning}
                   />
                   <button

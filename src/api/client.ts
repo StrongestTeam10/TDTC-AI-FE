@@ -109,7 +109,7 @@ export async function fetchAvailableTimestamps(): Promise<string[]> {
 // 넘기면 브라우저가 먼저 연결을 끊어버리고 BE에 ClientAbortException이 찍히는데,
 // 실제로는 BE/SIM이 계속 계산 중이었을 뿐이다. 이 두 호출만 훨씬 긴 타임아웃을
 // 따로 준다(다른 API는 그대로 15초 유지 - 로그인/게시판 등은 오래 걸릴 이유가 없음).
-const SIMULATION_TIMEOUT_MS = 120_000; // 2분
+const SIMULATION_TIMEOUT_MS = 300_000; // 5분 (2026-08-XX: 무거운 시나리오 대비 상향)
 
 // 파이프라인 B: 사용자 지정 시나리오 시뮬레이션 실행
 export async function runScenarioSimulation(
