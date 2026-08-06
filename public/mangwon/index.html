@@ -502,9 +502,14 @@
                     ⚠️ 혼잡도 위험 점수가 15초 이상 유지되고 있습니다.<br>
                     <strong>확인 버튼을 누르지 않으면 관제 화면 조작이 금지</strong>되며, 30초 경과 시 자동으로 긴급 신고가 접수됩니다.
                 </div>
-                <button class="btn-emergency-confirm" id="btn-confirm-emergency" onclick="confirmEmergencyAlert()">
-                    🚨 [확인 및 관제 조작 해제]
-                </button>
+                <div class="emergency-action-buttons" style="display: flex; gap: 15px; margin-top: 15px;">
+                    <button class="btn-emergency-cancel" id="btn-cancel-alarm" style="flex: 1; padding: 12px; font-size: 1.1rem; background-color: #10b981; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
+                        🟢 [오경보 해제] 별일 없음
+                    </button>
+                    <button class="btn-emergency-confirm" id="btn-dispatch-alarm" style="flex: 1; padding: 12px; font-size: 1.1rem; background-color: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; animation: pulse 2s infinite;">
+                        🚨 [현장 출동] 즉시 수동 신고
+                    </button>
+                </div>
             </div>
         </div>
     </div>

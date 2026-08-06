@@ -568,19 +568,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 백엔드 AI 파이프라인 비디오 업로드 전송 인터페이스 함수
-    async function uploadVideoToBackend(file) {
+    async function uploadVideoToBackend(uploadFile) {
         const formData = new FormData();
-        formData.append('cctv_video', file);
+        // 파이썬 FastAPI가 'file' 이라는 이름으로 받도록 설계되어 있으므로 키를 맞춥니다.
+        formData.append('file', uploadFile);
+        formData.append('zone_id', 1); // 기본 zone_id 전달
 
-        showAILoadingOverlay(`🤖 [AI 모델링 분석 대기 중...] ${file.name}`, 5);
+        showAILoadingOverlay(`🤖 [AI 모델링 분석 대기 중...] ${uploadFile.name}`, 5);
 
         if (cctvInfoBadge) {
-            cctvInfoBadge.innerText = `🤖 [AI 모델링 분석 시작...] ${file.name}`;
+            cctvInfoBadge.innerText = `🤖 [AI 모델링 분석 시작...] ${uploadFile.name}`;
         }
 
         try {
-            // FastAPI / Python 파이프라인 백엔드 API 주소
-            const response = await fetch('http://localhost:8000/api/v1/cctv/upload', {
+            // FastAPI / Python 파이프라인 백엔드 API 주소 수정
+            const response = await fetch('http://localhost:8000/api/analyze/trigger', {
                 method: 'POST',
                 body: formData
             });
@@ -690,16 +692,88 @@ document.addEventListener('DOMContentLoaded', () => {
     // 대시보드 로드 시 WebSocket 실시간 스트림 자동 개시
     initCCTVWebSocket();
 
-    // 🚨 [즉시 신고(확인)] 버튼 클릭 시 -> 파이썬 API로 확정 신호 발송
-    const btnConfirmReport = document.getElementById('btn-confirm-emergency');
-    if (btnConfirmReport) {
-        btnConfirmReport.addEventListener('click', async () => {
+    // 🟢 [오경보 해제] 버튼 클릭 시 -> 타이머 리셋 및 정상화
+    const btnCancelAlarm = document.getElementById('btn-cancel-alarm');
+    if (btnCancelAlarm) {
+        btnCancelAlarm.addEventListener('click', async () => {
             try {
-                await fetch('http://localhost:8000/api/v1/cctv/confirm-report', { method: 'POST' });
-                alert("즉시 신고가 파이썬으로 전달되었습니다!");
+                // 파이썬 쪽에 오경보 처리(cancel) API 전송 (필요 시)
+                await fetch('http://localhost:8000/api/analyze/cancel', { method: 'POST' }).catch(() => {});
+                
+                // 프론트엔드 UI 타이머 및 위험 스코어 강제 초기화
+                emergencyStartTime = null;
+                isEmergencyConfirmed = false;
+                isAutoDispatched = false;
+                smoothedCRI = Math.max(0, smoothedCRI - 30); // 위험도 즉시 차감
+                
                 if (emergencyBackdrop) emergencyBackdrop.classList.remove('active');
                 if (emergencyTopDrawer) emergencyTopDrawer.classList.remove('active');
-            } catch(e) { console.error('즉시 신고 발송 실패:', e); }
+                
+                alert("✅ 오경보 처리되어 상황이 해제되었습니다. (영상 및 PDF 생성 취소)");
+            } catch(e) { console.error('오경보 발송 실패:', e); }
+        });
+    }
+
+    // 👉 [새로 추가] 파이썬으로 현장 상황 데이터(메타데이터)를 꽉꽉 채워 보내는 공통 함수
+    async function triggerEmergencyConfirm(isAutoDispatch) {
+        try {
+            const payload = {
+                isAuto: isAutoDispatch, // true면 자동신고, false면 수동신고
+                currentCRI: parseFloat(criScore ? criScore.innerText : 0),
+                pedestrianCount: parseInt(livePersonCount ? livePersonCount.innerText : 0),
+                occupancyRate: parseFloat(liveOccupancyRate ? liveOccupancyRate.innerText : 0),
+                weatherMode: currentMode || 'UNKNOWN',
+                timestamp: new Date().toISOString()
+            };
+
+            await fetch('http://localhost:8000/api/analyze/confirm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            console.log("✅ 파이썬으로 영상/PDF 생성 지시 완료 (데이터 전달 성공)");
+        } catch(e) {
+            console.error('현장 출동 API 전송 실패:', e);
+        }
+    }
+
+    // 🚨 [현장 출동(수동 신고)] 버튼 클릭 시 -> 파이썬에 영상+PDF 패키지 생성 즉시 강제 트리거
+    const btnDispatchAlarm = document.getElementById('btn-dispatch-alarm');
+    if (btnDispatchAlarm) {
+        btnDispatchAlarm.addEventListener('click', async () => {
+            try {
+                isEmergencyConfirmed = true; // 타이머 작동 멈춤
+                
+                // 👉 [수정됨] 메타데이터를 포함한 수동 신고 트리거 호출
+                await triggerEmergencyConfirm(false);
+                
+                if (emergencyDrawerMsg) {
+                    emergencyDrawerMsg.innerHTML = `🚨 <strong>[수동 현장 출동 지시 완료]</strong><br>요원의 출동 지시로 인해 증거용 영상 35초 및 사고 명세서 PDF가 묶여서 안전하게 자동 생성 및 적재 진행 중입니다.`;
+                }
+                
+                // 버튼 숨기기/변경 처리
+                if (btnCancelAlarm) btnCancelAlarm.style.display = 'none';
+                btnDispatchAlarm.innerText = `✅ 출동 조치 완료 (3초 후 닫힘)`;
+                btnDispatchAlarm.style.backgroundColor = '#10b981';
+                btnDispatchAlarm.style.animation = 'none';
+                
+                // 3초 뒤에 모달을 자동으로 닫고 화면을 정상화합니다.
+                setTimeout(() => {
+                    emergencyStartTime = null;
+                    isEmergencyConfirmed = false;
+                    isAutoDispatched = false;
+                    smoothedCRI = Math.max(0, smoothedCRI - 30); // 위험도 즉시 차감
+                    
+                    if (emergencyBackdrop) emergencyBackdrop.classList.remove('active');
+                    if (emergencyTopDrawer) emergencyTopDrawer.classList.remove('active');
+                    
+                    // 버튼들 상태 원상 복구 (다음 알람을 위해)
+                    if (btnCancelAlarm) btnCancelAlarm.style.display = 'block';
+                    btnDispatchAlarm.innerText = `🚨 [현장 출동] 즉시 수동 신고`;
+                    btnDispatchAlarm.style.backgroundColor = '#ef4444';
+                }, 3000);
+                
+            } catch(e) { console.error('현장 출동 발송 실패:', e); }
         });
     }
 
@@ -837,6 +911,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (btnConfirmEmergency) {
                         btnConfirmEmergency.innerText = `🚨 [112/119 긴급 출동 완료 - 조작 해제]`;
                     }
+                    
+                    // 👉 [새로 추가] 30초 경과 시 자동으로 파이썬에 API 쏘기!
+                    triggerEmergencyConfirm(true);
                 }
             }
         } else if (finalCRI >= (evacThreshold * 0.65)) {
