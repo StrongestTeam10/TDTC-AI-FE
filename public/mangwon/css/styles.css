@@ -1,0 +1,1697 @@
+/* ==========================================================================
+   망원시장 스마트 CCTV 라이브 관제 대시보드 - Design System Stylesheet
+   ========================================================================== */
+
+:root {
+    --bg-color: #0f172a;
+    --card-bg: #1e293b;
+    --header-bg: rgba(15, 23, 42, 0.85);
+    --border-color: #334155;
+    --text-color: #f1f5f9;
+    --text-muted: #94a3b8;
+
+    --color-safe: #10b981;
+    --color-warning: #f59e0b;
+    --color-danger: #ef4444;
+    --color-accent: #3b82f6;
+    --color-purple: #8b5cf6;
+
+    --drawer-width: 360px;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+}
+
+/* ==========================================================================
+   1. 상단 항시 고정 헤더 (Sticky Top Header Bar)
+   ========================================================================== */
+.sticky-header {
+    position: sticky;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 500;
+    background: var(--header-bg);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.header-container {
+    max-width: 1750px;
+    margin: 0 auto;
+    padding: 12px 36px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.header-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo-icon {
+    font-size: 1.6rem;
+    background: rgba(59, 130, 246, 0.15);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    padding: 6px 10px;
+    border-radius: 10px;
+}
+
+.header-title {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 900;
+    font-size: 1.35rem;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #60a5fa, #3b82f6, #1d4ed8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 4px 20px rgba(59, 130, 246, 0.2);
+}
+
+.header-subtitle {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    display: block;
+    margin-top: 1px;
+}
+
+/* 중앙 헤더 위험도 스코어 요약 바 */
+.header-score-summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid var(--border-color);
+    padding: 6px 16px;
+    border-radius: 30px;
+    font-family: 'Outfit', sans-serif;
+}
+
+.score-summary-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.score-summary-val {
+    font-size: 1.25rem;
+    font-weight: 900;
+}
+
+.score-summary-val.safe {
+    color: var(--color-safe);
+}
+
+.score-summary-val.warning {
+    color: var(--color-warning);
+}
+
+.score-summary-val.danger {
+    color: var(--color-danger);
+}
+
+.score-summary-status {
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 3px 10px;
+    border-radius: 12px;
+}
+
+.score-summary-status.safe {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--color-safe);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.score-summary-status.warning {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--color-warning);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.score-summary-status.danger {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--color-danger);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    animation: blink 1.2s infinite;
+}
+
+/* 우측 알람 모달 오픈 버튼 */
+.btn-alert-log {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #f87171;
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.25s ease;
+    font-family: 'Outfit', sans-serif;
+}
+
+.btn-alert-log:hover {
+    background: rgba(239, 68, 68, 0.25);
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.3);
+    color: #ffffff;
+}
+
+.alert-count-badge {
+    background: var(--color-danger);
+    color: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 900;
+    padding: 2px 7px;
+    border-radius: 10px;
+}
+
+/* ==========================================================================
+   2. 화면 우측 토글 버튼 2종 & 슬라이드 드로어 (Parameters & Weather Drawers)
+   ========================================================================== */
+.drawer-toggle-btn {
+    position: fixed;
+    right: 0;
+    transform: translateY(-50%);
+    z-index: 600;
+    background: rgba(30, 41, 59, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-right: none;
+    border-radius: 10px 0 0 10px;
+    color: var(--text-color);
+    padding: 14px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    backdrop-filter: blur(12px);
+    box-shadow: -4px 0 18px rgba(0, 0, 0, 0.5);
+    transition: all 0.3s ease;
+}
+
+.drawer-toggle-btn.param-btn {
+    top: 30%;
+}
+
+.drawer-toggle-btn.weather-btn {
+    top: 58%;
+    border-color: rgba(245, 158, 11, 0.3);
+}
+
+.drawer-toggle-btn.weather-btn:hover {
+    background: rgba(245, 158, 11, 0.85);
+    box-shadow: -6px 0 24px rgba(245, 158, 11, 0.5);
+}
+
+.drawer-toggle-btn:hover {
+    background: var(--color-accent);
+    color: #ffffff;
+    box-shadow: -6px 0 24px rgba(59, 130, 246, 0.5);
+}
+
+.toggle-label {
+    writing-mode: vertical-rl;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    font-family: 'Outfit';
+}
+
+.toggle-arrow {
+    font-size: 0.7rem;
+    transition: transform 0.3s ease;
+}
+
+/* 드로어 배경 오버레이 */
+.drawer-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    z-index: 900;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.drawer-backdrop.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* 우측 슬라이드 드로어 본체 */
+.right-drawer {
+    position: fixed;
+    top: 0;
+    right: calc(-1 * var(--drawer-width));
+    width: var(--drawer-width);
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.95);
+    border-left: 1px solid var(--border-color);
+    backdrop-filter: blur(20px);
+    z-index: 1000;
+    box-shadow: -10px 0 40px rgba(0, 0, 0, 0.7);
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.right-drawer.open {
+    transform: translateX(calc(-1 * var(--drawer-width)));
+}
+
+/* 기상 드로어 내부 전용 스타일 */
+.weather-tab-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: rgba(9, 13, 22, 0.5);
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+}
+
+.section-title {
+    font-size: 0.83rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    font-family: 'Outfit';
+}
+
+.weather-btn-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.btn-weather {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    font-family: 'Outfit', sans-serif;
+    text-align: center;
+}
+
+.btn-weather:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-color);
+}
+
+.btn-weather.active {
+    background: var(--color-warning) !important;
+    color: #ffffff !important;
+    border-color: var(--color-warning) !important;
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
+}
+
+.btn-open-drag-weather {
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    color: #fbbf24;
+    padding: 5px 12px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.25s ease;
+    font-family: 'Outfit', sans-serif;
+}
+
+.btn-open-drag-weather:hover {
+    background: rgba(245, 158, 11, 0.25);
+    box-shadow: 0 0 14px rgba(245, 158, 11, 0.35);
+    color: #ffffff;
+}
+
+.panel-guide-text {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 6px;
+    border: 1px dashed var(--border-color);
+    margin-top: 5px;
+}
+
+.panel-body {
+    padding: 18px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.panel-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.panel-section-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.section-tag {
+    font-size: 0.65rem;
+    color: var(--color-accent);
+    background: rgba(59, 130, 246, 0.15);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Outfit';
+}
+
+.section-tag.weather {
+    color: var(--color-warning);
+    background: rgba(245, 158, 11, 0.15);
+}
+
+.drawer-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.drawer-title {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 800;
+    font-size: 1.1rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.drawer-subtitle {
+    font-size: 0.68rem;
+    color: var(--color-accent);
+    letter-spacing: 1px;
+    margin-top: 2px;
+}
+
+.btn-close-drawer {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.btn-close-drawer:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--color-danger);
+}
+
+.drawer-content {
+    padding: 20px;
+    flex-grow: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.control-box {
+    background: rgba(9, 13, 22, 0.5);
+    padding: 20px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.control-label-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+}
+
+.control-label {
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.control-val {
+    font-weight: 800;
+    font-family: 'Outfit';
+}
+
+.control-val.warning {
+    color: var(--color-warning);
+}
+
+.control-val.danger {
+    color: var(--color-danger);
+}
+
+.control-val.accent {
+    color: var(--color-accent);
+}
+
+.control-val.purple {
+    color: var(--color-purple);
+}
+
+.drawer-info-card {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    padding: 14px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+    border: 1px dashed var(--border-color);
+    margin-top: auto;
+}
+
+/* ==========================================================================
+   3. 메인 대시보드 래퍼 & 그리드 (Layout & Grid)
+   ========================================================================== */
+.main-wrapper {
+    max-width: 1750px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 16px 36px 28px 36px;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+/* 날씨 컨트롤 탭 */
+.weather-tab-container {
+    display: flex;
+    justify-content: flex-start;
+    gap: 12px;
+}
+
+.btn-weather {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    font-family: 'Outfit', sans-serif;
+}
+
+.btn-weather:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-color);
+}
+
+.btn-weather.active {
+    background: var(--color-accent) !important;
+    color: #ffffff !important;
+    border-color: var(--color-accent) !important;
+    box-shadow: 0 0 14px rgba(59, 130, 246, 0.4);
+}
+
+/* 2-Column 메인 그리드 레이아웃 */
+.grid-container {
+    display: grid;
+    grid-template-columns: 1.35fr 1fr;
+    gap: 24px;
+    align-items: start;
+}
+
+@media (max-width: 1280px) {
+    .grid-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+.grid-left-col,
+.grid-right-col {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* 공통 카드 디자인 */
+.card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 20px;
+    backdrop-filter: blur(16px);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.card-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 12px;
+    color: #e2e8f0;
+}
+
+.live-badge {
+    font-size: 0.72rem;
+    color: var(--color-safe);
+    background: rgba(16, 185, 129, 0.15);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-family: 'Outfit';
+    letter-spacing: 0.5px;
+}
+
+/* 비디오 컨테이너 */
+.video-container {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #000;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid var(--border-color);
+}
+
+.video-player {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.video-overlay-badge {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    z-index: 10;
+}
+
+.dispatch-overlay {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.92);
+    border: 3px solid var(--color-danger);
+    padding: 20px 30px;
+    border-radius: 14px;
+    font-family: 'Outfit';
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--color-danger);
+    text-align: center;
+    z-index: 100;
+    animation: blink 1.2s infinite;
+    box-shadow: 0 0 40px rgba(239, 68, 68, 0.75);
+    pointer-events: none;
+    width: 85%;
+}
+
+.dispatch-sub {
+    font-size: 0.8rem;
+    color: #e2e8f0;
+    font-weight: 400;
+    margin-top: 6px;
+    display: block;
+}
+
+/* 타임라인 컨트롤 */
+.playback-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background: rgba(9, 13, 22, 0.6);
+    padding: 10px 15px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+}
+
+.btn-control {
+    background: var(--color-accent);
+    color: #fff;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    cursor: pointer;
+    font-family: 'Outfit';
+}
+
+.timeline-slider {
+    flex-grow: 1;
+    accent-color: var(--color-accent);
+    cursor: pointer;
+}
+
+.frame-counter-text {
+    font-size: 0.8rem;
+    font-family: 'Outfit';
+    color: var(--text-muted);
+    width: 80px;
+    text-align: right;
+}
+
+/* 날씨 4종 드래그 슬라이더 박스 전용 CSS */
+.weather-mode-drag-box {
+    background: rgba(9, 13, 22, 0.6);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.main-weather-mode-box {
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.weather-mode-badge {
+    color: var(--color-warning);
+    font-weight: 700;
+    font-family: 'Outfit';
+    font-size: 0.82rem;
+}
+
+.weather-mode-val {
+    font-size: 0.8rem;
+    font-weight: 700;
+    font-family: 'Outfit';
+    color: #60a5fa;
+}
+
+.weather-mode-marks {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-family: 'Outfit';
+    padding: 2px 2px 0 2px;
+}
+
+.weather-mode-marks span {
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.weather-mode-marks span:hover {
+    color: #ffffff;
+}
+
+.weather-mode-marks span.active-mark {
+    color: var(--color-warning);
+    font-weight: 800;
+}
+
+/* ==========================================================================
+   4. 메인 영상 하단 3대 실시간 지표 카드 (Metrics Cards)
+   ========================================================================== */
+.metrics-card-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.metric-card {
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: all 0.3s ease;
+}
+
+.metric-card:hover {
+    border-color: rgba(59, 130, 246, 0.4);
+    transform: translateY(-2px);
+}
+
+.metric-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.metric-card-title {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.metric-card-icon {
+    font-size: 0.65rem;
+    font-family: 'Outfit';
+    font-weight: 700;
+    color: var(--color-accent);
+    background: rgba(59, 130, 246, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.metric-card-value {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.55rem;
+    font-weight: 900;
+    color: #f8fafc;
+}
+
+.metric-card-sub {
+    font-size: 0.7rem;
+    color: #94a3b8;
+}
+
+/* ==========================================================================
+   5. 우측 기상 예측 타임라인 (Weather Forecast Logs)
+   ========================================================================== */
+.weather-status-tag {
+    font-size: 0.72rem;
+    color: var(--color-accent);
+    background: rgba(59, 130, 246, 0.15);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-family: 'Outfit';
+}
+
+.weather-timeline-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.weather-timeline-item {
+    background: rgba(9, 13, 22, 0.4);
+    border: 1px solid var(--border-color);
+    padding: 12px 14px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: all 0.25s ease;
+}
+
+.weather-timeline-item.active {
+    border-color: rgba(59, 130, 246, 0.4);
+    background: rgba(59, 130, 246, 0.08);
+}
+
+.weather-timeline-item.highlight {
+    border-color: rgba(245, 158, 11, 0.4);
+    background: rgba(245, 158, 11, 0.08);
+}
+
+.item-time-badge {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+
+.item-time-badge.current {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--color-safe);
+}
+
+.item-time-badge.future30 {
+    background: rgba(245, 158, 11, 0.2);
+    color: var(--color-warning);
+}
+
+.item-time-badge.future60 {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--color-danger);
+}
+
+.item-details {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.item-main-text {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #e2e8f0;
+}
+
+.item-sub-text {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+/* ==========================================================================
+   6. 시간대별 위험도 추이 그래프 & HUD
+   ========================================================================== */
+.chart-tag {
+    font-size: 0.72rem;
+    color: var(--color-danger);
+    background: rgba(239, 68, 68, 0.15);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-family: 'Outfit';
+    font-weight: 700;
+}
+
+.status-summary-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+
+.status-display {
+    padding: 12px;
+    border-radius: 10px;
+    text-align: center;
+    border: 1px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.status-display.safe {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: rgba(16, 185, 129, 0.3);
+    color: var(--color-safe);
+}
+
+.status-display.warning {
+    background: rgba(245, 158, 11, 0.15);
+    border-color: rgba(245, 158, 11, 0.4);
+    color: var(--color-warning);
+}
+
+.status-display.danger {
+    background: rgba(239, 68, 68, 0.18);
+    border-color: rgba(239, 68, 68, 0.5);
+    color: var(--color-danger);
+}
+
+.status-title {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    opacity: 0.8;
+}
+
+.status-value {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 900;
+    margin-top: 2px;
+}
+
+.score-display-box {
+    background: rgba(9, 13, 22, 0.4);
+    border: 1px solid var(--border-color);
+    padding: 12px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.score-title {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.score-number {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.35rem;
+    font-weight: 900;
+    color: #f8fafc;
+}
+
+.progress-bar-container {
+    height: 7px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    width: 0%;
+    transition: width 0.2s ease, background-color 0.2s ease;
+}
+
+.line-chart-container {
+    position: relative;
+    height: 200px;
+    width: 100%;
+}
+
+/* ==========================================================================
+   7. 우측 상단 일간 알람 이력 로그 모달 (Daily Alert Log Modal)
+   ========================================================================== */
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(10px);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.modal-backdrop.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.modal-card {
+    background: rgba(17, 25, 40, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 18px;
+    width: 90%;
+    max-width: 650px;
+    max-height: 85vh;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: scale(0.95);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.modal-backdrop.active .modal-card {
+    transform: scale(1);
+}
+
+.modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.modal-title {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 800;
+    font-size: 1.15rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.modal-badge {
+    font-size: 0.68rem;
+    color: var(--color-danger);
+    background: rgba(239, 68, 68, 0.15);
+    padding: 3px 8px;
+    border-radius: 4px;
+}
+
+.btn-close-modal {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.btn-close-modal:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--color-danger);
+}
+
+.modal-body {
+    padding: 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* 모달 알람 통계 요약 뱃지 그리드 */
+.alert-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+}
+
+@media (max-width: 600px) {
+    .alert-summary-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+.summary-badge {
+    background: rgba(9, 13, 22, 0.5);
+    border: 1px solid var(--border-color);
+    padding: 10px 8px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 2px;
+}
+
+.summary-label {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+}
+
+.summary-value {
+    font-family: 'Outfit';
+    font-size: 1.1rem;
+    font-weight: 900;
+}
+
+.summary-badge.total .summary-value {
+    color: #f8fafc;
+}
+
+.summary-badge.critical .summary-value {
+    color: var(--color-danger);
+}
+
+.summary-badge.warning .summary-value {
+    color: var(--color-warning);
+}
+
+.summary-badge.resolved .summary-value {
+    color: var(--color-safe);
+}
+
+.summary-badge.dispatch .summary-value {
+    color: var(--color-purple);
+}
+
+.alert-log-section-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #cbd5e1;
+    font-family: 'Outfit';
+}
+
+/* 타임라인 로그 리스트 */
+.alert-log-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.log-item {
+    background: rgba(9, 13, 22, 0.4);
+    border: 1px solid var(--border-color);
+    padding: 10px 14px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.8rem;
+}
+
+.log-time {
+    font-family: 'Outfit';
+    font-weight: 700;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.log-type-tag {
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
+    font-family: 'Outfit';
+}
+
+.log-type-tag.danger {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--color-danger);
+}
+
+.log-type-tag.warning {
+    background: rgba(245, 158, 11, 0.2);
+    color: var(--color-warning);
+}
+
+.log-type-tag.spike {
+    background: rgba(139, 92, 246, 0.2);
+    color: var(--color-purple);
+}
+
+.log-type-tag.safe {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--color-safe);
+}
+
+.log-desc {
+    color: #e2e8f0;
+}
+
+.modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+}
+
+.btn-modal-confirm {
+    background: var(--color-accent);
+    color: #ffffff;
+    border: none;
+    padding: 9px 20px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    font-family: 'Outfit';
+    transition: background 0.2s ease;
+}
+
+.btn-modal-confirm:hover {
+    background: #2563eb;
+}
+
+/* 애니메이션 */
+@keyframes blink {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.4;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+/* ==========================================================================
+   비상 위험 지속 (15초/30초) 화면 차단 오버레이 & 우측 상단 슬라이드 서랍
+   ========================================================================== */
+
+/* 전체 화면 조작 차단 레이어 */
+.emergency-block-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.82);
+    backdrop-filter: blur(6px);
+    z-index: 9998;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+}
+
+.emergency-block-backdrop.active {
+    opacity: 1;
+    pointer-events: auto; /* 확인 버튼 누르기 전까지 모든 하위 화면 클릭 불가 차단 */
+}
+
+/* 오른쪽 상단 슬라이드 다운 비상 서랍 패널 */
+.emergency-top-drawer {
+    position: fixed;
+    top: -400px; /* 초기 숨김 상태 */
+    right: 28px;
+    width: 450px;
+    max-width: 90vw;
+    background: linear-gradient(145deg, #1e1b4b, #0f172a);
+    border: 2px solid #ef4444;
+    border-radius: 18px;
+    box-shadow: 0 20px 50px rgba(239, 68, 68, 0.4), 0 0 30px rgba(239, 68, 68, 0.25);
+    padding: 22px;
+    z-index: 9999;
+    transition: top 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    font-family: 'Inter', 'Outfit', sans-serif;
+}
+
+.emergency-top-drawer.active {
+    top: 24px; /* 서랍이 위에서 자연스럽게 내려옴 */
+}
+
+.emergency-drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(239, 68, 68, 0.3);
+    padding-bottom: 12px;
+    margin-bottom: 14px;
+}
+
+.emergency-badge-pulse {
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.2);
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    animation: blink 1.2s infinite;
+}
+
+.emergency-timer-box {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.emergency-timer-box .timer-label {
+    font-size: 0.7rem;
+    color: #94a3b8;
+}
+
+.emergency-timer-box .timer-value {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.35rem;
+    font-weight: 900;
+    color: #ef4444;
+    text-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+}
+
+.emergency-drawer-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.emergency-msg {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: #e2e8f0;
+    background: rgba(15, 23, 42, 0.6);
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.emergency-msg strong {
+    color: #f87171;
+}
+
+/* 빨간색 강조 확인 버튼 */
+.btn-emergency-confirm {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: #ffffff;
+    border: none;
+    padding: 14px 20px;
+    border-radius: 12px;
+    font-weight: 800;
+    font-size: 1rem;
+    font-family: 'Outfit', 'Inter', sans-serif;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+    transition: transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease;
+    animation: btnPulse 1.8s infinite;
+}
+
+.btn-emergency-confirm:hover {
+    background: linear-gradient(135deg, #f87171, #ef4444);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.6);
+}
+
+.btn-emergency-confirm:active {
+    transform: translateY(0);
+}
+
+/* 버튼 펄스 효과 */
+@keyframes btnPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 14px rgba(239, 68, 68, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
+}
+
+/* ==========================================================================
+   CCTV 영상 업로드 및 파일 관리 스타일
+   ========================================================================== */
+.title-right-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.cctv-file-badge {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    font-size: 0.73rem;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    padding: 3px 10px;
+    border-radius: 20px;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.btn-cctv-upload {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(37, 99, 235, 0.9));
+    color: #ffffff;
+    font-size: 0.78rem;
+    font-weight: 700;
+    font-family: 'Outfit', 'Inter', sans-serif;
+    padding: 6px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 10px rgba(59, 130, 246, 0.3);
+    transition: all 0.2s ease;
+}
+
+.btn-cctv-upload:hover {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(59, 130, 246, 0.5);
+}
+
+.btn-cctv-upload:active {
+    transform: translateY(0);
+}
+
+/* 드래그 앤 드롭 비디오 드롭존 오버레이 */
+.video-container.drag-over {
+    outline: 3px dashed #60a5fa;
+    outline-offset: -8px;
+    background: rgba(30, 58, 138, 0.4);
+}
+
+.video-container.drag-over::after {
+    content: "📁 비디오 파일을 여기에 놓으세요!";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(15, 23, 42, 0.9);
+    color: #60a5fa;
+    font-size: 1.1rem;
+    font-weight: 800;
+    padding: 16px 28px;
+    border-radius: 12px;
+    border: 2px dashed #60a5fa;
+    pointer-events: none;
+    z-index: 250;
+    backdrop-filter: blur(8px);
+}
+
+/* ==========================================================================
+   AI 모델 파이프라인 분석 로딩 딤 오버레이 & 스피너 스타일
+   ========================================================================== */
+.ai-loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.88);
+    backdrop-filter: blur(12px);
+    z-index: 300;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.4s ease, visibility 0.4s ease;
+}
+
+.ai-loading-overlay.active {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+/* 스피너 아이콘 및 펄스 링 */
+.ai-spinner-container {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 18px;
+}
+
+.ai-pulse-ring {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 4px solid transparent;
+    border-top-color: #3b82f6;
+    border-right-color: #60a5fa;
+    border-bottom-color: #38bdf8;
+    animation: spinRing 1.2s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+}
+
+.ai-spinner-icon {
+    font-size: 2.2rem;
+    animation: iconPulse 1.5s infinite alternate ease-in-out;
+}
+
+.ai-loading-title {
+    color: #f8fafc;
+    font-size: 1.15rem;
+    font-weight: 800;
+    font-family: 'Outfit', 'Inter', sans-serif;
+    margin-bottom: 14px;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    text-align: center;
+}
+
+/* 프로그레스 바 트랙 */
+.ai-progress-track {
+    width: 80%;
+    max-width: 380px;
+    height: 10px;
+    background: rgba(30, 41, 59, 0.8);
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+    margin-bottom: 8px;
+}
+
+.ai-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #06b6d4, #60a5fa);
+    background-size: 200% 100%;
+    border-radius: 20px;
+    transition: width 0.3s ease;
+    animation: gradientMove 2s linear infinite;
+}
+
+.ai-loading-percent {
+    color: #38bdf8;
+    font-size: 0.95rem;
+    font-weight: 800;
+    font-family: 'Outfit', sans-serif;
+    margin-bottom: 10px;
+}
+
+.ai-loading-sub {
+    color: #94a3b8;
+    font-size: 0.78rem;
+    font-weight: 500;
+    text-align: center;
+    max-width: 400px;
+}
+
+/* 키프레임 애니메이션 */
+@keyframes spinRing {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes iconPulse {
+    0% {
+        transform: scale(0.92);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1.08);
+        opacity: 1;
+    }
+}
+
+@keyframes gradientMove {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+/* 비디오 미업로드 상태 플레이스홀더 */
+.video-placeholder-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(12px);
+    z-index: 280;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    transition: opacity 0.4s ease, visibility 0.4s ease;
+    border-radius: 12px;
+}
+
+.video-placeholder-overlay.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.placeholder-content {
+    text-align: center;
+    max-width: 480px;
+    animation: placeholderPulse 2.5s infinite ease-in-out;
+}
+
+.placeholder-icon {
+    font-size: 3.5rem;
+    margin-bottom: 16px;
+    filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.5));
+}
+
+.placeholder-title {
+    font-family: 'Outfit', 'Inter', sans-serif;
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #f1f5f9;
+    margin-bottom: 10px;
+    letter-spacing: -0.5px;
+}
+
+.placeholder-sub {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.88rem;
+    color: #94a3b8;
+    line-height: 1.5;
+}
+
+@keyframes placeholderPulse {
+    0%, 100% {
+        transform: translateY(0);
+        opacity: 0.95;
+    }
+    50% {
+        transform: translateY(-5px);
+        opacity: 0.75;
+    }
+}
