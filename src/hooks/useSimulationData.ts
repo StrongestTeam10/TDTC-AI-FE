@@ -14,7 +14,7 @@ import { toDisplayErrorMessage } from '../utils/errorMessage';
 // 시에만 조회됐음(자동 갱신 없음). capturedAt이 없는 "최신" 모드에 한해 일정
 // 주기로 자동 재조회하는 폴링을 추가함. 특정 과거 시점을 선택한 경우는 고정된
 // 스냅샷을 보는 것이므로 폴링하지 않음.
-const DASHBOARD_POLL_INTERVAL_MS = 2_000;
+const DASHBOARD_POLL_INTERVAL_MS = 200_000;
 
 // 2026-07-27 추가: 시장/구역별 권한 분리(관리자는 시장 전환 가능, 그 외는 본인 담당
 // 시장 하나만 조회됨 - BE가 /markets 응답 자체를 이미 필터링해서 내려줌). 관리자가
