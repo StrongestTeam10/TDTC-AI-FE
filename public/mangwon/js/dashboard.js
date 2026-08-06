@@ -638,8 +638,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         updateAILoadingProgress(100);
                         setTimeout(() => {
                             hideAILoadingOverlay();
-                            
-                            // 백엔드에서 비식별화(원형 블러) 가공이 완료된 실제 결과 동영상으로 비디오 소스 교체
                             if (video) {
                                 const backendVideoUrl = `http://localhost:8000/api/v1/cctv/video/${encodeURIComponent(data.filename)}?t=${Date.now()}`;
                                 video.src = backendVideoUrl;
@@ -649,43 +647,32 @@ document.addEventListener('DOMContentLoaded', () => {
                                 if (btnPlayPause) btnPlayPause.innerText = 'PAUSE';
                             }
                         }, 400);
-
-                        // 분석 완료 데이터셋 JSON 다운로드
-                        fetch('http://localhost:8000/api/v1/cctv/dataset/' + encodeURIComponent(data.filename))
-                            .then(res => {
-                                if (res.ok) return res.json();
-                                throw new Error('Dataset fetch failed');
-                            })
-                            .then(json => {
-                                window.uploadedVideoFrameData = json;
-                                console.log('✅ [Dataset Load Success] 실제 분석 데이터 동기화 완료.', json);
-                                updateUI(true);
-                            })
-                            .catch(err => {
-                                console.error('[Dataset Load Error]', err);
-                            });
                     } else if (data.type === 'CCTV_AI_STREAM') {
-                        // AI 파이프라인 스트리밍 수신 시 로딩창이 열려있다면 즉시 닫고 재생 시작
                         if (aiLoadingOverlay && aiLoadingOverlay.classList.contains('active')) {
                             updateAILoadingProgress(100);
                             setTimeout(hideAILoadingOverlay, 200);
                         }
 
-                        // AI 파이프라인으로부터 실시간 감지 데이터 수신 및 프레임 데이터 맵에 기록
-                        if (!window.uploadedVideoFrameData) {
-                            window.uploadedVideoFrameData = {};
-                        }
-                        window.uploadedVideoFrameData[data.frame_id] = data;
-
                         window.latestLivePedestrianCount = data.pedestrian_count;
                         window.latestLiveCriScore = data.cri_score;
 
-                        // UI 지표 카드 실시간 직접 업데이트
+                        // ⭐ [핵심 추가] 파이썬이 보내는 긴급 타이머 상태(status) 체크
+                        if (data.status === 'DANGER_WAITING') {
+                            if (emergencyBackdrop) emergencyBackdrop.classList.add('active');
+                            if (emergencyTopDrawer) emergencyTopDrawer.classList.add('active');
+                            if (emergencyCountdownVal && data.remaining_sec) {
+                                emergencyCountdownVal.innerText = `${data.remaining_sec}초`;
+                            }
+                        } else if (data.status === 'SAFE') {
+                            if (emergencyBackdrop) emergencyBackdrop.classList.remove('active');
+                            if (emergencyTopDrawer) emergencyTopDrawer.classList.remove('active');
+                        }
+
                         if (livePersonCount) livePersonCount.innerText = `${data.pedestrian_count} 명`;
                         if (liveOccupancyRate) liveOccupancyRate.innerText = `${data.occupancy_rate} %`;
                         if (liveStoppageTime) liveStoppageTime.innerText = `${data.stagnation_sec} 초`;
 
-                        updateUI(true); // 차트 및 CRI 수치 실시간 갱신
+                        updateUI(true);
                     }
                 } catch (e) {
                     console.error('[WebSocket Message Parse Error]', e);
@@ -693,12 +680,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             cctvWebSocket.onclose = () => {
-                console.log('⚠️ [WebSocket Closed] 3초 후 재연결 시도...');
                 setTimeout(initCCTVWebSocket, 3000);
-            };
-
-            cctvWebSocket.onerror = (err) => {
-                console.log('[WebSocket Info] 로컬 API 서버(localhost:8000) 미실행 상태 - 로컬 모드로 작동');
             };
         } catch (e) {
             console.log('[WebSocket Init Error]', e);
@@ -708,6 +690,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // 대시보드 로드 시 WebSocket 실시간 스트림 자동 개시
     initCCTVWebSocket();
 
+    // 🚨 [즉시 신고(확인)] 버튼 클릭 시 -> 파이썬 API로 확정 신호 발송
+    const btnConfirmReport = document.getElementById('btn-confirm-emergency');
+    if (btnConfirmReport) {
+        btnConfirmReport.addEventListener('click', async () => {
+            try {
+                await fetch('http://localhost:8000/api/v1/cctv/confirm-report', { method: 'POST' });
+                alert("즉시 신고가 파이썬으로 전달되었습니다!");
+                if (emergencyBackdrop) emergencyBackdrop.classList.remove('active');
+                if (emergencyTopDrawer) emergencyTopDrawer.classList.remove('active');
+            } catch(e) { console.error('즉시 신고 발송 실패:', e); }
+        });
+    }
 
     // 9. 핵심 UI 계산 및 EMA 스무딩 (성능 개선 버전)
     function updateUI(forceImmediateChart = false) {
@@ -883,3 +877,167 @@ document.addEventListener('DOMContentLoaded', () => {
     // 9. 초기 모드 가동
     changeWeatherMode('PREDICTIVE_RAIN');
 });
+
+// =========================================================
+// [백엔드 API 연동] 알람 이력 및 뱃지 데이터 호출
+// =========================================================
+async function loadRealAlertLogs() {
+    try {
+        let token = '';
+        try {
+            const authStorage = localStorage.getItem('tdtc-ai-auth');
+            if (authStorage) {
+                token = JSON.parse(authStorage).state.token || '';
+            }
+        } catch (e) {}
+
+        const response = await fetch('http://localhost:8080/api/ai/alerts/unresolved', {
+            method: 'GET',
+            headers: {
+                'Authorization': token ? `Bearer ${token}` : '',
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            console.error("백엔드 응답 에러:", response.status);
+            return;
+        }
+
+        const alerts = await response.json();
+        
+        // 1. 우측 상단 종 모양 뱃지 숫자 업데이트
+        const badge = document.getElementById('header-alert-count');
+        if (badge) badge.innerText = alerts.length;
+
+        // 2. 모달창 리스트 업데이트
+        const listContainer = document.querySelector('.alert-log-list');
+        if (listContainer) {
+            listContainer.innerHTML = ''; // 기존 하드코딩(가짜) 데이터 싹 지우기
+            
+            // 데이터가 없을 경우 처리
+            if (alerts.length === 0) {
+                listContainer.innerHTML = '<div style="color:#94a3b8; text-align:center; padding: 20px;">미해결 긴급 알람이 없습니다. (현재 안전)</div>';
+                return;
+            }
+
+            // 백엔드의 진짜 데이터로 HTML 리스트 동적 생성
+            alerts.forEach(alert => {
+                // 시간 예쁘게 포맷팅 (ex: 14:23:40)
+                const timeString = new Date(alert.alertedAt).toLocaleTimeString('ko-KR', { hour12: false });
+                
+                listContainer.innerHTML += `
+                    <div class="log-item danger">
+                        <span class="log-time">${timeString}</span>
+                        <span class="log-type-tag danger">${alert.alertType}</span>
+                        <span class="log-desc">🚨 [존 ${alert.zoneId} 감지] 자바 백엔드에서 불러온 실제 긴급 알람입니다!</span>
+                    </div>
+                `;
+            });
+        }
+    } catch (e) {
+        console.error("백엔드 알람 API 호출 실패 (서버가 꺼져있거나 CORS 에러):", e);
+    }
+}
+
+// 화면이 열릴 때 자동으로 백엔드를 찌르도록 실행
+loadRealAlertLogs();
+
+// =========================================================
+// 10. 증거/기록 보관소 (다운로드 센터) 제어 로직
+// =========================================================
+function openDownloadModal() {
+    const backdrop = document.getElementById('download-center-modal-backdrop');
+    if (backdrop) {
+        backdrop.classList.add('active');
+        // 기본 탭 로드 (상시 녹화)
+        switchDownloadTab('routine');
+    }
+}
+
+function closeDownloadModal() {
+    const backdrop = document.getElementById('download-center-modal-backdrop');
+    if (backdrop) backdrop.classList.remove('active');
+}
+
+async function switchDownloadTab(tabName) {
+    // 1. 탭 버튼 스타일 갱신
+    const btns = document.querySelectorAll('.download-tab-btn');
+    btns.forEach(btn => btn.classList.remove('active'));
+    
+    // 클릭한 버튼 활성화
+    const clickedBtn = Array.from(btns).find(b => {
+        if (tabName === 'routine' && b.innerText.includes('상시')) return true;
+        if (tabName === 'clips' && b.innerText.includes('클립')) return true;
+        if (tabName === 'reports' && b.innerText.includes('명세서')) return true;
+        return false;
+    });
+    if (clickedBtn) clickedBtn.classList.add('active');
+
+    const container = document.getElementById('download-list-container');
+    if (!container) return;
+    
+    container.innerHTML = '<div class="download-loading">백엔드(S3)에서 데이터를 불러오는 중입니다...</div>';
+
+    try {
+        let url = '';
+        if (tabName === 'routine') {
+            url = 'http://localhost:8080/api/v1/routine-videos'; // 방금 만든 백엔드 API
+        } else if (tabName === 'clips') {
+            url = 'http://localhost:8080/api/v1/video-clips'; // 기존 백엔드 API
+        } else if (tabName === 'reports') {
+            url = 'http://localhost:8080/api/v1/post-reports'; // 3번째 탭: 명세서(PDF) 조회
+        }
+
+        let token = '';
+        try {
+            const authStorage = localStorage.getItem('tdtc-ai-auth');
+            if (authStorage) {
+                token = JSON.parse(authStorage).state.token || '';
+            }
+        } catch (e) {}
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Authorization': token ? `Bearer ${token}` : '',
+                'Content-Type': 'application/json'
+            }
+        });
+        if (!response.ok) throw new Error('Network response was not ok');
+        const dataList = await response.json();
+
+        container.innerHTML = ''; // 로딩 텍스트 제거
+
+        if (!dataList || dataList.length === 0) {
+            container.innerHTML = '<div class="download-loading">해당 항목의 데이터가 없습니다.</div>';
+            return;
+        }
+
+        // 받아온 데이터를 리스트로 렌더링
+        dataList.forEach(item => {
+            // 각 API마다 내려주는 필드명이 약간 다를 수 있으므로 매핑
+            let fileName = item.fileName || item.clipType || item.llmSummary || "알 수 없는 파일";
+            let downloadUrl = item.downloadUrl || item.s3ClipUrl || item.viewUrl || item.s3PdfUrl || "#";
+            let timeStr = item.lastModified || item.startTime || item.targetDate || "";
+
+            // URL이 없는 경우는 다운로드 불가 처리
+            const linkHtml = downloadUrl !== "#" 
+                ? `<a href="${downloadUrl}" target="_blank" class="btn-download-link" download>📥 다운로드</a>`
+                : `<span style="color:#64748b; font-size:0.75rem;">URL 없음</span>`;
+
+            container.innerHTML += `
+                <div class="download-item">
+                    <div class="download-item-info">
+                        <span class="download-item-name">${fileName}</span>
+                        <span class="download-item-date">${timeStr}</span>
+                    </div>
+                    ${linkHtml}
+                </div>
+            `;
+        });
+    } catch (e) {
+        console.error('다운로드 센터 데이터 로드 실패:', e);
+        container.innerHTML = '<div class="download-loading" style="color:#ef4444;">백엔드 서버와 연결할 수 없습니다.<br>백엔드 서버가 실행 중인지 확인해 주세요.</div>';
+    }
+}

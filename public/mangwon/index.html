@@ -36,8 +36,11 @@
                 <span class="score-summary-status safe" id="header-status-badge">NORMAL / 정상</span>
             </div>
 
-            <!-- 우측: 파라미터&기상 드래그 팝업 열기 버튼 + 알람 로그 모달 열기 버튼 -->
+            <!-- 우측: 파라미터&기상 드래그 팝업 열기 버튼 + 알람 로그 모달 열기 버튼 + 다운로드 센터 -->
             <div class="header-actions">
+                <button class="btn-download-center" id="btn-open-download-modal" onclick="openDownloadModal()">
+                    <span>📁 증거/기록 보관소</span>
+                </button>
                 <button class="btn-alert-log" id="btn-open-alert-modal" onclick="openAlertModal()">
                     <span>🔔 알람 로그 / 이력</span>
                     <span class="alert-count-badge" id="header-alert-count">3</span>
@@ -450,6 +453,35 @@
 
             <div class="modal-footer">
                 <button class="btn-modal-confirm" onclick="closeAlertModal()">확인 및 닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 6. 증거/기록 보관소 (다운로드 센터) 모달 -->
+    <div class="modal-backdrop" id="download-center-modal-backdrop" onclick="closeDownloadModal()">
+        <div class="modal-card download-modal-card" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span>📁 증거 / 기록 보관소 (다운로드 센터)</span>
+                    <span class="modal-badge">DOWNLOAD CENTER</span>
+                </div>
+                <button class="btn-close-modal" onclick="closeDownloadModal()">✕</button>
+            </div>
+
+            <div class="modal-body download-modal-body">
+                <div class="download-tabs">
+                    <button class="download-tab-btn active" onclick="switchDownloadTab('routine')">상시 녹화 (1분)</button>
+                    <button class="download-tab-btn" onclick="switchDownloadTab('clips')">긴급 상황 클립 (35초)</button>
+                    <button class="download-tab-btn" onclick="switchDownloadTab('reports')">사고 명세서 (PDF)</button>
+                </div>
+                
+                <div class="download-list-container" id="download-list-container">
+                    <div class="download-loading">데이터를 불러오는 중입니다...</div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-modal-confirm" onclick="closeDownloadModal()">닫기</button>
             </div>
         </div>
     </div>
