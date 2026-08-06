@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import HeatmapView from '../components/HeatmapView';
 import ScenarioForm from '../components/ScenarioForm';
+import PolicyAnalysisPanel from '../components/PolicyAnalysisPanel';
 import RiskTrendChart from '../components/RiskTrendChart';
 import Spinner from '../components/ui/Spinner';
 import ErrorBanner from '../components/ui/ErrorBanner';
@@ -321,10 +322,37 @@ export default function SimulationComparePage() {
                       Before·After 양쪽 지도 어디서 찍든 같은 위치에 동시 반영됩니다.
                     </span>
                   </h3>
-                  <ScenarioForm
-                    isRunning={isPredicting || isScenarioRunning}
-                    steps={steps}
-                    zones={zones}
+                  <PolicyAnalysisPanel 
+                    onAnalyzeSuccess={(result) => {
+                      if (result.objectsToRemove) {
+                        setObjects((prev) => [
+                          ...prev, 
+                          ...result.objectsToRemove.map(obj => ({
+                            objectType: obj.objectType as 'food_truck' | 'obstacle' | 'event_zone' | 'rest_area',
+                            zoneId: obj.zoneId,
+                            intensity: 1.0,
+                            latitude: undefined,
+                            longitude: undefined
+                          }))
+                        ]);
+                      }
+                      if (result.corridorPolicies) {
+                        setCorridorPolicies((prev) => [...prev, ...result.corridorPolicies]);
+                      }
+                      if (result.closedGateIds) {
+                        setClosedGateIds(new Set(result.closedGateIds));
+                      }
+                      if (result.agentCount) {
+                        setAgentCount(result.agentCount);
+                        alert(`AI 분석 결과에 따라 수용 인원이 ${result.agentCount}명으로 자동 설정되었습니다.`);
+                      }
+                    }} 
+                  />
+                  <div className="mt-4">
+                    <ScenarioForm
+                      isRunning={isPredicting || isScenarioRunning}
+                      steps={steps}
+                      zones={zones}
                     objects={objects}
                     onRemoveObject={(idx) => setObjects((prev) => prev.filter((_, i) => i !== idx))}
                     events={events}
@@ -340,8 +368,9 @@ export default function SimulationComparePage() {
                     onNextTriggerStepChange={setNextTriggerStep}
                     corridors={corridorPolicies}
                     onAddCorridor={handleAddCorridor}
-                    onRemoveCorridor={handleRemoveCorridor}
-                  />
+                      onRemoveCorridor={handleRemoveCorridor}
+                    />
+                  </div>
                 </div>
 
                 <button

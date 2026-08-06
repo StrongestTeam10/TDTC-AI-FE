@@ -1,8 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import DashboardPage from './pages/DashboardPage';
-import ScenarioPage from './pages/ScenarioPage';
-import PredictionPage from './pages/PredictionPage';
 import SimulationComparePage from './pages/SimulationComparePage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
@@ -66,26 +64,6 @@ export default function App() {
             <RequireAuth>
               <AppLayout>
                 <DashboardPage />
-              </AppLayout>
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/scenario"
-          element={
-            <RequireAuth>
-              <AppLayout>
-                <ScenarioPage />
-              </AppLayout>
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/prediction"
-          element={
-            <RequireAuth>
-              <AppLayout>
-                <PredictionPage />
               </AppLayout>
             </RequireAuth>
           }
