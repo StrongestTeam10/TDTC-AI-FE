@@ -11,6 +11,8 @@ export interface AgentState {
   state: 'normal' | 'congested' | 'evacuating';
   agentType: string;
   actionState: string;
+  // 2026-08-XX 추가: 현재 구역 위험도(0~100). 지도에서 빨강/노랑/파랑 색 구분에 사용.
+  dangerLevel?: number;
 }
 
 export interface CrowdDensity {
@@ -145,6 +147,13 @@ export interface EventTrigger {
   latitude?: number;
   longitude?: number;
   triggerStep?: number;
+  // 2026-08-XX 추가: 화재 생애주기. burnSteps 동안 연소 후 진압, recoverySteps 동안 복구.
+  burnSteps?: number;
+  recoverySteps?: number;
+  // 2026-08-XX 추가(FE 내부용): 진압 스텝(절대값). 발생~진압이 연소 기간.
+  // 실행 시 burnSteps = max(1, extinguishStep - triggerStep)로 변환해 SIM에 보낸다.
+  // (발생 스텝을 나중에 바꿔도 진압 시점이 안 어긋나게 하기 위함)
+  extinguishStep?: number;
 }
 
 // 파이프라인 B: 사용자 지정 시뮬레이션 요청/응답
@@ -174,6 +183,8 @@ export interface PredictRequest {
   totalInflow: number;
   // 2026-08-XX 추가: 이벤트(화재/음향이상)만 Before/After 공통으로 반영.
   events?: EventTrigger[];
+  // 2026-08-XX 추가: 게이트 개폐를 개입 전/후 독립적으로 조절(개입 전도 닫힌 게이트 반영).
+  closedGateIds?: number[];
   seed?: number;
 }
 
