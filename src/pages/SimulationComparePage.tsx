@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import HeatmapView from '../components/HeatmapView';
 import ScenarioForm from '../components/ScenarioForm';
+import PolicyAnalysisPanel from '../components/PolicyAnalysisPanel';
 import RiskTrendChart from '../components/RiskTrendChart';
 import Spinner from '../components/ui/Spinner';
 import ErrorBanner from '../components/ui/ErrorBanner';
@@ -14,6 +15,41 @@ const OBJECT_TYPES = new Set<PlacedObject['objectType']>(['food_truck', 'obstacl
 const isEventPlacementType = (t: PlacementKind | null): t is EventTrigger['eventType'] =>
     t === 'fire' || t === 'acoustic_anomaly';
 const SPEED_OPTIONS = [0.5, 1, 2, 4];
+
+// 2026-08-XX: 건물 폴리곤(GeoJSON 문자열)의 중심 좌표(lat/lon)를 구한다.
+// 화재를 가장 가까운 건물 위로 스냅하는 데 쓴다.
+function buildingCentroid(polygonCoordinates: string): { lat: number; lon: number } | null {
+  try {
+    const geo = JSON.parse(polygonCoordinates);
+    const ring = geo?.coordinates?.[0];
+    if (!ring || ring.length === 0) return null;
+    let sx = 0, sy = 0, n = 0;
+    for (const [plon, plat] of ring) { sx += plon; sy += plat; n++; }
+    if (n === 0) return null;
+    return { lat: sy / n, lon: sx / n };
+  } catch {
+    return null;
+  }
+}
+
+// 클릭한 (lon,lat)가 이 건물 폴리곤 안에 있는지 (ray-casting).
+function buildingContains(polygonCoordinates: string, lon: number, lat: number): boolean {
+  try {
+    const geo = JSON.parse(polygonCoordinates);
+    const ring = geo?.coordinates?.[0];
+    if (!ring || ring.length === 0) return false;
+    let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [xi, yi] = ring[i];
+      const [xj, yj] = ring[j];
+      const intersect = (yi > lat) !== (yj > lat) && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  } catch {
+    return false;
+  }
+}
 const BASE_INTERVAL_MS = 500;
 const STEP_DURATION_SECONDS = 10;
 
@@ -40,7 +76,9 @@ export default function SimulationComparePage() {
   const [corridors, setCorridors] = useState<Corridor[]>([]);
   const [gates, setGates] = useState<Gate[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
-  const [closedGateIds, setClosedGateIds] = useState<Set<number>>(new Set());
+  // 2026-08-XX: 게이트 개폐를 개입 전(before)/후(after) 독립적으로 관리.
+  const [afterClosedGateIds, setAfterClosedGateIds] = useState<Set<number>>(new Set());
+  const [beforeClosedGateIds, setBeforeClosedGateIds] = useState<Set<number>>(new Set());
 
   const [objects, setObjects] = useState<PlacedObject[]>([]);
   const [events, setEvents] = useState<EventTrigger[]>([]);
@@ -48,6 +86,9 @@ export default function SimulationComparePage() {
   const [placementType, setPlacementType] = useState<PlacementKind | null>(null);
   const [nextIntensity, setNextIntensity] = useState(0.5);
   const [nextTriggerStep, setNextTriggerStep] = useState(1);
+  // 2026-08-XX: 화재 진압 스텝(사용자 지정). 발생~진압 사이가 연소 기간.
+  const [nextExtinguishStep, setNextExtinguishStep] = useState(20);
+  const RECOVERY_STEPS = 12; // 진압 후 복구(위험도 감쇠) 기간(자동)
   const [corridorPolicies, setCorridorPolicies] = useState<CorridorPolicy[]>([]);
 
   const [steps, setSteps] = useState(30);
@@ -138,14 +179,31 @@ export default function SimulationComparePage() {
     setRunError(null);
 
     const marketId = markets[0]?.marketId ?? 0;
-    const predictReq: PredictRequest = { marketId, steps, totalInflow: agentCount, events };
+    // 실행 시점에 발생/진압 스텝으로 연소기간(burnSteps)을 재계산해 SIM에 보낸다.
+    // (발생·진압을 나중에 수정해도 항상 일관되게 반영되도록)
+    const simEvents: EventTrigger[] = events.map((ev) => {
+      const trig = ev.triggerStep ?? 1;
+      const ext = ev.extinguishStep ?? trig + 18;
+      return {
+        ...ev,
+        burnSteps: Math.max(1, ext - trig),
+        recoverySteps: ev.recoverySteps ?? RECOVERY_STEPS,
+      };
+    });
+    const predictReq: PredictRequest = {
+      marketId,
+      steps,
+      totalInflow: agentCount,
+      events: simEvents,
+      closedGateIds: Array.from(beforeClosedGateIds),
+    };
     const scenarioReq: ScenarioRequest = {
       marketId,
       steps,
       agentCount,
       objects,
-      events,
-      closedGateIds: Array.from(closedGateIds),
+      events: simEvents,
+      closedGateIds: Array.from(afterClosedGateIds),
       corridorPolicies: corridorPolicies,
     };
 
@@ -181,7 +239,8 @@ export default function SimulationComparePage() {
     setEvents([]);
     setSubmittedEvents([]);
     setCorridorPolicies([]);
-    setClosedGateIds(new Set());
+    setAfterClosedGateIds(new Set());
+    setBeforeClosedGateIds(new Set());
     setPlacementType(null);
     setPredictResult(null);
     setScenarioResult(null);
@@ -206,15 +265,40 @@ export default function SimulationComparePage() {
         { objectType: placementType as PlacedObject['objectType'], zoneId, intensity: nextIntensity, latitude: lat, longitude: lon },
       ]);
     } else {
+      // 화재는 현실적으로 상가 건물에서 발생하므로, 클릭 지점에서 가장 가까운
+      // 건물 폴리곤(DB mrkbldg01m)의 중심으로 스냅해 그 상가 건물 위에 🔥가
+      // 뜨게 한다. SIM도 이 좌표를 그대로 써서 그 건물 앞 길에 있던 사람부터
+      // 대피시키므로 아이콘과 발화 지점이 일치한다.
+      let fireLat = lat;
+      let fireLon = lon;
+      // 1) 클릭 지점이 어떤 건물 폴리곤 안이면 바로 그 건물 중심에 화재.
+      const containing = buildings.find((b) => buildingContains(b.polygonCoordinates, lon, lat));
+      if (containing) {
+        const c = buildingCentroid(containing.polygonCoordinates);
+        if (c) { fireLat = c.lat; fireLon = c.lon; }
+      } else {
+        // 2) 건물 밖(길 등)을 클릭했으면 가장 가까운 건물 중심에.
+        let bestD = Infinity;
+        for (const b of buildings) {
+          const c = buildingCentroid(b.polygonCoordinates);
+          if (!c) continue;
+          const d = (c.lat - lat) ** 2 + (c.lon - lon) ** 2;
+          if (d < bestD) { bestD = d; fireLat = c.lat; fireLon = c.lon; }
+        }
+      }
+      // 발생/진압 스텝은 그대로 저장(연소기간 burnSteps는 실행 시 재계산).
+      // 이렇게 해야 나중에 목록에서 발생·진압을 수정해도 진압 시점이 안 어긋난다.
       setEvents((prev) => [
         ...prev,
         {
           eventType: placementType as EventTrigger['eventType'],
           zoneId,
           intensity: nextIntensity,
-          latitude: lat,
-          longitude: lon,
+          latitude: fireLat,
+          longitude: fireLon,
           triggerStep: nextTriggerStep,
+          extinguishStep: nextExtinguishStep,
+          recoverySteps: RECOVERY_STEPS,
         },
       ]);
     }
@@ -222,21 +306,33 @@ export default function SimulationComparePage() {
 
   const beforePlacementType = isEventPlacementType(placementType) ? placementType : null;
 
+  // 화재 마커는 발생~진압(extinguish) 스텝까지만 표시하고, 진압 스텝에
+  // 사라진다(사용자가 설정한 "진압 스텝"과 일치). 진압 이후의 복구(위험도가
+  // 서서히 0으로 감소 + 유동인구 재유입)는 불이 이미 꺼진 상태라 마커 없이
+  // 진행된다.
+  const fireLifeEnd = (ev: EventTrigger) => {
+      const trig = ev.triggerStep ?? 1;
+      return ev.extinguishStep ?? trig + (ev.burnSteps ?? 18);
+  };
   const visibleEvents = hasResult
-      ? submittedEvents.filter((ev) => (ev.triggerStep ?? 1) <= currentStepNumber)
+      ? submittedEvents.filter(
+          (ev) => (ev.triggerStep ?? 1) <= currentStepNumber && currentStepNumber <= fireLifeEnd(ev),
+        )
       : events;
   const focusEvent = hasResult
       ? submittedEvents.find((ev) => (ev.triggerStep ?? 1) === currentStepNumber) ?? null
       : null;
 
-  const handleGateClick = (facilityId: number) => {
-    setClosedGateIds((prev) => {
+  const toggleGate = (setter: React.Dispatch<React.SetStateAction<Set<number>>>) => (facilityId: number) => {
+    setter((prev) => {
       const next = new Set(prev);
       if (next.has(facilityId)) next.delete(facilityId);
       else next.add(facilityId);
       return next;
     });
   };
+  const handleBeforeGateClick = toggleGate(setBeforeClosedGateIds);
+  const handleAfterGateClick = toggleGate(setAfterClosedGateIds);
 
   const getBeforeAgents = () => {
     if (!predictResult) return [];
@@ -321,10 +417,38 @@ export default function SimulationComparePage() {
                       Before·After 양쪽 지도 어디서 찍든 같은 위치에 동시 반영됩니다.
                     </span>
                   </h3>
-                  <ScenarioForm
-                    isRunning={isPredicting || isScenarioRunning}
-                    steps={steps}
-                    zones={zones}
+                  <PolicyAnalysisPanel 
+                    onAnalyzeSuccess={(result) => {
+                      if (result.objectsToRemove) {
+                        setObjects((prev) => [
+                          ...prev, 
+                          ...result.objectsToRemove.map(obj => ({
+                            objectType: obj.objectType as 'food_truck' | 'obstacle' | 'event_zone' | 'rest_area',
+                            zoneId: obj.zoneId,
+                            intensity: 1.0,
+                            latitude: undefined,
+                            longitude: undefined
+                          }))
+                        ]);
+                      }
+                      if (result.corridorPolicies) {
+                        setCorridorPolicies((prev) => [...prev, ...result.corridorPolicies]);
+                      }
+                      if (result.closedGateIds) {
+                        // AI 분석이 제안한 게이트 폐쇄는 개입(After) 시나리오에 적용.
+                        setAfterClosedGateIds(new Set(result.closedGateIds));
+                      }
+                      if (result.agentCount) {
+                        setAgentCount(result.agentCount);
+                        alert(`AI 분석 결과에 따라 수용 인원이 ${result.agentCount}명으로 자동 설정되었습니다.`);
+                      }
+                    }} 
+                  />
+                  <div className="mt-4">
+                    <ScenarioForm
+                      isRunning={isPredicting || isScenarioRunning}
+                      steps={steps}
+                      zones={zones}
                     objects={objects}
                     onRemoveObject={(idx) => setObjects((prev) => prev.filter((_, i) => i !== idx))}
                     events={events}
@@ -332,16 +456,22 @@ export default function SimulationComparePage() {
                     onUpdateEventTriggerStep={(idx, val) =>
                       setEvents((prev) => prev.map((ev, i) => (i === idx ? { ...ev, triggerStep: val } : ev)))
                     }
+                    onUpdateEventExtinguishStep={(idx, val) =>
+                      setEvents((prev) => prev.map((ev, i) => (i === idx ? { ...ev, extinguishStep: val } : ev)))
+                    }
                     placementType={placementType}
                     onSelectPlacementType={setPlacementType}
                     nextIntensity={nextIntensity}
                     onNextIntensityChange={setNextIntensity}
                     nextTriggerStep={nextTriggerStep}
                     onNextTriggerStepChange={setNextTriggerStep}
+                    nextExtinguishStep={nextExtinguishStep}
+                    onNextExtinguishStepChange={setNextExtinguishStep}
                     corridors={corridorPolicies}
                     onAddCorridor={handleAddCorridor}
-                    onRemoveCorridor={handleRemoveCorridor}
-                  />
+                      onRemoveCorridor={handleRemoveCorridor}
+                    />
+                  </div>
                 </div>
 
                 <button
@@ -377,6 +507,10 @@ export default function SimulationComparePage() {
                     height="100%"
                     transitionMs={intervalMs}
                     buildings={buildings}
+                    corridors={corridors}
+                    gates={gates}
+                    closedGateIds={beforeClosedGateIds}
+                    onGateClick={handleBeforeGateClick}
                     placementType={beforePlacementType}
                     onPlaceObject={handlePlaceObject}
                     events={visibleEvents}
@@ -402,8 +536,8 @@ export default function SimulationComparePage() {
                     buildings={buildings}
                     corridors={corridors}
                     gates={gates}
-                    closedGateIds={closedGateIds}
-                    onGateClick={handleGateClick}
+                    closedGateIds={afterClosedGateIds}
+                    onGateClick={handleAfterGateClick}
                     placementType={placementType}
                     onPlaceObject={handlePlaceObject}
                     placedObjects={objects}

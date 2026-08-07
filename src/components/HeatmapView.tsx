@@ -56,17 +56,24 @@ const RISK_STROKE: Record<string, string> = {
 const DEFAULT_FILL = 'rgba(100, 116, 139, 0.2)';
 const DEFAULT_STROKE = '#64748b';
 
-const AGENT_COLOR: Record<string, string> = {
-  normal: '#38bdf8',
-  congested: '#f59e0b',
-  evacuating: '#ef4444',
-};
+// 2026-08-XX: 에이전트 색을 위험도(dangerLevel, 0~100)에 따라 빨강/노랑/파랑으로.
+// 화재 발생 구역이 가장 빨갛고(위험), 확산 감쇠에 따라 주변이 노랑->파랑(안전)으로.
+const AGENT_DANGER_RED = '#ef4444';
+const AGENT_DANGER_YELLOW = '#eab308';
+const AGENT_DANGER_BLUE = '#38bdf8';
+function agentColorByDanger(dangerLevel: number | undefined): string {
+  const d = dangerLevel ?? 0;
+  if (d >= 60) return AGENT_DANGER_RED;
+  if (d >= 30) return AGENT_DANGER_YELLOW;
+  return AGENT_DANGER_BLUE;
+}
 
-const OBJECT_COLOR: Record<PlacedObject['objectType'], string> = {
-  food_truck: '#f97316',
-  event_zone: '#a855f7',
-  rest_area: '#22c55e',
-  obstacle: '#78350f',
+// 2026-08-XX: 오브젝트/이벤트/게이트를 색 도형 대신 이모지 아이콘으로 표시.
+const OBJECT_EMOJI: Record<PlacedObject['objectType'], string> = {
+  food_truck: '🚚',
+  event_zone: '🎪',
+  rest_area: '🪑',
+  obstacle: '📦',
 };
 
 const EVENT_COLOR: Record<EventTrigger['eventType'], string> = {
@@ -74,8 +81,13 @@ const EVENT_COLOR: Record<EventTrigger['eventType'], string> = {
   acoustic_anomaly: '#eab308',
 };
 
-const GATE_OPEN_COLOR = '#22c55e';
-const GATE_CLOSED_COLOR = '#ef4444';
+const EVENT_EMOJI: Record<EventTrigger['eventType'], string> = {
+  fire: '🔥',
+  acoustic_anomaly: '🔊',
+};
+
+const GATE_OPEN_EMOJI = '🚪';
+const GATE_CLOSED_EMOJI = '🚫';
 
 const BUILDING_FILL_MEASURED = 'rgba(148, 163, 184, 0.45)';
 const BUILDING_STROKE_MEASURED = '#94a3b8';
@@ -457,7 +469,7 @@ export default function HeatmapView({
       pointerMovedRef.current = false;
       return;
     }
-    if (!placementType || !onPlaceObject || !layout) return;
+    if (!placementType || !onPlaceObject || !layout || !bounds) return;
     const svg = svgRef.current;
     if (!svg) return;
     const rect = svg.getBoundingClientRect();
@@ -467,7 +479,32 @@ export default function HeatmapView({
     const svgY = viewport.panY + ((e.clientY - rect.top) / rect.height) * vbHeight;
     const [lon, lat] = layout.unproject(svgX, svgY);
     const containing = layout.zonePolygons.find(({ points }) => pointInPolygon(lon, lat, points));
+    const isEvent = placementType === 'fire' || placementType === 'acoustic_anomaly';
+
+    if (isEvent) {
+      // 화재 등 이벤트: 상가 건물에서 나야 하므로 구역 밖(건물 위)을 클릭해도
+      // 가장 가까운 구역으로 배치를 허용한다(배치 위치는 상위에서 건물로 스냅).
+      let zoneId: number | null = containing ? containing.zone.zoneId : null;
+      if (zoneId === null) {
+        let bestD = Infinity;
+        for (const zp of layout.zonePolygons) {
+          let cx = 0, cy = 0;
+          for (const [px, py] of zp.points) { cx += px; cy += py; }
+          cx /= zp.points.length; cy /= zp.points.length;
+          const d = (cx - lon) ** 2 + (cy - lat) ** 2;
+          if (d < bestD) { bestD = d; zoneId = zp.zone.zoneId; }
+        }
+      }
+      if (zoneId === null) return;
+      onPlaceObject(zoneId, lat, lon);
+      return;
+    }
+
+    // 오브젝트(푸드트럭/행사장/휴게공간/적재물): 반드시 시장 통로 안에만 배치.
+    // = 구역 폴리곤 안이면서 + 건물 폴리곤 위가 아닌 지점만 허용.
     if (!containing) return;
+    const onBuilding = bounds.buildingLonLat.some((b) => pointInPolygon(lon, lat, b.points));
+    if (onBuilding) return;
     onPlaceObject(containing.zone.zoneId, lat, lon);
   };
 
@@ -549,27 +586,31 @@ export default function HeatmapView({
         ))}
 
         {layout.renderedObjects.map((obj) => (
-          <circle
+          <text
             key={`obj-${obj.idx}`}
-            cx={obj.x}
-            cy={obj.y}
-            r={5}
-            fill={OBJECT_COLOR[obj.objectType]}
-            stroke="#0f172a"
-            strokeWidth={1}
-          />
+            x={obj.x}
+            y={obj.y}
+            fontSize={11}
+            textAnchor="middle"
+            dominantBaseline="central"
+            style={{ pointerEvents: 'none', userSelect: 'none' }}
+          >
+            {OBJECT_EMOJI[obj.objectType]}
+          </text>
         ))}
 
         {layout.renderedEvents.map((ev) => (
-          <circle
+          <text
             key={`ev-${ev.idx}`}
-            cx={ev.x}
-            cy={ev.y}
-            r={6}
-            fill="none"
-            stroke={EVENT_COLOR[ev.eventType]}
-            strokeWidth={2}
-          />
+            x={ev.x}
+            y={ev.y}
+            fontSize={13}
+            textAnchor="middle"
+            dominantBaseline="central"
+            style={{ pointerEvents: 'none', userSelect: 'none' }}
+          >
+            {EVENT_EMOJI[ev.eventType]}
+          </text>
         ))}
 
         {layout.renderedFocusEvent && (
@@ -595,15 +636,18 @@ export default function HeatmapView({
               }}
               style={{ cursor: onGateClick ? 'pointer' : 'default' }}
             >
-              <rect
-                x={gate.x - 5}
-                y={gate.y - 5}
-                width={10}
-                height={10}
-                fill={isClosed ? GATE_CLOSED_COLOR : GATE_OPEN_COLOR}
-                stroke="#0f172a"
-                strokeWidth={1}
-              />
+              {/* 클릭 영역 확보용 투명 사각형 + 이모지 아이콘 */}
+              <rect x={gate.x - 6} y={gate.y - 6} width={12} height={12} fill="transparent" />
+              <text
+                x={gate.x}
+                y={gate.y}
+                fontSize={11}
+                textAnchor="middle"
+                dominantBaseline="central"
+                style={{ userSelect: 'none' }}
+              >
+                {isClosed ? GATE_CLOSED_EMOJI : GATE_OPEN_EMOJI}
+              </text>
             </g>
           );
         })}
@@ -614,7 +658,7 @@ export default function HeatmapView({
               cx={agent.x}
               cy={agent.y}
               r={2}
-              fill={AGENT_COLOR[agent.state] ?? AGENT_COLOR.normal}
+              fill={agentColorByDanger(agent.dangerLevel)}
               stroke={agent.actionState === 'STAYING' ? '#ffffff' : '#0f172a'}
               strokeWidth={agent.actionState === 'STAYING' ? 0.5 : 0.4}
               style={
@@ -673,13 +717,17 @@ export default function HeatmapView({
       </div>
 
       <div className="absolute bottom-2 right-2 flex items-center gap-3 text-[10px] text-slate-400 bg-slate-900/70 rounded px-2 py-1">
-        {Object.entries(AGENT_COLOR).map(([state, color]) => (
-          <span key={state} className="flex items-center gap-1">
+        {[
+          { label: '안전', color: AGENT_DANGER_BLUE },
+          { label: '주의', color: AGENT_DANGER_YELLOW },
+          { label: '위험', color: AGENT_DANGER_RED },
+        ].map(({ label, color }) => (
+          <span key={label} className="flex items-center gap-1">
             <span
               className="inline-block w-2 h-2 rounded-full"
               style={{ backgroundColor: color }}
             />
-            {state === 'normal' ? '정상' : state === 'congested' ? '혼잡' : '대피 중'}
+            {label}
           </span>
         ))}
       </div>

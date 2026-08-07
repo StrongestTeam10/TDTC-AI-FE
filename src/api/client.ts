@@ -10,6 +10,7 @@ import type {
   Corridor,
   Gate,
   Building,
+  CorridorPolicy,
 } from '../types';
 import type { PostListResponse, PostDetail } from '../types/board';
 import { getToken, notifyUnauthorized } from '../auth/tokenStore';
@@ -27,8 +28,9 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use((config) => {
   const token = getToken();
   if (token) {
-    config.headers = config.headers ?? {};
-    config.headers.Authorization = `Bearer ${token}`;
+    if (config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });
@@ -107,7 +109,7 @@ export async function fetchAvailableTimestamps(): Promise<string[]> {
 // 넘기면 브라우저가 먼저 연결을 끊어버리고 BE에 ClientAbortException이 찍히는데,
 // 실제로는 BE/SIM이 계속 계산 중이었을 뿐이다. 이 두 호출만 훨씬 긴 타임아웃을
 // 따로 준다(다른 API는 그대로 15초 유지 - 로그인/게시판 등은 오래 걸릴 이유가 없음).
-const SIMULATION_TIMEOUT_MS = 120_000; // 2분
+const SIMULATION_TIMEOUT_MS = 300_000; // 5분 (2026-08-XX: 무거운 시나리오 대비 상향)
 
 // 파이프라인 B: 사용자 지정 시나리오 시뮬레이션 실행
 export async function runScenarioSimulation(
@@ -124,6 +126,22 @@ export async function runPredictSimulation(
     request: PredictRequest
 ): Promise<PredictResult> {
   const { data } = await apiClient.post<PredictResult>('/simulation/predict', request, {
+    timeout: SIMULATION_TIMEOUT_MS,
+  });
+  return data;
+}
+
+// 2026-08-06 추가: 정책안(공문) 텍스트를 LLM으로 분석하여 시나리오 파라미터로 자동 변환
+export interface PolicyAnalysisResult {
+  agentCount?: number;
+  objectsToRemove: Array<{ objectType: string; zoneId: number; action: string }>;
+  corridorPolicies: CorridorPolicy[];
+  closedGateIds: number[];
+}
+
+export async function analyzePolicy(policyText: string): Promise<PolicyAnalysisResult> {
+  // LLM 호출은 시간이 오래 걸릴 수 있으므로 SIMULATION_TIMEOUT_MS 사용
+  const { data } = await apiClient.post<PolicyAnalysisResult>('/policy/analyze', { policyText }, {
     timeout: SIMULATION_TIMEOUT_MS,
   });
   return data;
