@@ -3,6 +3,103 @@
 이 파일은 Claude와의 작업 세션에서 변경된 내용을 기록합니다.
 각 항목은 zip으로 전달된 시점 기준입니다.
 
+### 2026-08-07 (푸터에 개인정보처리방침 / 이용약관 전문 팝업 추가)
+- **요청**: KT AIVLE EDU 사이트의 개인정보처리방침·이용약관 HTML을 참고자료로 전달받고,
+  "내 FE 소스에 맞게 수정해서" 푸터에 팝업으로 넣어달라는 요청
+- ➕ `components/legal/LegalDocModal.tsx`: 열람 전용 팝업. Esc 닫기, 배경 스크롤 잠금,
+  표가 들어가므로 `max-w-3xl`. 회원가입의 `TermsModal`과 분리한 이유는 그쪽이 "끝까지
+  스크롤해야 동의 버튼 활성화 + onConfirm으로 체크박스 연동"이라는 동의 절차 전용이기 때문
+- ➕ `components/legal/LegalDocParts.tsx`: 두 문서가 공유하는 조문/항/호/표 표시 요소.
+  `ClauseList`는 조문 중간에 표가 끼어 목록이 갈릴 때 항 번호가 ①로 되돌아가지 않도록
+  `start` prop을 받음
+- ➕ `components/legal/PrivacyPolicyDocument.tsx` (제1~12조)
+- ➕ `components/legal/TermsOfServiceDocument.tsx` (제1~6장, 제1~16조 + 부칙)
+- ✏️ `components/layout/Footer.tsx`: "개인정보처리방침"/"이용약관" 버튼 추가
+- **⚠️ 원문을 그대로 옮기지 않은 이유**: 전달받은 문서는 KT의 AIVLE EDU 교육 플랫폼용이라
+  주체가 "KT(이하 회사)"이고, 주민등록번호 수집·대한상공회의소/고용노동부 등 6개사 제3자
+  제공·케이티씨에스 등 5개 수탁사·실명 보호책임자(3인)와 실제 연락처가 적혀 있음. 이 중
+  어느 것도 본 프로젝트에 해당하지 않아 그대로 넣으면 문서 전체가 사실과 다른 고지가 됨.
+  **표준 목차 구조만 따르고 내용은 BE 코드에서 확인한 실제 처리 항목으로 채웠음**:
+  - `User` 엔티티: `login_id` / `password`(해시) / `name` / `org_code` / `market_code` /
+    `created_ip`·`updated_ip`(접속 IP) / `agree_*_at` / `approval_status`
+  - `ExifGpsExtractor`: 시설 사진의 EXIF GPS 좌표 및 촬영일시 추출 → 제2조 다항에 명시
+  - `S3FileStorageService` / `VideoS3Service`: S3 저장, 사전서명 URL 1시간
+  - CCTV 파이프라인: 보행자 좌표(픽셀/BEV), 얼굴 블러 비식별화 → 제3조(영상정보) 신설
+  - 수탁사는 실제로 쓰는 AWS / Supabase 2곳만 기재
+- 미확정이던 항목을 데모용 값으로 확정(요청 반영). 두 문서가 함께 쓰는 값이라
+  `constants/legalText.ts`에 상수로 모아둠 - 시행일이 두 문서에서 어긋나는 걸 막기 위함
+  - `PRIVACY_OFFICER`: 개인정보 보호책임자 스트롱 / 02-1234-5678
+  - `PRIVACY_REQUEST_OFFICER`: 열람청구 접수·처리 홍길동 / 02-1234-5678
+  - `VIDEO_RETENTION_PERIOD`: 수집일로부터 24시간 (경과 시 지체 없이 파기)
+  - `LEGAL_EFFECTIVE_DATE`: 2026년 8월 7일 (개인정보처리방침 제12조 + 이용약관 부칙)
+  - ⚠️ 담당자 정보는 빅프로젝트 데모용 가상 값. 실제 담당자가 정해지면 이 상수만 교체
+- 값을 다 채워서 미확정 표시용 `Placeholder` 컴포넌트는 제거하고, 두 문서 상단 배너의
+  "노란색으로 표시된 항목은 확정 전 값입니다" 문구도 함께 삭제
+- ⚠️ 법무 검토를 거치지 않은 초안이며, 문서 상단에도 그 사실을 배너로 표시함
+- 검증: `npx tsc -b --force` / `npx oxlint` 통과. dev 서버에서 두 팝업 렌더, Esc 닫기,
+  배경 스크롤 잠금/복구, 항 번호 연속성(④로 이어짐) 확인. 375px 모바일에서 표 6개가
+  각자 가로 스크롤되고 페이지 자체는 가로로 넘치지 않음을 확인
+
+### 2026-08-06 (CCTV 관제 대시보드 iframe 제거 + JS → React 이관 + WebSocket 연동)
+- **요청**: 관제 대시보드가 `public/mangwon`에 iframe으로 이상하게 붙어 있고 BE는
+  CCTV 모델링 쪽만 연결돼 있다 - 현상 파악 후 React로 이관. 실시간 스트리밍을
+  전제로 설계했으니 WebSocket 방식으로 살리는 방향
+- **파악된 현상**:
+  - `DashboardPage.tsx`가 React 구현을 전부 주석 처리한 채 `<iframe src="/mangwon/index.html">`
+    하나만 렌더링. iframe 안이라 `position:fixed` 오버레이(드로어/모달/비상 백드롭 8곳)가
+    앱 뷰포트를 못 덮고, 로그인 JWT가 전달되지 않고, 앱 다크모드와 따로 놀았음
+  - `<source src="../results/cctv_mangwon_raw_video.mp4">`가 항상 404 (`public/`에 해당 폴더 없음)
+  - `dashboard.js`에 `throw new Error('API 연동 임시 차단')`과 WebSocket 초기화 `return`이
+    박혀 있어 화면 숫자가 전부 `real_frame_data.js`의 정적 604프레임 배열이었음
+  - 차단을 풀어도 안 붙는 상태였음: dashboard.js가 부르는 `localhost:8000`의
+    `/api/v1/cctv/*`, `/ws/cctv-stream`은 현행 `ai_server.py`(8088)에 없고
+    `legacy_archive/old_scripts/api_server.py`에만 있는 구버전 스펙
+  - BE에 CCTV 읽기 API(`/api/ai/*`, `/api/v1/video-clips`, `/api/v1/external-factors`)가
+    이미 있는데 `client.ts`에 대응 함수가 하나도 없었음 (쓰기만 연결, 읽기는 공백)
+- 🗑️ `public/mangwon/` 전체 삭제 (index.html / css/styles.css / js/dashboard.js /
+  js/real_frame_data.js). 내용은 아래로 전부 이관됨
+- ✏️ `pages/DashboardPage.tsx`: iframe 제거, `CctvControlDashboard` 렌더로 교체
+- ➕ `components/cctv/`: `CctvControlDashboard`(컨테이너) + `CctvHeaderBar` /
+  `CctvVideoPanel` / `CctvMetricCards` / `CctvWeatherCard` / `CctvWeatherTimeline` /
+  `CctvWeatherModeSlider` / `CctvSideDrawers` / `CctvRiskChartCard` /
+  `CctvAlertLogModal` / `CctvEmergencyOverlay` + `CctvDashboard.module.css`
+- ➕ `hooks/useCctvStream.ts`: WebSocket 연동 복구. 지수 백오프 재연결(3→6→12…초, 30초 상한),
+  언마운트 시 타이머 정리, keepalive ping 추가 (원본은 3초 고정 무한 재시도 + ping 없음)
+- ➕ `hooks/useCriScore.ts` / `hooks/useEmergencyTimer.ts` / `utils/criScore.ts`:
+  EMA 스무딩·CRI 산출·경보 3단계 판정·15초/30초 비상 타이머를 순수 함수 + 훅으로 분리
+- ➕ `api/cctvClient.ts`: FastAPI AI 서버 전용 axios 인스턴스(업로드/결과영상/데이터셋).
+  Java BE용 `apiClient`와 분리한 이유는 baseURL이 다르고, 401을 세션 만료로 처리하는
+  인터셉터를 AI 서버 응답에 태우면 안 되기 때문
+- ✏️ `api/client.ts`: `fetchUnresolvedAlerts` / `fetchCoordinatesJson` /
+  `fetchCoordinatesForFrame` / `fetchVideoClips` / `fetchExternalFactors` /
+  `parseCoordinateJson` 추가 (BE에 있던 CCTV 읽기 API 연결)
+- ➕ `types/cctv.ts` / `constants/weatherScenario.ts` / `data/realFrameData.ts`
+- ✏️ `vite.config.ts`: `css.modules.localsConvention: 'camelCaseOnly'` 추가
+  (kebab-case 클래스 39KB를 CSS Module로 들여오면서 `styles.metricCard` 형태로 접근)
+- ✏️ `.env.development` / `.env.production`: `VITE_CCTV_API_BASE_URL`,
+  `VITE_CCTV_WS_URL` 추가 (기존 `localhost:8000` 하드코딩 제거)
+  - ⚠️ **포트 8088**. 처음에 dashboard.js의 하드코딩값 `8000`을 그대로 기본값으로
+    옮겼는데, 8000은 SIM 서버(`TDTC-AI-SIM`, Dockerfile/README 기준)가 쓰는 포트라
+    CCTV WS 핸드셰이크가 SIM으로 갔다. SIM엔 그 라우트가 없으니 Starlette가 accept
+    없이 닫고 uvicorn이 `WebSocket /ws/cctv-stream 403` + `connection rejected
+    (403 Forbidden)`으로 로깅 - 권한 문제로 오인하기 쉬운 형태였다. CCTV AI 서버는
+    `ai_server.py`의 `uvicorn.run(..., port=8088)` 기준 8088이라 그쪽으로 정정
+- **부수적으로 고친 원본 버그 2건**:
+  - `alarmDelaySec` 슬라이더가 값만 표시되고 아무 데도 안 쓰였고, 짝인
+    `dispatch-alert-overlay`(🚨 EMERGENCY DISPATCH ACTIVE)는 CSS에 `display:none`만
+    있고 푸는 규칙이 없어 한 번도 표시되지 않는 죽은 DOM이었음 → 둘을 연결
+  - 비상 카운트다운이 video의 `timeupdate`에 얹혀 있어 영상을 멈추면 같이 멈췄음
+    → 독립 인터벌로 분리
+- 외부 CDN 의존 제거: Chart.js(jsdelivr) → 이미 설치돼 있던 `recharts`로 교체
+- 검증: `npx tsc -b --force` / `npx oxlint`(신규 코드 범위) / `npx vite build` 통과.
+  dev 서버에서 실제 렌더 확인 - AI 서버 미실행 시 정적 폴백으로 정상 표시되고
+  WebSocket은 백오프 재시도, 알람 API 401은 화면을 깨뜨리지 않음.
+  ⚠️ `ScenarioPage.tsx(217)`의 `onSubmit` 타입 오류는 이전부터 있던 것으로 이번 작업과 무관
+- **다음 작업 필요(FE 아님)**: 현행 `TDTC-AI-CCTV/ai_server.py`(8088)에는 WebSocket
+  엔드포인트와 `/api/v1/cctv/*`가 없음. `legacy_archive/old_scripts/api_server.py`의
+  `/ws/cctv-stream` + 업로드/결과영상/데이터셋 4종을 `ai_server.py`로 병합해야 실제로
+  붙음. FE는 메시지 규격(`CCTV_AI_START`/`PROGRESS`/`COMPLETED`/`STREAM`)을 그대로 맞춰둠
+
 ### 2026-08-05 (4차 - 회원 승인을 별도 화면 대신 탭 하나로 통일 + 체크박스 일괄 승인/거부)
 - **요청**: 지난 항목에서 발견한 "회원관리"/"회원 승인" 중복을 정리 - 별도 화면
   (`UserApprovalPage`, `/admin/approvals`)을 없애고 `UserAdminPage`의 "회원 승인"
