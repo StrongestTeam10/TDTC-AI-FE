@@ -13,6 +13,12 @@ import type {
   CorridorPolicy,
 } from '../types';
 import type { PostListResponse, PostDetail } from '../types/board';
+import type {
+  EmergencyAlert,
+  ExternalFactor,
+  PedestrianCoordinate,
+  VideoClip,
+} from '../types/cctv';
 import { getToken, notifyUnauthorized } from '../auth/tokenStore';
 
 const apiClient = axios.create({
@@ -109,7 +115,7 @@ export async function fetchAvailableTimestamps(): Promise<string[]> {
 // 넘기면 브라우저가 먼저 연결을 끊어버리고 BE에 ClientAbortException이 찍히는데,
 // 실제로는 BE/SIM이 계속 계산 중이었을 뿐이다. 이 두 호출만 훨씬 긴 타임아웃을
 // 따로 준다(다른 API는 그대로 15초 유지 - 로그인/게시판 등은 오래 걸릴 이유가 없음).
-const SIMULATION_TIMEOUT_MS = 120_000; // 2분
+const SIMULATION_TIMEOUT_MS = 300_000; // 5분 (2026-08-XX: 무거운 시나리오 대비 상향)
 
 // 파이프라인 B: 사용자 지정 시나리오 시뮬레이션 실행
 export async function runScenarioSimulation(
@@ -534,6 +540,84 @@ export async function approveUser(userId: number): Promise<void> {
 
 export async function rejectUser(userId: number): Promise<void> {
   await apiClient.post(`/admin/users/${userId}/reject`);
+}
+
+// ===== CCTV 관제 (2026-08-06 추가) =====
+// BE에는 CCTV 파이프라인이 적재한 데이터를 읽는 API가 이미 있었는데(AiIntegrationController,
+// SimulationIntegrationController, VideoClipController, ExternalFactorController) 여기에
+// 대응하는 FE 함수가 하나도 없어서, 관제 화면이 정적 더미 데이터만 보고 있었다.
+// 그 "읽기" 통로를 뚫는 부분.
+//
+// ⚠️ 아래 API는 모두 인증이 필요하다(SecurityConfig의 anyRequest().authenticated()).
+// 특히 /simulation/** 은 관리자(ROL01)/관제요원(ROL02) 전용이라 상인회(ROL03)는 403을 받는다.
+
+/** 미해결 긴급 알람 목록. 헤더의 알람 카운트 배지와 알람 로그 모달에서 사용. */
+export async function fetchUnresolvedAlerts(): Promise<EmergencyAlert[]> {
+  const { data } = await apiClient.get<EmergencyAlert[]>('/ai/alerts/unresolved');
+  return data;
+}
+
+/**
+ * 특정 프레임의 보행자 좌표(2D 픽셀 + 3D BEV) 목록.
+ * videoId를 안 넘기면 BE가 clipId/frameId만으로 조회한다.
+ */
+export async function fetchCoordinatesJson(
+    clipId: number,
+    frameId: number,
+    videoId?: number
+): Promise<PedestrianCoordinate[]> {
+  const { data } = await apiClient.get<PedestrianCoordinate[]>('/ai/coordinates-json', {
+    params: { clipId, frameId, videoId },
+  });
+  return data;
+}
+
+/**
+ * 위와 같은 데이터를 단건으로 받는 관제 전용 엔드포인트.
+ * 해당 프레임에 좌표가 없으면 BE가 404를 주므로 null로 바꿔서 돌려준다
+ * (관제 화면에서 "아직 안 온 프레임"은 오류가 아니라 정상 상황이라서).
+ */
+export async function fetchCoordinatesForFrame(
+    clipId: number,
+    frameId: number,
+    videoId?: number
+): Promise<PedestrianCoordinate | null> {
+  try {
+    const { data } = await apiClient.get<PedestrianCoordinate>('/simulation/coordinates/frame', {
+      params: { clipId, frameId, videoId },
+    });
+    return data;
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.status === 404) return null;
+    throw err;
+  }
+}
+
+/** CCTV 영상 클립 목록. s3ClipUrl은 BE가 만들어준 1시간짜리 presigned URL이다. */
+export async function fetchVideoClips(): Promise<VideoClip[]> {
+  const { data } = await apiClient.get<VideoClip[]>('/v1/video-clips');
+  return data;
+}
+
+/** 외부 요인(날씨/행사) 이력. 하드코딩된 기상 시나리오를 실데이터로 바꿀 때 사용. */
+export async function fetchExternalFactors(): Promise<ExternalFactor[]> {
+  const { data } = await apiClient.get<ExternalFactor[]>('/v1/external-factors');
+  return data;
+}
+
+/**
+ * BE가 jsonb 컬럼을 String으로 그대로 내려주기 때문에 쓰는 쪽에서 파싱이 필요하다.
+ * 파이프라인이 빈 문자열이나 깨진 JSON을 넣어둔 프레임이 섞여 있어도 화면 전체가
+ * 죽지 않도록 실패 시 빈 객체를 돌려준다.
+ */
+export function parseCoordinateJson<T extends object>(raw: string | null): T | Record<string, never> {
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    console.warn('[CCTV] 좌표 JSON 파싱 실패', raw.slice(0, 80));
+    return {};
+  }
 }
 
 export default apiClient;
