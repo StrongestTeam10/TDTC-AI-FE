@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import DashboardPage from './pages/DashboardPage';
 import SimulationComparePage from './pages/SimulationComparePage';
+import ScenarioHistoryPage from './pages/ScenarioHistoryPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -16,6 +17,7 @@ import UserAdminPage from './pages/UserAdminPage';
 import AppLayout from './components/layout/AppLayout';
 import RequireAuth from './components/RequireAuth';
 import RequireFacilityManager from './components/RequireFacilityManager';
+import RequireControlAccess from './components/RequireControlAccess';
 import { useAuthStore } from './store/authStore';
 import { fetchMe } from './api/client';
 
@@ -58,23 +60,42 @@ export default function App() {
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        {/* 2026-08-06 변경: 관제 대시보드도 ROL01·ROL02 전용. 조회자(상인회)는
+            실시간 관제를 다루지 않는다. BE도 /api/dashboard/** 를 같은 두 권한으로 제한한다. */}
         <Route
           path="/dashboard"
           element={
             <RequireAuth>
-              <AppLayout>
-                <DashboardPage />
-              </AppLayout>
+              <RequireControlAccess>
+                <AppLayout>
+                  <DashboardPage />
+                </AppLayout>
+              </RequireControlAccess>
             </RequireAuth>
           }
         />
+        {/* 헤더에서 메뉴를 숨기지만 주소를 직접 입력하는 경우가 남아 라우트에서도 막는다. */}
         <Route
           path="/compare"
           element={
             <RequireAuth>
-              <AppLayout>
-                <SimulationComparePage />
-              </AppLayout>
+              <RequireControlAccess>
+                <AppLayout>
+                  <SimulationComparePage />
+                </AppLayout>
+              </RequireControlAccess>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/scenario-history"
+          element={
+            <RequireAuth>
+              <RequireControlAccess>
+                <AppLayout>
+                  <ScenarioHistoryPage />
+                </AppLayout>
+              </RequireControlAccess>
             </RequireAuth>
           }
         />
@@ -130,7 +151,7 @@ export default function App() {
             </RequireAuth>
           }
         />
-        {/* 2026-08-05 추가 (회원관리) - 관리자(ROL01) 전용, requireRole로 그 외 권한은 /dashboard로 리다이렉트.
+        {/* 2026-08-05 추가 (회원관리) - 관리자(ROL01) 전용, requireRole로 그 외 권한은 권한별 기본 화면으로 리다이렉트.
             2026-08-05(2차): 회원 승인은 별도 화면 대신 이 페이지의 "회원 승인" 탭으로 통합됨 - /admin/approvals 라우트 제거 */}
         <Route
           path="/admin/users"

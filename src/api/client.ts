@@ -147,6 +147,100 @@ export async function analyzePolicy(policyText: string): Promise<PolicyAnalysisR
   return data;
 }
 
+// ===== 시나리오 이력 · 정책 보고서 (2026-08-06 추가) =====
+// BE ScenarioHistoryController(/api/simulation/scenarios), ReportController
+// (/api/simulation/reports)와 대응. 이 경로는 BE SecurityConfig에서 ROL01·ROL02만
+// 허용하므로 조회자(ROL03)가 호출하면 403이 온다.
+
+// BE ScenarioHistoryDto와 1:1 매칭. 보고서가 있는 실행과 없는 실행이 함께 나온다.
+export interface ScenarioHistoryItem {
+  scenarioId: number;
+  scenarioName: string;
+  marketId: number;
+  marketName: string | null;
+  agentCount: number | null;
+  policyTypeCode: string | null;
+  executedAt: string | null;
+  hasReport: boolean;
+  // hasReport가 false면 아래 두 필드는 null이다.
+  reportTitle: string | null;
+  downloadPath: string | null;
+  // 실행자 이름. 관리자 전체 목록에서 실행자를 구분하는 데 쓴다.
+  // user_id를 채우기 전에 만들어진 옛 데이터는 null.
+  ownerName: string | null;
+}
+
+/** 로그인한 사용자가 실행한 시뮬레이션 이력(최신순). */
+export async function fetchMyScenarios(): Promise<ScenarioHistoryItem[]> {
+  const { data } = await apiClient.get<ScenarioHistoryItem[]>('/simulation/scenarios/my');
+  return data;
+}
+
+/**
+ * 실행자와 무관한 전체 시뮬레이션 이력(최신순). 관리자(ROL01) 전용 - 그 외 권한이
+ * 호출하면 BE ReportService.assertAdmin이 403으로 거절한다.
+ * marketId를 주면 그 시장만 거른다.
+ */
+export async function fetchAllScenarios(marketId?: number): Promise<ScenarioHistoryItem[]> {
+  const { data } = await apiClient.get<ScenarioHistoryItem[]>('/simulation/scenarios', {
+    params: marketId !== undefined ? { marketId } : undefined,
+  });
+  return data;
+}
+
+/**
+ * 보고서 생성은 RAG 검색 + LLM 생성 + 차트 렌더까지 도는 작업이라 1~3분이 걸린다.
+ * BE도 SIM 호출에 3분 타임아웃을 두므로(SimulationEngineClient.generateReportDocx)
+ * 그보다 넉넉하게 잡는다. 공용 15초로는 매번 브라우저가 먼저 끊어버리고, 그러면
+ * BE/SIM은 계속 만들던 보고서를 사용자만 실패로 보게 된다.
+ */
+const REPORT_TIMEOUT_MS = 300_000; // 5분
+
+export interface ReportGenerateRequest {
+  scenarioId: number;
+  // 비우면 SIM이 "OO시장 ... 결과 보고서" 형태로 자동 생성한다. BE가 200자로 제한한다.
+  reportTitle?: string;
+  // 보고서가 답해야 할 질문. 비우면 SIM 기본 문구가 쓰인다.
+  decisionQuestion?: string;
+}
+
+export interface ReportGenerateResponse {
+  reportId: string;
+  scenarioId: number;
+  // 만료 시간이 있는 presigned URL. 만료되면 fetchReportDownloadUrl로 재발급하면 되고
+  // 보고서를 다시 만들 필요는 없다.
+  downloadUrl: string;
+  storageKey: string;
+}
+
+export async function generateReport(
+    request: ReportGenerateRequest
+): Promise<ReportGenerateResponse> {
+  const { data } = await apiClient.post<ReportGenerateResponse>('/simulation/reports', request, {
+    timeout: REPORT_TIMEOUT_MS,
+  });
+  return data;
+}
+
+export interface ReportDownload {
+  scenarioId: number;
+  downloadUrl: string;
+  expiresInSeconds: number;
+}
+
+/**
+ * 이미 만들어 둔 보고서의 다운로드 주소를 새로 발급받는다(보고서 재생성 아님).
+ *
+ * BE가 302 리다이렉트 대신 JSON으로 URL을 주는 이유는, 이 API에 JWT가 필요한데
+ * 브라우저가 단순 이동하면 Authorization 헤더가 실리지 않고 fetch로 부르면
+ * S3로 리다이렉트될 때 CORS에 막히기 때문이다. 받은 URL로 직접 이동하면 된다.
+ */
+export async function fetchReportDownloadUrl(scenarioId: number): Promise<ReportDownload> {
+  const { data } = await apiClient.get<ReportDownload>(
+      `/simulation/reports/${scenarioId}/download`);
+  return data;
+}
+
 // ===== 인증 (2026-07-24 추가) =====
 // BE AuthController(/api/auth/**)와 대응. 이 두 엔드포인트는 BE에서 permitAll이라
 // 토큰 없이도 호출 가능함(당연히 로그인 전이니까).

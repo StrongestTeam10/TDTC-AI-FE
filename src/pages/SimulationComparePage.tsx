@@ -5,8 +5,12 @@ import PolicyAnalysisPanel from '../components/PolicyAnalysisPanel';
 import RiskTrendChart from '../components/RiskTrendChart';
 import Spinner from '../components/ui/Spinner';
 import ErrorBanner from '../components/ui/ErrorBanner';
+import TabButton from '../components/ui/TabButton';
 import { fetchMarkets, fetchZones, fetchCorridors, fetchGates, fetchBuildings, runPredictSimulation, runScenarioSimulation } from '../api/client';
 import { useSimulationStore } from '../store/simulationStore';
+import { useAuthStore } from '../store/authStore';
+import { canSwitchMarket } from '../auth/permissions';
+import { useReportGeneration } from '../hooks/useReportGeneration';
 import { toDisplayErrorMessage } from '../utils/errorMessage';
 import type { PredictRequest, ScenarioRequest, PlacedObject, EventTrigger, CorridorPolicy, Corridor, Gate, Zone, Building } from '../types';
 
@@ -53,6 +57,18 @@ function buildingContains(polygonCoordinates: string, lon: number, lat: number):
 const BASE_INTERVAL_MS = 500;
 const STEP_DURATION_SECONDS = 10;
 
+// 2026-08-06 추가 (시장 선택 · 보고서 생성)
+//
+// 시장 선택: 지금까지 markets[0]을 그대로 쓰고 있어서, 관리자(ROL01)는 시장이 여러
+// 개여도 첫 번째만 실험할 수 있었다. 관제요원(ROL02)은 BE /markets 응답 자체가 담당
+// 시장 1개로 필터링되어 내려오므로(MarketService.getMarkets) 고를 것이 없어 탭을
+// 띄우지 않는다. 실행 요청의 marketId는 BE가 다시 검증한다
+// (SimulationService.assertMarketInScope) - 화면의 선택을 믿고 통과시키지 않는다.
+//
+// 보고서 생성: 방금 실행한 시나리오로 곧바로 정책 보고서를 만든다. 제목과 질문은
+// 기본값에 맡기고 한 번 누르면 끝나도록 했다. 직접 지정하거나 다시 만들려면
+// 시나리오 이력 화면(/scenario-history)을 쓴다 - 이 화면은 이미 설정 항목이 많아 입력 폼을
+// 하나 더 얹으면 실행 흐름이 묻힌다.
 export default function SimulationComparePage() {
   const {
     markets,
@@ -69,9 +85,16 @@ export default function SimulationComparePage() {
     setScenarioRunning,
   } = useSimulationStore();
 
+  const user = useAuthStore((s) => s.user);
+  const showMarketTabs = canSwitchMarket(user);
+
   const [isLayoutLoading, setLayoutLoading] = useState(markets.length === 0);
   const [layoutError, setLayoutError] = useState<string | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
+
+  // 실험 대상 시장. undefined는 "아직 시장 목록을 못 받았다"는 뜻이고, 목록이 오면
+  // 첫 번째로 확정한다(그래야 탭의 active 표시가 실제 대상과 항상 일치한다).
+  const [selectedMarketId, setSelectedMarketId] = useState<number | undefined>(undefined);
 
   const [corridors, setCorridors] = useState<Corridor[]>([]);
   const [gates, setGates] = useState<Gate[]>([]);
@@ -94,37 +117,37 @@ export default function SimulationComparePage() {
   const [steps, setSteps] = useState(30);
   const [agentCount, setAgentCount] = useState(100);
 
+  const {
+    generate: generateReportFor,
+    isGenerating: isGeneratingReport,
+    error: reportError,
+    clearError: clearReportError,
+    lastReport,
+  } = useReportGeneration();
+
   const [playIndex, setPlayIndex] = useState(0);
   const [mapViewport, setMapViewport] = useState<{ lon: number; lat: number; zoom: number } | undefined>(undefined);
   const [playSpeed, setPlaySpeed] = useState(1);
   const [isPlaying, setIsPlaying] = useState(false);
   const timerRef = useRef<number | null>(null);
 
-  const loadLayout = () => {
+  // 2026-08-06: 시장 목록 로드와 구역/통로/게이트/건물 로드를 분리했다. 관리자가 시장을
+  // 전환하면 뒤쪽만 다시 불러야 하는데, 하나로 묶여 있으면 시장 목록까지 매번 다시
+  // 읽는다(useSimulationData가 대시보드에서 같은 이유로 분리한 것과 같은 구조).
+  const loadLayout = (marketId: number) => {
     setLayoutLoading(true);
     setLayoutError(null);
-    fetchMarkets()
-      .then((marketData) => {
-        setMarkets(marketData);
-        if (marketData.length > 0) {
-          return Promise.all([
-            fetchZones(marketData[0].marketId),
-            fetchCorridors(marketData[0].marketId),
-            fetchGates(marketData[0].marketId),
-            fetchBuildings(marketData[0].marketId),
-          ]);
-        }
-        return Promise.resolve([[], [], [], []] as [Zone[], Corridor[], Gate[], Building[]]);
-      })
-      .then(([zoneData, corridorData, gateData, buildingData]) => {
-        const _zones = zoneData as Zone[];
-        const _corridors = corridorData as Corridor[];
-        const _gates = gateData as Gate[];
-        const _buildings = buildingData as Building[];
-        if (_zones.length > 0) setZones(_zones);
-        setCorridors(_corridors);
-        setGates(_gates);
-        setBuildings(_buildings);
+    Promise.all([
+      fetchZones(marketId),
+      fetchCorridors(marketId),
+      fetchGates(marketId),
+      fetchBuildings(marketId),
+    ])
+      .then(([zoneData, corridorData, gateData, buildingData]: [Zone[], Corridor[], Gate[], Building[]]) => {
+        setZones(zoneData);
+        setCorridors(corridorData);
+        setGates(gateData);
+        setBuildings(buildingData);
       })
       .catch((err) => {
         console.error('레이아웃 정보 로드 실패', err);
@@ -133,10 +156,48 @@ export default function SimulationComparePage() {
       .finally(() => setLayoutLoading(false));
   };
 
+  const loadMarkets = () => {
+    setLayoutError(null);
+    fetchMarkets()
+      .then((marketData) => {
+        setMarkets(marketData);
+        if (marketData.length === 0) {
+          setLayoutLoading(false);
+          setLayoutError('조회할 수 있는 시장이 없습니다. 담당 시장이 지정되어 있는지 확인해주세요.');
+          return;
+        }
+        setSelectedMarketId((prev) => prev ?? marketData[0].marketId);
+      })
+      .catch((err) => {
+        console.error('시장 정보 로드 실패', err);
+        setLayoutError(toDisplayErrorMessage(err, '시장 정보를 불러오지 못했습니다.'));
+        setLayoutLoading(false);
+      });
+  };
+
   useEffect(() => {
-    loadLayout();
+    loadMarkets();
     // eslint-disable-next-line
   }, []);
+
+  useEffect(() => {
+    if (selectedMarketId === undefined) return;
+    loadLayout(selectedMarketId);
+    // eslint-disable-next-line
+  }, [selectedMarketId]);
+
+  /**
+   * 시장을 바꾼다.
+   *
+   * 배치한 오브젝트·이벤트·통로정책은 모두 이전 시장의 zoneId를 가리키므로 함께
+   * 비운다. 남겨두면 새 시장에 없는 구역을 지목한 요청이 되어 SIM이 엉뚱한 곳을
+   * 계산하거나 400으로 거절한다. 실행 결과도 다른 시장 것이라 같이 지운다.
+   */
+  const handleSelectMarket = (marketId: number) => {
+    if (marketId === selectedMarketId) return;
+    handleReset();
+    setSelectedMarketId(marketId);
+  };
 
   useEffect(() => {
     setPlayIndex(0);
@@ -172,13 +233,21 @@ export default function SimulationComparePage() {
   }, [intervalMs, maxFrames, isPlaying]);
 
   const handleRunSimulation = async () => {
+    // 시장 목록이 아직 안 왔거나 비어 있으면 실행할 대상이 없다. 예전에는 이 경우
+    // marketId 0으로 요청이 나가 BE에서 "시장을 찾을 수 없습니다"로 끝났다.
+    if (selectedMarketId === undefined) {
+      setRunError('시장 정보를 아직 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+
     setSubmittedEvents(events);
     setPlacementType(null);
     setPredicting(true);
     setScenarioRunning(true);
     setRunError(null);
+    clearReportError();
 
-    const marketId = markets[0]?.marketId ?? 0;
+    const marketId = selectedMarketId;
     // 실행 시점에 발생/진압 스텝으로 연소기간(burnSteps)을 재계산해 SIM에 보낸다.
     // (발생·진압을 나중에 수정해도 항상 일관되게 반영되도록)
     const simEvents: EventTrigger[] = events.map((ev) => {
@@ -247,6 +316,7 @@ export default function SimulationComparePage() {
     setPlayIndex(0);
     setIsPlaying(false);
     setRunError(null);
+    clearReportError();
   };
 
   const handleAddCorridor = (policy: CorridorPolicy) => {
@@ -346,16 +416,87 @@ export default function SimulationComparePage() {
     return scenarioResult.frames[idx] ?? [];
   };
 
+  // 보고서 대상은 방금 실행한 시나리오(After)다. Before는 비교 기준인 현행안이라
+  // 따로 지목하지 않고 BE가 같은 시장의 최신 현행안 결과를 찾아 쓴다.
+  //
+  // persistedScenarioId는 BE가 실행을 simscnr01m에 저장하고 받은 번호다. scenarioResult가
+  // 있는데도 이 값이 없으면 BE가 아직 옛 버전이라는 뜻이라, 버튼을 잠그고 이유를 알린다
+  // (scenarioResult.scenarioId는 SIM이 만든 UUID여서 대신 쓸 수 없다).
+  const reportScenarioId = scenarioResult?.persistedScenarioId ?? null;
+  const canGenerateReport = reportScenarioId !== null && !isGeneratingReport;
+
+  const handleGenerateReport = () => {
+    if (reportScenarioId === null) return;
+    generateReportFor({ scenarioId: reportScenarioId });
+  };
+
+  const reportHint = isGeneratingReport
+      ? '자료 검색과 문서 작성까지 1~3분 걸립니다. 완료되면 자동으로 내려받습니다.'
+      : !scenarioResult
+      ? '시뮬레이션을 실행하면 그 결과로 보고서를 만들 수 있습니다.'
+      : reportScenarioId === null
+      ? '이 실행은 시나리오 번호를 받지 못해 보고서를 만들 수 없습니다. 서버 버전을 확인해주세요.'
+      : null;
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">비교 시뮬레이션</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          정책 개입 전(Before)과 후(After)의 인구 이동 및 위험도를 듀얼 맵으로 직관적으로 비교합니다.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">비교 시뮬레이션</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            정책 개입 전(Before)과 후(After)의 인구 이동 및 위험도를 듀얼 맵으로 직관적으로 비교합니다.
+          </p>
+        </div>
+
+        {/* 실행한 시나리오로 정책 보고서(DOCX)를 만든다. 제목과 질문을 직접 지정하거나
+            다시 만들려면 시나리오 이력 화면을 쓴다. */}
+        <div className="flex flex-col items-end gap-1">
+          <button
+            type="button"
+            onClick={handleGenerateReport}
+            disabled={!canGenerateReport}
+            className="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isGeneratingReport ? '보고서 생성 중...' : '보고서 생성'}
+          </button>
+          {reportHint && (
+            <span className="max-w-[280px] text-right text-xs text-slate-500">{reportHint}</span>
+          )}
+          {/* 지금 화면에 보이는 실행의 보고서일 때만 알린다. 초기화하거나 시장을 바꾸면
+              다른 실행이 되므로 이 안내도 사라져야 한다. */}
+          {lastReport && !isGeneratingReport && lastReport.scenarioId === reportScenarioId && (
+            <span className="text-xs text-emerald-600 dark:text-emerald-400">
+              보고서를 내려받았습니다 · 시나리오 이력에서 다시 받을 수 있습니다
+            </span>
+          )}
+        </div>
       </div>
 
-      {layoutError && <ErrorBanner message={layoutError} onRetry={loadLayout} />}
+      {/* 관리자 전용 시장 전환 탭. 관제요원은 담당 시장 1개만 내려와 고를 것이 없다.
+          시장이 하나뿐이어도 탭을 띄운다 - 지금 어느 시장을 실험하는지 보여야 하고,
+          관제 대시보드도 같은 조건(markets.length > 0)으로 칩을 노출한다. */}
+      {showMarketTabs && markets.length > 0 && (
+        <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+          {markets.map((m) => (
+            <TabButton
+              key={m.marketId}
+              active={selectedMarketId === m.marketId}
+              onClick={() => handleSelectMarket(m.marketId)}
+              small
+            >
+              {m.marketName}
+            </TabButton>
+          ))}
+        </div>
+      )}
+
+      {reportError && <ErrorBanner message={reportError} />}
+      {layoutError && (
+        <ErrorBanner
+          message={layoutError}
+          onRetry={() => (selectedMarketId === undefined ? loadMarkets() : loadLayout(selectedMarketId))}
+        />
+      )}
 
       {isLayoutLoading ? (
         <Spinner label="레이아웃 정보를 불러오는 중..." />
