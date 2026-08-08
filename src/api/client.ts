@@ -599,6 +599,12 @@ export async function fetchVideoClips(): Promise<VideoClip[]> {
   return data;
 }
 
+/** CCTV 긴급 상황 PDF 명세서 목록. s3PdfUrl은 BE가 만들어준 1시간짜리 presigned URL이다. */
+export async function fetchPostReports(): Promise<any[]> {
+  const { data } = await apiClient.get<any[]>('/v1/post-reports');
+  return data;
+}
+
 /** 외부 요인(날씨/행사) 이력. 하드코딩된 기상 시나리오를 실데이터로 바꿀 때 사용. */
 export async function fetchExternalFactors(): Promise<ExternalFactor[]> {
   const { data } = await apiClient.get<ExternalFactor[]>('/v1/external-factors');
