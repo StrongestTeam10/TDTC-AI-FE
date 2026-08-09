@@ -108,7 +108,6 @@ const OBJECT_COLOR: Record<PlacedObject['objectType'], string> = {
 
 const EVENT_COLOR: Record<EventTrigger['eventType'], string> = {
   fire: '#dc2626',
-  acoustic_anomaly: '#eab308',
 };
 
 const GATE_OPEN_COLOR = '#22c55e';

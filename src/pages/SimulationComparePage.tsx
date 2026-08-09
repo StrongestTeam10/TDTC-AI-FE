@@ -3,6 +3,8 @@ import HeatmapView from '../components/HeatmapView';
 import ScenarioForm from '../components/ScenarioForm';
 import PolicyAnalysisPanel from '../components/PolicyAnalysisPanel';
 import RiskTrendChart from '../components/RiskTrendChart';
+import ComparisonKpiTiles from '../components/ComparisonKpiTiles';
+import ZoneRiskSmallMultiples from '../components/ZoneRiskSmallMultiples';
 import Spinner from '../components/ui/Spinner';
 import ErrorBanner from '../components/ui/ErrorBanner';
 import { fetchMarkets, fetchZones, fetchCorridors, fetchGates, fetchBuildings, runPredictSimulation, runScenarioSimulation } from '../api/client';
@@ -13,7 +15,7 @@ import type { PredictRequest, ScenarioRequest, PlacedObject, EventTrigger, Corri
 type PlacementKind = PlacedObject['objectType'] | EventTrigger['eventType'];
 const OBJECT_TYPES = new Set<PlacedObject['objectType']>(['food_truck', 'obstacle', 'event_zone', 'rest_area']);
 const isEventPlacementType = (t: PlacementKind | null): t is EventTrigger['eventType'] =>
-    t === 'fire' || t === 'acoustic_anomaly';
+    t === 'fire';
 const SPEED_OPTIONS = [0.5, 1, 2, 4];
 
 // 2026-08-XX: 건물 폴리곤(GeoJSON 문자열)의 중심 좌표(lat/lon)를 구한다.
@@ -30,6 +32,55 @@ function buildingCentroid(polygonCoordinates: string): { lat: number; lon: numbe
   } catch {
     return null;
   }
+}
+
+// 2026-08-XX: 개입 전/후 비교 요약용 포맷·변화 헬퍼.
+function fmtNum(v: number | null | undefined, digits = 2, suffix = ''): string {
+  if (v === null || v === undefined) return '-';
+  return v.toFixed(digits) + suffix;
+}
+// 개입 전(before) → 후(after) 변화 배지. lowerIsBetter면 감소가 개선(초록).
+function DeltaBadge({
+  before, after, lowerIsBetter = true, digits = 2, suffix = '', zone, neutral = false, minBaseForPct = 0,
+}: {
+  before: number | null | undefined;
+  after: number | null | undefined;
+  lowerIsBetter?: boolean;
+  digits?: number;
+  suffix?: string;
+  zone?: string | null;
+  // neutral=true: 개선/악화 판정(색)을 하지 않고 변화량만 회색으로 표시.
+  // (대피 인원·시간처럼 유동인구에 딸려 움직여 "좋다/나쁘다"로 단정하기 어려운 지표용)
+  neutral?: boolean;
+  // 기준값(before)이 이 값보다 작으면 백분율을 생략한다(절대차만 표시).
+  // 예: 최종 위험도가 화재 진압 후 1.6→2.0처럼 둘 다 노이즈 수준일 때
+  // (2.0-1.6)/1.6=+25% 같은 과장된 %가 뜨는 것을 막는다.
+  minBaseForPct?: number;
+}) {
+  if (before === null || before === undefined || after === null || after === undefined) {
+    return <span className="text-slate-500 text-xs">-</span>;
+  }
+  const diff = after - before;
+  const zoneStr = zone ? <span className="text-slate-500 font-normal"> {zone}</span> : null;
+  if (Math.abs(diff) < Math.pow(10, -digits) / 2) {
+    return <span className="text-xs text-slate-400">±0{zoneStr}</span>;
+  }
+  const arrow = diff < 0 ? '▼' : '▲';
+  const showPct = before !== 0 && Math.abs(before) >= minBaseForPct;
+  const pct = showPct ? ` (${diff > 0 ? '+' : ''}${Math.round((diff / before) * 100)}%)` : '';
+  const body = `${arrow} ${diff > 0 ? '+' : ''}${diff.toFixed(digits)}${suffix}${pct}`;
+  if (neutral) {
+    return <span className="text-xs font-medium text-slate-400">{body}{zoneStr}</span>;
+  }
+  const improved = lowerIsBetter ? diff < 0 : diff > 0;
+  const color = improved
+    ? 'text-emerald-400 bg-emerald-500/10'
+    : 'text-red-400 bg-red-500/10';
+  return (
+    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${color}`}>
+      {body}{zoneStr}
+    </span>
+  );
 }
 
 // 클릭한 (lon,lat)가 이 건물 폴리곤 안에 있는지 (ray-casting).
@@ -600,47 +651,74 @@ export default function SimulationComparePage() {
               </select>
             </div>
 
+            {/* 개입 전/후 요약 KPI — 어떤 개입에서도 항상 반응하는 3개 지표 */}
+            <ComparisonKpiTiles
+              before={predictResult}
+              after={scenarioResult}
+              hasFire={submittedEvents.some((e) => e.eventType === 'fire')}
+            />
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-1 rounded-lg border border-slate-700 bg-slate-900 p-4 space-y-4">
+              <div className="md:col-span-1 rounded-lg border border-slate-700 bg-slate-900 p-4 space-y-3">
                 <h3 className="text-sm font-medium text-slate-400 border-b border-slate-800 pb-2">비교 결과 요약</h3>
 
-                <div className="space-y-3">
-                  <div>
-                    <div className="text-xs text-slate-500 mb-1">최종 위험도</div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-slate-700 dark:text-slate-300">Before</span>
-                      <span className="font-semibold text-orange-600 dark:text-orange-400">
-                        {predictResult?.finalOverallRiskScore.toFixed(2) ?? '-'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-slate-700 dark:text-slate-300">After</span>
-                      <span className="font-semibold text-blue-600 dark:text-blue-400">
-                        {scenarioResult?.finalRiskScore?.score.toFixed(2) ?? '-'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
-                    <div className="text-xs text-slate-500 mb-1">대피 소요 시간</div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-slate-700 dark:text-slate-300">After (시나리오)</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">
-                        {scenarioResult?.evacuationTimeSeconds
-                          ? `${scenarioResult.evacuationTimeSeconds} 초`
-                          : scenarioResult
-                          ? '대피 미완료'
-                          : '-'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                {/* 지표 비교표 */}
+                <table className="w-full text-xs tabular-nums">
+                  <thead>
+                    <tr className="text-slate-500">
+                      <th className="text-left font-medium pb-1">지표</th>
+                      <th className="text-right font-medium pb-1 text-orange-400">개입 전</th>
+                      <th className="text-right font-medium pb-1 text-blue-400">개입 후</th>
+                      <th className="text-right font-medium pb-1">변화</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-slate-300">
+                    <tr className="border-t border-slate-800">
+                      <td className="py-1.5 text-slate-400">최종 위험도</td>
+                      <td className="text-right text-orange-400 font-semibold">{fmtNum(predictResult?.finalOverallRiskScore, 1)}</td>
+                      <td className="text-right text-blue-400 font-semibold">{fmtNum(scenarioResult?.finalRiskScore?.score, 1)}</td>
+                      <td className="text-right"><DeltaBadge before={predictResult?.finalOverallRiskScore} after={scenarioResult?.finalRiskScore?.score} digits={1} minBaseForPct={10} /></td>
+                    </tr>
+                    <tr className="border-t border-slate-800">
+                      <td className="py-1.5 text-slate-400">평균 밀집도</td>
+                      <td className="text-right text-orange-400 font-semibold">{fmtNum(predictResult?.averageDensity, 2)}</td>
+                      <td className="text-right text-blue-400 font-semibold">{fmtNum(scenarioResult?.averageDensity, 2)}</td>
+                      <td className="text-right"><DeltaBadge before={predictResult?.averageDensity} after={scenarioResult?.averageDensity} digits={2} minBaseForPct={0.05} /></td>
+                    </tr>
+                    <tr className="border-t border-slate-800">
+                      <td className="py-1.5 text-slate-400">최대 밀집도</td>
+                      <td className="text-right text-orange-400 font-semibold">{fmtNum(predictResult?.maxDensity, 2)}</td>
+                      <td className="text-right text-blue-400 font-semibold">{fmtNum(scenarioResult?.maxDensity, 2)}</td>
+                      <td className="text-right"><DeltaBadge before={predictResult?.maxDensity} after={scenarioResult?.maxDensity} digits={2} zone={scenarioResult?.maxDensityZoneName} minBaseForPct={0.05} /></td>
+                    </tr>
+                    <tr className="border-t border-slate-800">
+                      <td className="py-1.5 text-slate-400">대피 인원</td>
+                      <td className="text-right text-orange-400 font-semibold">{fmtNum(predictResult?.evacuatedCount, 0)}</td>
+                      <td className="text-right text-blue-400 font-semibold">{fmtNum(scenarioResult?.evacuatedCount, 0)}</td>
+                      <td className="text-right"><DeltaBadge before={predictResult?.evacuatedCount} after={scenarioResult?.evacuatedCount} digits={0} neutral /></td>
+                    </tr>
+                    <tr className="border-t border-slate-800">
+                      <td className="py-1.5 text-slate-400">대피 소요(초)</td>
+                      <td className="text-right text-orange-400 font-semibold">{predictResult ? (predictResult.evacuationTimeSeconds ?? '미완료') : '-'}</td>
+                      <td className="text-right text-blue-400 font-semibold">{scenarioResult ? (scenarioResult.evacuationTimeSeconds ?? '미완료') : '-'}</td>
+                      <td className="text-right"><DeltaBadge before={predictResult?.evacuationTimeSeconds ?? undefined} after={scenarioResult?.evacuationTimeSeconds ?? undefined} digits={0} suffix="초" neutral /></td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p className="mt-2 text-[10px] leading-snug text-slate-500">
+                  최종 위험도·평균/최대 밀집도는 <b>마지막 스텝</b> 값이고, 대피 인원은 대피를 <b>시작한 누적</b> 인원(막혀서 못 나간 사람 포함)입니다.
+                </p>
               </div>
 
               <div className="md:col-span-2">
-                <RiskTrendChart beforeTrend={predictResult?.riskTrend} />
+                <RiskTrendChart beforeTrend={predictResult?.riskTrend} afterTrend={scenarioResult?.riskTrend} />
               </div>
             </div>
+
+            {/* 구역별 위험도 추이 — 자동 스케일 스몰멀티플(어떤 개입/조건이든 차이가 보이게) */}
+            {(predictResult || scenarioResult) && zones.length > 0 && (
+              <ZoneRiskSmallMultiples before={predictResult} after={scenarioResult} zones={zones} />
+            )}
           </div>
         </div>
       )}
