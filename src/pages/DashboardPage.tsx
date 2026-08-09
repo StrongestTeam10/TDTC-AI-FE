@@ -103,7 +103,7 @@ export default function DashboardPage() {
             본인 담당 시장 1개로 이미 필터링되어 내려오므로 탭을 보여줄 필요가 없다. */}
         {/*
         {isAdmin && markets.length > 0 && (
-            <div className="flex flex-wrap gap-2 border-t border-slate-200 dark:border-slate-800 pt-3">
+            <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
               {markets.map((m) => (
                   <TabButton
                       key={m.marketId}
@@ -118,7 +118,7 @@ export default function DashboardPage() {
         )}*/}
 
         {isAdmin && (
-            <div className="flex flex-wrap gap-2 border-t border-slate-200 dark:border-slate-800 pt-3">
+            <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
                   <TabButton
                       active={selectedMarketId === 1}
                       onClick={() => setSelectedMarketId(1)}

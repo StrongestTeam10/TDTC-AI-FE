@@ -415,27 +415,26 @@ export default function ScenarioHistoryPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">
-              <input
-                  type="checkbox"
-                  checked={onlyWithReport}
-                  onChange={(e) => {
-                    setOnlyWithReport(e.target.checked);
-                    setPage(0);
-                  }}
-                  className="accent-blue-600"
-              />
-              보고서 생성된 것만 보기
-            </label>
             {/* 재조회 중이라는 표시. 표를 스피너로 갈아치우지 않고 여기서만 알린다.
-                조건부로 넣고 빼면 이 줄의 폭이 변해 아래 내용이 밀렸다 돌아온다.
-                자리는 항상 차지하게 두고 보이기만 전환한다. */}
-            <Spinner
-                label="조회 중..."
-                className={`py-0 text-xs ${
+                조건부로 넣고 빼면 이 줄의 폭이 변해 아래 내용이 밀렸다 돌아오므로,
+                자리는 항상 차지하게 두고 보이기만 전환한다.
+
+                공용 Spinner를 쓰지 않는 이유: 그 컴포넌트는 로딩 영역 한가운데 놓이도록
+                py-10(위아래 40px)을 갖고 있다. className으로 py-0을 덧붙여도 Tailwind는
+                클래스 문자열 순서로 우선순위를 정하지 않아 py-10이 그대로 이겨,
+                보이지도 않는 요소가 96px 높이로 헤더를 부풀렸다. */}
+            <span
+                role="status"
+                className={`flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 ${
                   isLoading && !isInitialLoading ? 'visible' : 'invisible'
                 }`}
-            />
+            >
+              <span
+                  aria-hidden
+                  className="h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-blue-500 dark:border-slate-600"
+              />
+              조회 중...
+            </span>
             <span className="text-xs text-slate-500">{reportCountLabel}</span>
             {/* 필터 초기화를 검색 줄 끝에서 여기로 옮겼다. 거기서는 줄바꿈에 따라 왼쪽
                 아래로 내려가 눈에 띄지 않았다. 조건부로 넣고 빼는 대신 항상 두고
@@ -459,28 +458,48 @@ export default function ScenarioHistoryPage() {
           </div>
         </div>
 
-        {/* 관리자 전용 시장 필터. 대시보드/게시판의 시장 전환 탭과 같은 UI를 쓴다. */}
-        {isAdmin && markets.length > 0 && (
-            <div className="flex flex-wrap gap-2 border-t border-slate-200 dark:border-slate-800 pt-3">
-              <TabButton
-                  active={marketFilter === ALL_MARKETS}
-                  onClick={() => selectMarket(ALL_MARKETS)}
-                  small
-              >
-                전체
-              </TabButton>
-              {markets.map((m) => (
+        {/* 시장 탭(왼쪽)과 보고서 필터(오른쪽)를 한 줄에 둔다. 둘 다 "목록을 좁히는
+            조건"이라 같은 줄에 모아야 읽기 쉽고, 헤더의 동작 버튼(필터 초기화·새로고침)
+            바로 아래에 놓여 위치도 자연스럽다.
+            시장 탭은 관리자에게만 나오지만 이 줄 자체는 항상 그려서, 권한에 따라
+            체크박스가 위로 올라갔다 내려갔다 하지 않게 한다. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-slate-200 pb-3 dark:border-slate-800">
+          <div className="flex flex-wrap gap-2">
+            {isAdmin && markets.length > 0 && (
+                <>
                   <TabButton
-                      key={m.marketId}
-                      active={marketFilter === m.marketId}
-                      onClick={() => selectMarket(m.marketId)}
+                      active={marketFilter === ALL_MARKETS}
+                      onClick={() => selectMarket(ALL_MARKETS)}
                       small
                   >
-                    {m.marketName}
+                    전체
                   </TabButton>
-              ))}
-            </div>
-        )}
+                  {markets.map((m) => (
+                      <TabButton
+                          key={m.marketId}
+                          active={marketFilter === m.marketId}
+                          onClick={() => selectMarket(m.marketId)}
+                          small
+                      >
+                        {m.marketName}
+                      </TabButton>
+                  ))}
+                </>
+            )}
+          </div>
+          <label className="flex shrink-0 items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400">
+            <input
+                type="checkbox"
+                checked={onlyWithReport}
+                onChange={(e) => {
+                  setOnlyWithReport(e.target.checked);
+                  setPage(0);
+                }}
+                className="h-4 w-4 accent-blue-600"
+            />
+            보고서 생성된 것만 보기
+          </label>
+        </div>
 
         {/* 위험도 드롭다운과 검색창을 한 줄에 둔다. 시장 탭이 이미 한 줄을 쓰고 있어서
             위험도를 따로 한 줄 더 두면 헤더가 표보다 커진다.
@@ -617,7 +636,7 @@ export default function ScenarioHistoryPage() {
                   {isGenerating ? '보고서 생성 중...' : '보고서 생성'}
                 </button>
                 <span className="text-xs text-slate-500">
-                  자료 검색과 문서 작성까지 1~3분 걸립니다. 완료되면 자동으로 내려받습니다.
+                  자료 검색과 문서 작성까지 1~3분 걸립니다. 완료되면 자동으로 다운로드됩니다.
                 </span>
               </div>
             </div>
@@ -636,18 +655,28 @@ export default function ScenarioHistoryPage() {
                   isLoading ? 'opacity-50' : 'opacity-100'
                 }`}
             >
-              <table className="w-full min-w-[820px] text-left text-sm">
+              {/* table-fixed: 열 폭을 머리글에 적은 값으로 고정한다. 기본(auto)에서는
+                  셀 내용에 따라 폭이 재계산돼, 보고서 유무 필터를 켜고 끌 때마다
+                  (보고서 제목 줄과 버튼 개수가 달라져서) 앞쪽 열들이 통째로 밀렸다.
+                  너비를 적지 않은 시나리오 열이 남는 폭을 모두 가져간다. */}
+              <table className="w-full min-w-[900px] table-fixed text-left text-sm">
                 <thead className="bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400">
                 <tr>
-                  <th className="w-8 pl-4 pr-1" aria-label="실행 설정 펼치기" />
-                  <th className="px-4 py-2 font-medium">#</th>
+                  <th className="w-12 pl-3 pr-1" aria-label="실행 설정 펼치기" />
+                  {/* 숫자는 오른쪽 정렬해야 자릿수가 달라도 세로로 맞는다.
+                      머리글도 같이 맞춰야 값과 어긋나 보이지 않는다. */}
+                  <th className="w-20 px-4 py-2 text-right font-medium">#</th>
                   <th className="px-4 py-2 font-medium">시나리오</th>
-                  <th className="px-4 py-2 font-medium">시장</th>
-                  {isAdmin && <th className="px-4 py-2 font-medium">실행자</th>}
-                  <th className="px-4 py-2 font-medium">유입 인원</th>
-                  <th className="px-4 py-2 font-medium">정책 유형</th>
-                  <th className="px-4 py-2 font-medium">위험도</th>
-                  <th className="px-4 py-2 font-medium">보고서</th>
+                  <th className="w-28 px-4 py-2 font-medium">시장</th>
+                  {isAdmin && <th className="w-28 px-4 py-2 font-medium">실행자</th>}
+                  <th className="w-24 px-4 py-2 font-medium">유입 인원</th>
+                  <th className="w-28 px-4 py-2 font-medium">정책 유형</th>
+                  <th className="w-28 px-4 py-2 font-medium">위험도</th>
+                  {/* 너비를 고정한다. 보고서가 있는 행은 버튼이 둘(다운로드·재생성),
+                      없는 행은 하나(보고서 생성)라 내용에 따라 이 열의 폭이 변한다.
+                      표가 w-full이라 남는 폭이 다른 열로 재분배되면서, 필터를 켜고 끌 때마다
+                      앞쪽 열들이 통째로 좌우로 밀렸다. 항상 두 버튼이 들어갈 자리를 잡아둔다. */}
+                  <th className="w-[168px] px-4 py-2 font-medium">보고서</th>
                 </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -681,7 +710,7 @@ export default function ScenarioHistoryPage() {
                     <tr className="h-[52px] text-slate-700 dark:text-slate-200">
                       {/* 실행 설정 펼치기. 목록의 이름만으로는 같은 시장·같은 유형의
                           실행이 구분되지 않아, 어느 것인지 확인할 수단이 필요하다. */}
-                      <td className="pl-4 pr-1">
+                      <td className="pl-3 pr-1">
                         <button
                             type="button"
                             onClick={() => setExpandedId(
@@ -689,11 +718,11 @@ export default function ScenarioHistoryPage() {
                             aria-expanded={expandedId === s.scenarioId}
                             aria-label={`시나리오 ${s.scenarioId} 실행 설정 ${
                               expandedId === s.scenarioId ? '접기' : '펼치기'}`}
-                            className="flex h-6 w-6 items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                            className="flex h-9 w-9 items-center justify-center rounded border border-transparent text-base leading-none text-slate-500 hover:border-slate-300 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-100"
                         >
                           <span
                               aria-hidden
-                              className={`text-xs transition-transform ${
+                              className={`transition-transform ${
                                 expandedId === s.scenarioId ? 'rotate-180' : ''
                               }`}
                           >
@@ -704,7 +733,7 @@ export default function ScenarioHistoryPage() {
                       {/* 시나리오 번호(simscnr01m.scenario_id). 이름이 서로 비슷해
                           같은 실행을 지목할 때 쓰는 확실한 식별자다. 보고서 파일명과
                           BE 오류 메시지에도 이 번호가 쓰인다. */}
-                      <td className="px-4 py-2 font-mono text-xs text-slate-500 dark:text-slate-400">
+                      <td className="px-4 py-2 text-right font-mono text-xs text-slate-500 dark:text-slate-400">
                         {s.scenarioId}
                       </td>
                       <td className="px-4 py-2">
@@ -712,7 +741,7 @@ export default function ScenarioHistoryPage() {
                             맞추려고 빈 줄을 뒀는데, 그러면 제목 없는 행에서 시나리오명이
                             위로 떠 보였다. 대신 tr에 높이를 주고 표 셀 기본값인 수직 중앙
                             정렬에 맡긴다 - 한 줄이면 가운데, 두 줄이면 꽉 찬다. */}
-                        <div>{s.scenarioName}</div>
+                        <div className="truncate" title={s.scenarioName}>{s.scenarioName}</div>
                         {s.hasReport && s.reportTitle && (
                             <div className="truncate text-xs text-slate-500">{s.reportTitle}</div>
                         )}
@@ -789,7 +818,12 @@ export default function ScenarioHistoryPage() {
                     </tr>
                     {expandedId === s.scenarioId && (
                         <tr className="bg-slate-50 dark:bg-slate-900/60">
-                          <td colSpan={columnCount} className="border-t border-slate-200 px-4 dark:border-slate-800">
+                          {/* 앞의 두 칸(펼치기·번호)을 비워 상세가 시나리오 이름과 같은
+                              세로선에서 시작하게 한다. 절을 표의 열에 하나하나 맞춰봤더니
+                              창을 좁혔을 때 각 절이 열 폭에 갇혀 글자가 잘게 접혔다. */}
+                          <td className="w-12" />
+                          <td />
+                          <td colSpan={columnCount - 2} className="border-t border-slate-200 pl-2 pr-4 dark:border-slate-800">
                             <ScenarioDetailPanel scenarioId={s.scenarioId} />
                           </td>
                         </tr>

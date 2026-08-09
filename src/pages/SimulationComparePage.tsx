@@ -430,13 +430,15 @@ export default function SimulationComparePage() {
     generateReportFor({ scenarioId: reportScenarioId });
   };
 
+  // 버튼 바로 아래 한 줄로 들어가는 안내다. 두 줄로 접히면 버튼이 위로 밀려 헤더가
+  // 흔들리므로 whitespace-nowrap으로 줄바꿈을 막고, 한 줄에 들어갈 길이로 쓴다.
   const reportHint = isGeneratingReport
-      ? '자료 검색과 문서 작성까지 1~3분 걸립니다. 완료되면 자동으로 내려받습니다.'
+      ? '자료 검색과 문서 작성에 1~3분 걸립니다'
       : !scenarioResult
-      ? '시뮬레이션을 실행하면 그 결과로 보고서를 만들 수 있습니다.'
+      ? '시뮬레이션 결과를 바탕으로 보고서를 생성합니다'
       : reportScenarioId === null
-      ? '이 실행은 시나리오 번호를 받지 못해 보고서를 만들 수 없습니다. 서버 버전을 확인해주세요.'
-      : null;
+      ? '시나리오 번호가 없어 보고서를 생성할 수 없습니다'
+      : '시뮬레이션 결과를 바탕으로 보고서를 생성합니다';
 
   return (
     <div className="space-y-6">
@@ -460,12 +462,12 @@ export default function SimulationComparePage() {
             {isGeneratingReport ? '보고서 생성 중...' : '보고서 생성'}
           </button>
           {reportHint && (
-            <span className="max-w-[280px] text-right text-xs text-slate-500">{reportHint}</span>
+            <span className="whitespace-nowrap text-right text-xs text-slate-500">{reportHint}</span>
           )}
           {/* 지금 화면에 보이는 실행의 보고서일 때만 알린다. 초기화하거나 시장을 바꾸면
               다른 실행이 되므로 이 안내도 사라져야 한다. */}
           {lastReport && !isGeneratingReport && lastReport.scenarioId === reportScenarioId && (
-            <span className="text-xs text-emerald-600 dark:text-emerald-400">
+            <span className="whitespace-nowrap text-xs text-emerald-600 dark:text-emerald-400">
               보고서를 내려받았습니다 · 시나리오 이력에서 다시 받을 수 있습니다
             </span>
           )}
@@ -476,7 +478,7 @@ export default function SimulationComparePage() {
           시장이 하나뿐이어도 탭을 띄운다 - 지금 어느 시장을 실험하는지 보여야 하고,
           관제 대시보드도 같은 조건(markets.length > 0)으로 칩을 노출한다. */}
       {showMarketTabs && markets.length > 0 && (
-        <div className="flex flex-wrap gap-2 border-t border-slate-200 dark:border-slate-800 pt-3">
+        <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
           {markets.map((m) => (
             <TabButton
               key={m.marketId}
