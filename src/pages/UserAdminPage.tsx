@@ -169,7 +169,7 @@ export default function UserAdminPage() {
       </div>
 
       {/* 시장 선택 - BoardListPage의 관리자 시장 탭과 동일한 UI/로직 */}
-      <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
+      <div className="flex flex-wrap gap-2 border-t border-slate-200 dark:border-slate-800 pt-3">
         <TabButton active={marketCode === ALL_VALUE} onClick={() => setMarketCode(ALL_VALUE)} small>
           전체 시장
         </TabButton>

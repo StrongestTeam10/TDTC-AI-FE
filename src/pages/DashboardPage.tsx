@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 // import HeatmapView from '../components/HeatmapView';
 // import RiskScorePanel from '../components/RiskScorePanel';
 // import AlertLogTable from '../components/AlertLogTable';

@@ -12,7 +12,7 @@ import type {
   Building,
   CorridorPolicy,
 } from '../types';
-import type { PostListResponse, PostDetail } from '../types/board';
+import type { PostListResponse, PostDetail, PageResponse } from '../types/board';
 import { getToken, notifyUnauthorized } from '../auth/tokenStore';
 
 const apiClient = axios.create({
@@ -168,11 +168,76 @@ export interface ScenarioHistoryItem {
   // 실행자 이름. 관리자 전체 목록에서 실행자를 구분하는 데 쓴다.
   // user_id를 채우기 전에 만들어진 옛 데이터는 null.
   ownerName: string | null;
+  // 종합 위험 점수(0~100). 위험도 계산 이전 데이터는 null.
+  // 등급(안전/주의/위험/심각) 구분은 화면이 RISK_BUCKETS로 정한다 - BE는 점수만 준다.
+  predictedRiskScore: number | null;
+}
+
+/**
+ * 검색어를 어느 항목에서 찾을지. BE ReportService.normalizeSearchField와 값이 같아야 하며,
+ * 알 수 없는 값을 보내면 BE가 'all'로 되돌린다.
+ *
+ * 'owner'(실행자)는 관리자 전체 조회에서만 의미가 있다 - 본인 목록은 전부 자기 실행이다.
+ * 시나리오명은 대상에 없다: DB에 저장된 원본과 화면에 보이는 표시명이 달라(BE
+ * ScenarioDisplayNameResolver가 조립) 보이는 대로 입력하면 걸리지 않는다.
+ */
+export type ScenarioSearchField = 'all' | 'market' | 'policy' | 'reportTitle' | 'owner';
+
+export interface ScenarioHistoryQuery {
+  keyword?: string;
+  searchField?: ScenarioSearchField;
+  withReportOnly?: boolean;
+  // 위험 점수 범위(둘 다 생략하면 위험도로 거르지 않음). 등급 경계는 화면이 정한다.
+  // 범위를 지정하면 점수가 없는(null) 옛 이력은 결과에서 빠진다 - 어느 등급에도
+  // 속한다고 볼 수 없기 때문이다.
+  minRiskScore?: number;
+  maxRiskScore?: number;
+  page?: number;
+  size?: number;
+}
+
+/**
+ * 시나리오 한 건의 실행 설정. BE ScenarioDetailDto와 1:1 매칭.
+ *
+ * 목록의 이름은 같은 시장·같은 정책유형이면 구분되지 않아, 어느 실행인지 알려면
+ * 이 설정을 봐야 한다. zoneName/name은 해당 구역·게이트가 지워졌으면 null이다.
+ */
+export interface ScenarioDetail {
+  scenarioId: number;
+  scenarioName: string;
+  marketId: number;
+  marketName: string | null;
+  agentCount: number | null;
+  // 실행 요청 JSON에만 있는 값이라, 옛 데이터는 null일 수 있다.
+  steps: number | null;
+  policyTypeCode: string | null;
+  regDatetime: string | null;
+  objects: {
+    objectType: string; zoneId: number | null; zoneName: string | null; intensity: number | null;
+  }[];
+  events: {
+    eventType: string; zoneId: number | null; zoneName: string | null; intensity: number | null;
+    triggerStep: number | null; burnSteps: number | null; recoverySteps: number | null;
+  }[];
+  corridorPolicies: {
+    fromZoneId: number | null; fromZoneName: string | null;
+    toZoneId: number | null; toZoneName: string | null;
+    action: string; allowedDirection: string | null;
+  }[];
+  closedGates: { facilityId: number; name: string | null }[];
+}
+
+export async function fetchScenarioDetail(scenarioId: number): Promise<ScenarioDetail> {
+  const { data } = await apiClient.get<ScenarioDetail>(`/simulation/scenarios/${scenarioId}`);
+  return data;
 }
 
 /** 로그인한 사용자가 실행한 시뮬레이션 이력(최신순). */
-export async function fetchMyScenarios(): Promise<ScenarioHistoryItem[]> {
-  const { data } = await apiClient.get<ScenarioHistoryItem[]>('/simulation/scenarios/my');
+export async function fetchMyScenarios(
+    params: ScenarioHistoryQuery = {}
+): Promise<PageResponse<ScenarioHistoryItem>> {
+  const { data } = await apiClient.get<PageResponse<ScenarioHistoryItem>>(
+      '/simulation/scenarios/my', { params });
   return data;
 }
 
@@ -181,9 +246,13 @@ export async function fetchMyScenarios(): Promise<ScenarioHistoryItem[]> {
  * 호출하면 BE ReportService.assertAdmin이 403으로 거절한다.
  * marketId를 주면 그 시장만 거른다.
  */
-export async function fetchAllScenarios(marketId?: number): Promise<ScenarioHistoryItem[]> {
-  const { data } = await apiClient.get<ScenarioHistoryItem[]>('/simulation/scenarios', {
-    params: marketId !== undefined ? { marketId } : undefined,
+export async function fetchAllScenarios(
+    marketId?: number,
+    query: ScenarioHistoryQuery = {}
+): Promise<PageResponse<ScenarioHistoryItem>> {
+  const { data } = await apiClient.get<PageResponse<ScenarioHistoryItem>>(
+      '/simulation/scenarios', {
+    params: { ...query, ...(marketId !== undefined ? { marketId } : {}) },
   });
   return data;
 }

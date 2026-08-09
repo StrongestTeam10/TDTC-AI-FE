@@ -476,7 +476,7 @@ export default function SimulationComparePage() {
           시장이 하나뿐이어도 탭을 띄운다 - 지금 어느 시장을 실험하는지 보여야 하고,
           관제 대시보드도 같은 조건(markets.length > 0)으로 칩을 노출한다. */}
       {showMarketTabs && markets.length > 0 && (
-        <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+        <div className="flex flex-wrap gap-2 border-t border-slate-200 dark:border-slate-800 pt-3">
           {markets.map((m) => (
             <TabButton
               key={m.marketId}
