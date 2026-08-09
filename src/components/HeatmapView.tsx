@@ -78,12 +78,10 @@ const OBJECT_EMOJI: Record<PlacedObject['objectType'], string> = {
 
 const EVENT_COLOR: Record<EventTrigger['eventType'], string> = {
   fire: '#dc2626',
-  acoustic_anomaly: '#eab308',
 };
 
 const EVENT_EMOJI: Record<EventTrigger['eventType'], string> = {
   fire: '🔥',
-  acoustic_anomaly: '🔊',
 };
 
 const GATE_OPEN_EMOJI = '🚪';
@@ -479,7 +477,7 @@ export default function HeatmapView({
     const svgY = viewport.panY + ((e.clientY - rect.top) / rect.height) * vbHeight;
     const [lon, lat] = layout.unproject(svgX, svgY);
     const containing = layout.zonePolygons.find(({ points }) => pointInPolygon(lon, lat, points));
-    const isEvent = placementType === 'fire' || placementType === 'acoustic_anomaly';
+    const isEvent = placementType === 'fire';
 
     if (isEvent) {
       // 화재 등 이벤트: 상가 건물에서 나야 하므로 구역 밖(건물 위)을 클릭해도

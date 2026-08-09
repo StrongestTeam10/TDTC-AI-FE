@@ -141,7 +141,9 @@ export interface Gate {
 
 // 2026-07-25 추가: 화재/음향 이상 이벤트. SIM EventTrigger / BE EventTriggerDto와 1:1 매칭.
 export interface EventTrigger {
-  eventType: 'fire' | 'acoustic_anomaly';
+  // 2026-08-XX: 음향 이상(acoustic_anomaly)은 백엔드에서 완전히 제거되어(무효)
+  // FE에서도 삭제. 이벤트는 화재(fire) 하나뿐이다.
+  eventType: 'fire';
   zoneId: number;
   intensity: number; // 0.0 ~ 1.0
   latitude?: number;
@@ -172,8 +174,15 @@ export interface ScenarioResult {
   scenarioId: string;
   requestedAt: string;
   frames: AgentState[][];
+  // 2026-08-XX 추가: 개입 후 스텝별 위험도 추이(개입 전과 겹쳐 비교).
+  riskTrend?: RiskTrendPoint[];
   evacuationTimeSeconds: number | null;
   finalRiskScore: RiskScore;
+  averageDensity?: number;
+  maxDensity?: number;
+  maxDensityZoneId?: number | null;
+  maxDensityZoneName?: string | null;
+  evacuatedCount?: number;
   // 2026-08-06 추가: 이 실행이 저장된 DB 시나리오 번호(simscnr01m.scenario_id).
   // 보고서 생성(POST /api/simulation/reports)이 요구하는 식별자이며 위 scenarioId로는
   // 대체할 수 없다. BE ScenarioResultDto.persistedScenarioId와 1:1 매칭.
@@ -212,4 +221,12 @@ export interface PredictResult {
   frames: AgentState[][];
   riskTrend: RiskTrendPoint[];
   finalOverallRiskScore: number;
+  agentCount?: number;
+  averageDensity?: number;
+  maxDensity?: number;
+  maxDensityZoneId?: number | null;
+  maxDensityZoneName?: string | null;
+  evacuatedCount?: number;
+  // 2026-08-XX 추가: 개입 전 대피 완료 시간(개입 후와 비교).
+  evacuationTimeSeconds?: number | null;
 }

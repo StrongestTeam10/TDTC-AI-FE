@@ -24,6 +24,18 @@ dist-ssr
 *.sw?
 
 # Environment variables (실제 배포 URL 등 노출 방지)
+#
+# 2026-08-08: .env.production / .env.development 을 추가함.
+# 기존에는 .local 접미사가 붙은 것만 제외되어 있어서, 정작 실제 키가 들어가는
+# .env.production 과 .env.development 이 그대로 커밋되고 있었다.
+# 저장소가 공개라 Kakao JS 키가 노출됐고(키는 2026-08-08 교체 완료),
+# 같은 일이 반복되지 않도록 명시적으로 막는다.
+#
+# 운영 값은 파일이 아니라 CodeBuild 프로젝트의 "환경 변수"로 주입한다.
+# Vite는 셸 환경변수를 .env 파일보다 우선 적용하므로 이 방식이 정상 동작한다.
+# 필요한 변수 목록은 .env.example 참고.
 .env
+.env.production
+.env.development
 .env.production.local
 .env.development.local

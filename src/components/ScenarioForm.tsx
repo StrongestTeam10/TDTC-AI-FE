@@ -41,7 +41,6 @@ const OBJECT_TYPE_OPTIONS: { value: PlacedObject['objectType']; label: string; h
 
 const EVENT_TYPE_OPTIONS: { value: EventTrigger['eventType']; label: string; hint: string }[] = [
   { value: 'fire', label: '화재', hint: '해당 구역 위험도를 강제로 끌어올려 지속 대피 유발' },
-  { value: 'acoustic_anomaly', label: '음향 이상', hint: '발생 지점 반경 안 사람들을 그 순간 즉시 대피시킴' },
 ];
 
 const CORRIDOR_ACTION_OPTIONS: { value: CorridorPolicy['action']; label: string }[] = [
@@ -51,7 +50,7 @@ const CORRIDOR_ACTION_OPTIONS: { value: CorridorPolicy['action']; label: string 
 ];
 
 function isEventType(kind: PlacementKind): kind is EventTrigger['eventType'] {
-  return kind === 'fire' || kind === 'acoustic_anomaly';
+  return kind === 'fire';
 }
 
 export default function ScenarioForm({
@@ -187,20 +186,7 @@ export default function ScenarioForm({
           ))}
         </div>
 
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <div>
-            <label className="block text-[10px] text-slate-400 mb-0.5">강도 (0~1)</label>
-            <input
-              type="number"
-              min={0}
-              max={1}
-              step={0.1}
-              value={nextIntensity}
-              onChange={(e) => onNextIntensityChange(Number(e.target.value))}
-              className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-200"
-              disabled={isRunning}
-            />
-          </div>
+        <div className="grid grid-cols-3 gap-2 text-xs">
           <div>
             <label className="block text-[10px] text-slate-400 mb-0.5">발생 스텝</label>
             <input
@@ -221,6 +207,19 @@ export default function ScenarioForm({
               max={steps}
               value={nextExtinguishStep}
               onChange={(e) => onNextExtinguishStepChange(Number(e.target.value))}
+              className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-200"
+              disabled={isRunning}
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] text-slate-400 mb-0.5">강도 (0~1)</label>
+            <input
+              type="number"
+              min={0}
+              max={1}
+              step={0.1}
+              value={nextIntensity}
+              onChange={(e) => onNextIntensityChange(Number(e.target.value))}
               className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-200"
               disabled={isRunning}
             />
