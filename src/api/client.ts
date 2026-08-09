@@ -145,10 +145,15 @@ export interface PolicyAnalysisResult {
   closedGateIds: number[];
 }
 
-export async function analyzePolicy(policyText: string): Promise<PolicyAnalysisResult> {
-  // LLM 호출은 시간이 오래 걸릴 수 있으므로 SIMULATION_TIMEOUT_MS 사용
-  const { data } = await apiClient.post<PolicyAnalysisResult>('/policy/analyze', { policyText }, {
-    timeout: SIMULATION_TIMEOUT_MS,
+export async function analyzePolicy(policyText: string, file?: File | null): Promise<PolicyAnalysisResult> {
+  const formData = new FormData();
+  formData.append('policyText', policyText);
+  if (file) {
+    formData.append('file', file);
+  }
+  const { data } = await apiClient.post<PolicyAnalysisResult>('/policy/analyze', formData, {
+    timeout: 60000, // LLM 분석 지연 대비 60초 타임아웃
+    headers: { 'Content-Type': 'multipart/form-data' }
   });
   return data;
 }
