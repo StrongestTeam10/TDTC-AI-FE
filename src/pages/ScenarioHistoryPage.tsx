@@ -234,7 +234,19 @@ export default function ScenarioHistoryPage() {
       [cacheKeyOf, fetchPage, readCache],
   );
 
+  /**
+   * 지금까지 시작한 조회의 순번. 마지막으로 시작한 조회만 화면에 반영한다.
+   *
+   * 필터를 빠르게 바꾸면 요청이 여러 건 겹치는데, 먼저 보낸 요청이 늦게 도착하면
+   * 이미 바뀐 조건과 상관없는 목록으로 화면을 덮어쓴다. 조건마다 쿼리 비용이 달라
+   * (ILIKE 검색과 카운트) 응답 순서가 보낸 순서와 다를 수 있어 실제로 일어난다.
+   */
+  const requestSeqRef = useRef(0);
+
   const load = useCallback(async () => {
+    const seq = ++requestSeqRef.current;
+    const isStale = () => seq !== requestSeqRef.current;
+
     const key = cacheKeyOf(page);
     const cached = readCache(page);
     if (cached) {
@@ -250,14 +262,19 @@ export default function ScenarioHistoryPage() {
     setLoadError(null);
     try {
       const data = await fetchPage(page);
+      // 캐시는 조건별 키를 쓰므로 뒤늦게 온 응답이라도 담아둔다 - 그 조건으로
+      // 돌아왔을 때 바로 쓸 수 있고, 잘못된 화면을 만들지도 않는다.
       cacheRef.current.set(key, { at: Date.now(), data });
+      if (isStale()) return;
       setHistoryPage(data);
       prefetchNext(data);
     } catch (err) {
       console.error('시나리오 이력 로드 실패', err);
+      if (isStale()) return;
       setLoadError(toDisplayErrorMessage(err, '시나리오 이력을 불러오지 못했습니다.'));
     } finally {
-      setLoading(false);
+      // 뒤처진 응답이 로딩 표시를 끄면, 아직 도착하지 않은 최신 조회가 끝난 것처럼 보인다.
+      if (!isStale()) setLoading(false);
     }
   }, [cacheKeyOf, fetchPage, page, prefetchNext, readCache]);
 
@@ -359,10 +376,16 @@ export default function ScenarioHistoryPage() {
     setPage(0);
   };
 
-  // 목록이 바뀌면 펼쳐둔 상세를 닫는다. 안 닫으면 다른 페이지로 넘어갔을 때 그 번호가
-  // 목록에 없는데도 열린 상태가 남아, 표 높이만 늘어나고 보이는 건 없다.
+  // 목록이 바뀌면 펼쳐둔 상세와 보고서 생성 폼을 닫는다.
+  //
+  // 상세: 안 닫으면 다른 페이지로 넘어갔을 때 그 번호가 목록에 없는데도 열린 상태가
+  // 남아, 표 높이만 늘어나고 보이는 건 없다.
+  // 보고서 폼: 대상이 그대로 남아 있으면 표에 없는 시나리오의 폼이 화면 위에 떠 있게
+  // 된다. 폼에 이름이 적혀 있긴 하지만, 지금 목록에서 고른 것으로 오인해 엉뚱한
+  // 시나리오의 보고서를 만들 수 있다.
   useEffect(() => {
     setExpandedId(null);
+    setTarget(null);
   }, [page, keyword, appliedSearchField, onlyWithReport, riskBucketId, marketFilter]);
 
   // 필터가 네 개라 0건이 나왔을 때 어느 것 때문인지 알기 어렵다. 켜져 있는 조건을
