@@ -1,14 +1,16 @@
+import { useEffect, useState } from 'react';
 import styles from './CctvDashboard.module.css';
 import CctvWeatherModeSlider from './CctvWeatherModeSlider';
 import CctvWeatherTimeline from './CctvWeatherTimeline';
 import { WEATHER_SCENARIOS } from '../../constants/weatherScenario';
-import type { ControlParams, WeatherMode } from '../../types/cctv';
+import type { ControlParams, WeatherMode, VideoClip } from '../../types/cctv';
+import { fetchVideoClips } from '../../api/client';
 
 // 2026-08-06: 원본 index.html의 우측 토글 버튼 2개 + 백드롭 + <aside class="right-drawer"> 2개.
 // dashboard.js의 toggleParamDrawer/toggleWeatherDrawer/closeAllDrawers가
 // classList로 'open'/'active'를 붙였다 뗐다 하던 것을 openDrawer 상태 하나로 바꿨다.
 
-export type OpenDrawer = 'params' | 'weather' | null;
+export type OpenDrawer = 'params' | 'videos' | 'weather' | null;
 
 interface CctvSideDrawersProps {
   openDrawer: OpenDrawer;
@@ -72,6 +74,24 @@ export default function CctvSideDrawers({
     onParamsChange({ ...params, [key]: value });
   }
 
+  const [routineClips, setRoutineClips] = useState<VideoClip[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (openDrawer === 'videos') {
+      setIsLoading(true);
+      fetchVideoClips()
+        .then((data) => {
+          // ROUTINE 타입만 필터링하거나, 1분 단위 영상 위주로 보여줍니다.
+          // 백엔드 구현에 따라 다를 수 있으므로 여기서는 클립 타입이 DANGER가 아닌 것(또는 ROUTINE)을 필터링합니다.
+          const routines = data.filter(c => c.clipType !== 'DANGER');
+          setRoutineClips(routines);
+        })
+        .catch(console.error)
+        .finally(() => setIsLoading(false));
+    }
+  }, [openDrawer]);
+
   return (
       <>
         <button
@@ -83,6 +103,17 @@ export default function CctvSideDrawers({
           <span className={styles.toggleArrow}>◀</span>
           <span className={styles.toggleLabel}>파라미터</span>
           <span className={styles.toggleIcon}>⚙️</span>
+        </button>
+
+        <button
+            type="button"
+            className={`${styles.drawerToggleBtn} ${styles.videoBtn}`}
+            title="정기 녹화 영상 패널 열기"
+            onClick={() => onToggle('videos')}
+        >
+          <span className={styles.toggleArrow}>◀</span>
+          <span className={styles.toggleLabel}>녹화영상</span>
+          <span className={styles.toggleIcon}>📼</span>
         </button>
 
         <button
@@ -165,7 +196,57 @@ export default function CctvSideDrawers({
           </div>
         </aside>
 
-        {/* 드로어 2: 기상 시나리오 스위처 */}
+        {/* 드로어 2: 정기 녹화 영상 (1분 단위) */}
+        <aside className={`${styles.rightDrawer} ${openDrawer === 'videos' ? styles.open : ''}`}>
+          <div className={styles.drawerHeader}>
+            <div className={styles.drawerTitle}>
+              <span>📼 정기 녹화 영상</span>
+              <span className={styles.drawerSubtitle}>1-MIN ROUTINE CLIPS</span>
+            </div>
+            <button type="button" className={styles.btnCloseDrawer} onClick={onClose}>
+              ✕
+            </button>
+          </div>
+
+          <div className={styles.drawerContent} style={{ overflowY: 'auto' }}>
+            <div className={styles.alertLogList} style={{ gap: '10px' }}>
+              {isLoading && <div className={styles.logItem} style={{ justifyContent: 'center' }}>로딩 중...</div>}
+              {!isLoading && routineClips.length === 0 && (
+                <div className={`${styles.logItem} ${styles.safe}`} style={{ justifyContent: 'center' }}>
+                  현재 저장된 정기 녹화 영상이 없습니다.
+                </div>
+              )}
+              {!isLoading && routineClips.map((clip) => {
+                const date = new Date(clip.startTime || '');
+                const timeStr = Number.isNaN(date.getTime()) ? '--:--:--' : date.toLocaleTimeString('ko-KR');
+                
+                return (
+                  <div key={clip.clipId} className={styles.logItem} style={{ borderLeft: '4px solid var(--color-accent)' }}>
+                    <div className={styles.logItemLeft}>
+                      <span className={styles.logTime}>{timeStr}</span>
+                      <span className={styles.logDesc}>
+                        [구역 {clip.zoneId}] 1분 정기 영상
+                      </span>
+                    </div>
+                    <div className={styles.logItemRight}>
+                      {clip.s3ClipUrl && (
+                        <button
+                          className={styles.btnDownload}
+                          onClick={() => window.open(clip.s3ClipUrl!, '_blank')}
+                          title="다운로드"
+                        >
+                          ⬇️ 받기
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </aside>
+
+        {/* 드로어 3: 기상 시나리오 스위처 */}
         <aside className={`${styles.rightDrawer} ${openDrawer === 'weather' ? styles.open : ''}`}>
           <div className={styles.drawerHeader}>
             <div className={styles.drawerTitle}>

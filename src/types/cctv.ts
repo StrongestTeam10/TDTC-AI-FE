@@ -141,6 +141,7 @@ export interface VideoClip {
   zoneId: number;
   clipType: string;
   s3ClipUrl: string | null;
+  viewUrl?: string | null;
   startTime: string | null;
   endTime: string | null;
   isDownloaded: boolean;

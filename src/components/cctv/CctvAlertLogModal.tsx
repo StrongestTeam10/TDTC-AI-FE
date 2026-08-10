@@ -1,6 +1,7 @@
+import { useEffect, useState } from 'react';
 import styles from './CctvDashboard.module.css';
-import type { EmergencyAlert } from '../../types/cctv';
-
+import type { EmergencyAlert, VideoClip } from '../../types/cctv';
+import { fetchPostReports, fetchVideoClips } from '../../api/client';
 // 2026-08-06: 원본 index.html의 알람 로그 모달.
 //
 // 원본은 통계 배지("금일 총 알람 15회")와 로그 5줄이 전부 HTML에 하드코딩된
@@ -41,6 +42,24 @@ export default function CctvAlertLogModal({
 }: CctvAlertLogModalProps) {
   const criticalCount = alerts.filter((a) => a.alertType?.toUpperCase().includes('CRITICAL')).length;
   const warningCount = alerts.length - criticalCount;
+
+  // 다운로드 연동을 위한 상태 (PDF, Video)
+  const [reports, setReports] = useState<any[]>([]);
+  const [clips, setClips] = useState<VideoClip[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      // 모달이 열릴 때마다 최신 리포트와 클립 리스트를 가져온다.
+      Promise.all([fetchPostReports(), fetchVideoClips()])
+        .then(([reportsData, clipsData]) => {
+          setReports(reportsData);
+          setClips(clipsData);
+        })
+        .catch((err) => {
+          console.error('[CCTV] PDF/클립 로드 실패:', err);
+        });
+    }
+  }, [isOpen]);
 
   return (
       <div
@@ -97,17 +116,48 @@ export default function CctvAlertLogModal({
 
               {!isLoading &&
                   !loadError &&
-                  alerts.map((alert) => (
+                  alerts.map((alert) => {
+                    // 알람과 매칭되는 리포트 찾기
+                    const matchedReport = reports.find(r => r.alertId === alert.alertId);
+                    // 리포트 안의 videoId를 통해 비디오 찾기
+                    const matchedClip = matchedReport?.videoId 
+                      ? clips.find(c => c.clipId === matchedReport.videoId) 
+                      : null;
+
+                    return (
                       <div key={alert.alertId} className={`${styles.logItem} ${resolveLogClass(alert)}`}>
-                        <span className={styles.logTime}>{formatAlertTime(alert.alertedAt)}</span>
-                        <span className={`${styles.logTypeTag} ${resolveLogClass(alert)}`}>
-                          {alert.alertType}
-                        </span>
-                        <span className={styles.logDesc}>
-                          [구역 {alert.zoneId}] 긴급 알람 발생 - 현장 조치 대기 중
-                        </span>
+                        <div className={styles.logItemLeft}>
+                          <span className={styles.logTime}>{formatAlertTime(alert.alertedAt)}</span>
+                          <span className={`${styles.logTypeTag} ${resolveLogClass(alert)}`}>
+                            {alert.alertType}
+                          </span>
+                          <span className={styles.logDesc}>
+                            [구역 {alert.zoneId}] 긴급 알람 발생 - 현장 조치 대기 중
+                          </span>
+                        </div>
+                        <div className={styles.logItemRight}>
+                          {matchedReport?.viewUrl && (
+                            <button
+                              className={styles.btnDownload}
+                              onClick={() => window.open(matchedReport.viewUrl!, '_blank')}
+                              title="PDF 명세서 다운로드"
+                            >
+                              📄 PDF
+                            </button>
+                          )}
+                          {matchedClip?.viewUrl && (
+                            <button
+                              className={styles.btnDownload}
+                              onClick={() => window.open(matchedClip.viewUrl!, '_blank')}
+                              title="35초 긴급 클립 다운로드"
+                            >
+                              🎞️ 영상
+                            </button>
+                          )}
+                        </div>
                       </div>
-                  ))}
+                    );
+                  })}
             </div>
           </div>
 

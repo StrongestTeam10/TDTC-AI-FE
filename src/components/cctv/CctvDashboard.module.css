@@ -1877,3 +1877,16 @@
 :global(html:not(.dark)) .live-badge {
     background: rgba(16, 185, 129, 0.14);
 }
+
+/* Added for Alert Log Download Buttons */
+.logItem { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+.logItemLeft { display: flex; align-items: center; gap: 10px; flex-grow: 1; }
+.logItemRight { display: flex; gap: 8px; flex-shrink: 0; }
+.btnDownload { padding: 4px 10px; font-size: 0.75rem; border-radius: 4px; background: rgba(255, 255, 255, 0.1); color: var(--text-color); border: 1px solid rgba(255,255,255,0.2); cursor: pointer; transition: all 0.2s; }
+.btnDownload:hover { background: rgba(59, 130, 246, 0.5); border-color: var(--color-accent); }
+
+
+/* Added for Video Drawer */
+.drawer-toggle-btn.video-btn { top: 45%; border-color: rgba(59, 130, 246, 0.3); }
+.drawer-toggle-btn.video-btn:hover { background: rgba(59, 130, 246, 0.85); border-color: var(--color-accent); }
+

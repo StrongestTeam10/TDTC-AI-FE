@@ -84,6 +84,21 @@ export async function fetchCctvResultVideoUrl(filename: string): Promise<string>
   return URL.createObjectURL(data);
 }
 
+export interface CctvAlertTriggerRequest {
+  alertType: 'MANUAL_REPORT' | 'AUTO_REPORT';
+}
+
+/**
+ * 2026-08-07 추가 (Method A 연동):
+ * 관제 요원이 수동 출동을 누르거나 30초 무응답 시 자동 신고가 접수될 때,
+ * Python AI 서버로 트리거 신호를 보냅니다.
+ * Python은 이 신호를 받으면 자바 백엔드의 `/api/ai/alerts/trigger`를 호출하고,
+ * 35초 영상과 PDF를 생성한 뒤 S3에 올리고 백엔드 Webhook을 찌릅니다.
+ */
+export async function triggerCctvAlert(alertType: 'MANUAL_REPORT' | 'AUTO_REPORT'): Promise<void> {
+  await cctvApiClient.post('/api/v1/cctv/trigger', { alertType });
+}
+
 /** 서버가 프레임별 지표를 담아 내려주는 데이터셋 JSON의 원본 형태(snake_case). */
 interface RawDatasetRecord {
   pedestrian_count: number;
