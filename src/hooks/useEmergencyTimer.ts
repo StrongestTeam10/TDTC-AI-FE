@@ -33,6 +33,8 @@ export interface UseEmergencyTimerResult {
   isAutoDispatched: boolean;
   /** "확인 및 관제 조작 해제" 버튼 */
   confirm: () => void;
+  /** "오경보" 처리로 타이머 완전 리셋 및 임시 무시 */
+  resetTimer: () => void;
 }
 
 /**
@@ -46,10 +48,13 @@ export function useEmergencyTimer(
   const [elapsedSec, setElapsedSec] = useState(0);
   const [isConfirmed, setConfirmed] = useState(false);
   const dangerStartRef = useRef<number | null>(null);
+  
+  // 오경보 리셋 후 파이썬 스트림이 여전히 danger일 때 즉시 카운트다운 재시작 방지
+  const ignoreUntilRef = useRef<number>(0);
 
   useEffect(() => {
-    if (status !== 'danger') {
-      // 위험 해제 - 타이머와 확인 상태를 모두 리셋한다.
+    // 무시 기간 중이거나 위험 상태가 아니면 타이머 초기화
+    if (status !== 'danger' || Date.now() < ignoreUntilRef.current) {
       dangerStartRef.current = null;
       setElapsedSec(0);
       setConfirmed(false);
@@ -61,7 +66,16 @@ export function useEmergencyTimer(
     }
 
     const timerId = window.setInterval(() => {
-      if (dangerStartRef.current === null) return;
+      // 10초 무시 기간이 풀리기 전에는 시간을 올리지 않음
+      if (Date.now() < ignoreUntilRef.current) {
+        dangerStartRef.current = null;
+        setElapsedSec(0);
+        return;
+      }
+      
+      if (dangerStartRef.current === null) {
+        dangerStartRef.current = Date.now();
+      }
       setElapsedSec((Date.now() - dangerStartRef.current) / 1000);
     }, TICK_INTERVAL_MS);
 
@@ -69,15 +83,23 @@ export function useEmergencyTimer(
   }, [status]);
 
   const confirm = useCallback(() => setConfirmed(true), []);
+  
+  const resetTimer = useCallback(() => {
+    ignoreUntilRef.current = Date.now() + 15000; // 15초 동안 danger 무시
+    dangerStartRef.current = null;
+    setElapsedSec(0);
+    setConfirmed(false);
+  }, []);
 
   const isDanger = status === 'danger';
-  const isAutoDispatched = isDanger && elapsedSec >= AUTO_DISPATCH_AFTER_SEC;
+  const isAutoDispatched = isDanger && elapsedSec >= AUTO_DISPATCH_AFTER_SEC && !isConfirmed;
 
   return {
     isDispatchAlarmActive: isDanger && elapsedSec >= alarmDelaySec,
     isBlocking: isDanger && elapsedSec >= BLOCK_AFTER_SEC && !isConfirmed,
-    countdownSec: Math.max(0, Math.ceil(AUTO_DISPATCH_AFTER_SEC - elapsedSec)),
+    countdownSec: Math.max(0, Math.ceil(AUTO_DISPATCH_AFTER_SEC - Math.min(elapsedSec, AUTO_DISPATCH_AFTER_SEC))),
     isAutoDispatched,
     confirm,
+    resetTimer,
   };
 }

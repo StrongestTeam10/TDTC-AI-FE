@@ -10,7 +10,7 @@ import type { OpenDrawer } from './CctvSideDrawers';
 import CctvVideoPanel from './CctvVideoPanel';
 import CctvWeatherCard from './CctvWeatherCard';
 import ErrorBanner from '../ui/ErrorBanner';
-import { fetchCctvResultVideoUrl, uploadCctvVideo } from '../../api/cctvClient';
+import { buildCctvResultVideoUrl, fetchCctvResultVideoUrl, uploadCctvVideo, triggerCctvAlert } from '../../api/cctvClient';
 import { fetchUnresolvedAlerts } from '../../api/client';
 import { WEATHER_SCENARIOS } from '../../constants/weatherScenario';
 import { FALLBACK_TOTAL_FRAMES, REAL_FRAME_DATA_MAP } from '../../data/realFrameData';
@@ -135,6 +135,26 @@ export default function CctvControlDashboard() {
   });
 
   const emergency = useEmergencyTimer(statusResult.status, params.alarmDelaySec);
+  
+  // ----- [Method A] 수동/자동 신고 연동 상태 -----
+  const [actionTaken, setActionTaken] = useState(false);
+  
+  // 위험 상태가 해제되거나, '오경보'로 인해 타이머가 0초(countdown 30초)로 리셋되면 actionTaken 초기화
+  useEffect(() => {
+    if (statusResult.status !== 'danger' || emergency.countdownSec === 30) {
+      setActionTaken(false);
+    }
+  }, [statusResult.status, emergency.countdownSec]);
+
+  // 30초 경과 시 자동 신고(AUTO_REPORT) 발송
+  useEffect(() => {
+    if (emergency.isAutoDispatched && !actionTaken) {
+      setActionTaken(true);
+      triggerCctvAlert('AUTO_REPORT').catch((err) => {
+        console.error('자동 신고 API 호출 실패:', err);
+      });
+    }
+  }, [emergency.isAutoDispatched, actionTaken]);
 
   // ----- 분석 완료 시 비식별 처리된 결과 영상으로 교체 -----
   const [resultVideoUrl, setResultVideoUrl] = useState<string | null>(null);
@@ -315,6 +335,37 @@ export default function CctvControlDashboard() {
                   onLoadedMetadata={handleLoadedMetadata}
                   onTimeUpdate={handleTimeUpdate}
               />
+
+              {/* [Method A] 알림 해제 후 15초~30초 사이에 나타나는 수동 조작 버튼 */}
+              {emergency.countdownSec > 0 && emergency.countdownSec <= 15 && !emergency.isBlocking && !actionTaken && (
+                <div style={{ display: 'flex', gap: '12px', padding: '16px', backgroundColor: 'rgba(255,0,0,0.1)', borderRadius: '8px', border: '1px solid rgba(255,0,0,0.3)', marginBottom: '16px' }}>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: '0 0 8px 0', color: '#ff4444', fontWeight: 'bold' }}>
+                      ⚠️ 위험 상황 확인 완료. 수동 조작을 선택해 주세요.
+                    </p>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button 
+                        onClick={() => {
+                          setActionTaken(true);
+                          emergency.resetTimer();
+                        }}
+                        style={{ flex: 1, padding: '12px', backgroundColor: '#334155', color: 'white', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', border: 'none' }}
+                      >
+                        ✅ 오경보 (별일 없음)
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setActionTaken(true);
+                          triggerCctvAlert('MANUAL_REPORT').catch(err => console.error(err));
+                        }}
+                        style={{ flex: 1, padding: '12px', backgroundColor: '#ef4444', color: 'white', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', border: 'none' }}
+                      >
+                        🚨 현장 출동 / 확인 (영상 및 PDF 생성)
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <CctvMetricCards
                   pedestrianCount={metrics.pedestrianCount}
