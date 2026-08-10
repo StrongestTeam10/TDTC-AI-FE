@@ -318,6 +318,9 @@ export default function SimulationComparePage() {
     clearReportError();
 
     const marketId = selectedMarketId;
+    // 개입 후(scenario) SIM은 agentCount >= 1만 허용한다. 입력칸을 min=1로 막아뒀지만
+    // 직접 0/빈값을 타이핑한 경우까지 방어해 양쪽 파이프라인이 같은 유효값을 받게 한다.
+    const safeAgentCount = Math.max(1, Math.floor(agentCount) || 1);
     // 실행 시점에 발생/진압 스텝으로 연소기간(burnSteps)을 재계산해 SIM에 보낸다.
     // (발생·진압을 나중에 수정해도 항상 일관되게 반영되도록)
     const simEvents: EventTrigger[] = events.map((ev) => {
@@ -332,14 +335,14 @@ export default function SimulationComparePage() {
     const predictReq: PredictRequest = {
       marketId,
       steps,
-      totalInflow: agentCount,
+      totalInflow: safeAgentCount,
       events: simEvents,
       closedGateIds: Array.from(beforeClosedGateIds),
     };
     const scenarioReq: ScenarioRequest = {
       marketId,
       steps,
-      agentCount,
+      agentCount: safeAgentCount,
       objects,
       events: simEvents,
       closedGateIds: Array.from(afterClosedGateIds),
@@ -612,7 +615,7 @@ export default function SimulationComparePage() {
                   </label>
                   <input
                     type="number"
-                    min={0}
+                    min={1}
                     max={100000}
                     value={agentCount}
                     onChange={(e) => setAgentCount(Number(e.target.value))}
@@ -621,7 +624,7 @@ export default function SimulationComparePage() {
                   />
                   <p className="mt-1 text-xs text-slate-500">
                     스텝마다 인원수가 들쭉날쭉하게 무작위로 유입되고, 전체 합계가 이 값에
-                    맞춰집니다. 0으로 두면 신규 유입 없이 현재 인원의 자연스러운 이동만 봅니다.
+                    맞춰집니다. 최소 1명 이상이어야 합니다(개입 후 시나리오가 0명을 허용하지 않음).
                   </p>
                 </div>
 
@@ -629,7 +632,7 @@ export default function SimulationComparePage() {
                   <h3 className="mb-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
                     정책 개입 · 이벤트
                     <span className="block font-normal text-slate-500 normal-case mt-1">
-                      오브젝트/통로정책/게이트는 After 전용, 이벤트(화재·음향이상)는
+                      오브젝트/통로정책/게이트는 After 전용, 이벤트(화재)는
                       Before·After 양쪽 지도 어디서 찍든 같은 위치에 동시 반영됩니다.
                     </span>
                   </h3>
