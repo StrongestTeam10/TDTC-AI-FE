@@ -10,7 +10,7 @@ import type { OpenDrawer } from './CctvSideDrawers';
 import CctvVideoPanel from './CctvVideoPanel';
 import CctvWeatherCard from './CctvWeatherCard';
 import ErrorBanner from '../ui/ErrorBanner';
-import { buildCctvResultVideoUrl, fetchCctvResultVideoUrl, uploadCctvVideo, triggerCctvAlert } from '../../api/cctvClient';
+import { fetchCctvResultVideoUrl, uploadCctvVideo, triggerCctvAlert } from '../../api/cctvClient';
 import { fetchUnresolvedAlerts } from '../../api/client';
 import { WEATHER_SCENARIOS } from '../../constants/weatherScenario';
 import { FALLBACK_TOTAL_FRAMES, REAL_FRAME_DATA_MAP } from '../../data/realFrameData';
