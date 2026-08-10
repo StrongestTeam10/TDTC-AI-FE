@@ -67,19 +67,19 @@ function DeltaBadge({
   const diff = after - before;
   const zoneStr = zone ? <span className="text-slate-500 font-normal"> {zone}</span> : null;
   if (Math.abs(diff) < Math.pow(10, -digits) / 2) {
-    return <span className="text-xs text-slate-400">±0{zoneStr}</span>;
+    return <span className="text-xs text-slate-500 dark:text-slate-400">±0{zoneStr}</span>;
   }
   const arrow = diff < 0 ? '▼' : '▲';
   const showPct = before !== 0 && Math.abs(before) >= minBaseForPct;
   const pct = showPct ? ` (${diff > 0 ? '+' : ''}${Math.round((diff / before) * 100)}%)` : '';
   const body = `${arrow} ${diff > 0 ? '+' : ''}${diff.toFixed(digits)}${suffix}${pct}`;
   if (neutral) {
-    return <span className="text-xs font-medium text-slate-400">{body}{zoneStr}</span>;
+    return <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{body}{zoneStr}</span>;
   }
   const improved = lowerIsBetter ? diff < 0 : diff > 0;
   const color = improved
-    ? 'text-emerald-400 bg-emerald-500/10'
-    : 'text-red-400 bg-red-500/10';
+    ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
+    : 'text-red-600 dark:text-red-400 bg-red-500/10';
   return (
     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${color}`}>
       {body}{zoneStr}
@@ -558,34 +558,34 @@ export default function SimulationComparePage() {
           <div className="w-full xl:w-[350px] space-y-4 shrink-0">
             {runError && <ErrorBanner message={runError} />}
 
-            <div className="rounded-lg border border-slate-700 bg-slate-900 overflow-hidden">
-              <div className="px-4 py-3 font-medium text-slate-200 bg-slate-800 flex justify-between items-center">
+            <div className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
+              <div className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 flex justify-between items-center">
                 <span>시뮬레이션 설정</span>
-                <span className="text-xs px-2 py-1 bg-slate-950 rounded text-slate-400">
+                <span className="text-xs px-2 py-1 bg-white dark:bg-slate-950 rounded text-slate-500 dark:text-slate-400">
                   {predictResult && scenarioResult ? '완료' : '대기'}
                 </span>
               </div>
-              <div className="p-4 border-t border-slate-700 h-[650px] overflow-y-auto custom-scrollbar space-y-4">
+              <div className="p-4 border-t border-slate-300 dark:border-slate-700 h-[650px] overflow-y-auto custom-scrollbar space-y-4">
                 <div className="text-xs text-slate-500">
                   현재 실측 상태(센서 관측값)를 출발점으로, 같은 스텝 수·유입 인원 조건에서
                   Before(정책 개입 없음)와 After(아래 정책 개입 반영)를 동시에 실행해서 비교합니다.
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm text-slate-300">예측 스텝 수</label>
+                  <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">예측 스텝 수</label>
                   <input
                     type="number"
                     min={1}
                     max={1000}
                     value={steps}
                     onChange={(e) => setSteps(Number(e.target.value))}
-                    className="w-full rounded border border-slate-600 bg-slate-900 px-3 py-2 text-slate-200"
+                    className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-slate-800 dark:text-slate-200"
                     disabled={isPredicting || isScenarioRunning}
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm text-slate-300">
+                  <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">
                     총 유입 인원 (전체 스텝에 무작위로 분산)
                   </label>
                   <input
@@ -594,7 +594,7 @@ export default function SimulationComparePage() {
                     max={100000}
                     value={agentCount}
                     onChange={(e) => setAgentCount(Number(e.target.value))}
-                    className="w-full rounded border border-slate-600 bg-slate-900 px-3 py-2 text-slate-200"
+                    className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-slate-800 dark:text-slate-200"
                     disabled={isPredicting || isScenarioRunning}
                   />
                   <p className="mt-1 text-xs text-slate-500">
@@ -603,8 +603,8 @@ export default function SimulationComparePage() {
                   </p>
                 </div>
 
-                <div className="border-t border-slate-700 pt-3">
-                  <h3 className="mb-2 text-xs font-semibold text-slate-400">
+                <div className="border-t border-slate-300 dark:border-slate-700 pt-3">
+                  <h3 className="mb-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
                     정책 개입 · 이벤트
                     <span className="block font-normal text-slate-500 normal-case mt-1">
                       오브젝트/통로정책/게이트는 After 전용, 이벤트(화재·음향이상)는
@@ -681,7 +681,7 @@ export default function SimulationComparePage() {
                   type="button"
                   onClick={handleReset}
                   disabled={isPredicting || isScenarioRunning}
-                  className="w-full rounded border border-slate-600 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+                  className="w-full rounded border border-slate-300 dark:border-slate-600 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
                 >
                   초기화
                 </button>
@@ -693,7 +693,7 @@ export default function SimulationComparePage() {
             <div className="flex flex-col md:flex-row gap-4 h-[450px]">
               <div className="flex-1 flex flex-col min-w-0">
                 <div className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">개입 전 (Before)</div>
-                <div className="flex-1 relative rounded-lg border border-slate-700 overflow-hidden bg-slate-900">
+                <div className="flex-1 relative rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900">
                   <HeatmapView
                     zones={zones}
                     agents={getBeforeAgents()}
@@ -720,7 +720,7 @@ export default function SimulationComparePage() {
                 <div className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex justify-between items-center">
                   <span>개입 후 (After)</span>
                 </div>
-                <div className="flex-1 relative rounded-lg border border-slate-700 overflow-hidden bg-slate-900">
+                <div className="flex-1 relative rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900">
                   <HeatmapView
                     zones={zones}
                     agents={getAfterAgents()}
@@ -745,7 +745,7 @@ export default function SimulationComparePage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3 rounded bg-slate-900 px-4 py-3 text-xs text-slate-300 shadow-sm border border-slate-700">
+            <div className="flex items-center gap-3 rounded bg-white dark:bg-slate-900 px-4 py-3 text-xs text-slate-600 dark:text-slate-300 shadow-sm border border-slate-300 dark:border-slate-700">
               <button
                 onClick={() => {
                   if (!isPlaying && maxFrames > 0 && playIndex >= maxFrames - 1) {
@@ -754,7 +754,7 @@ export default function SimulationComparePage() {
                   setIsPlaying(!isPlaying);
                 }}
                 disabled={maxFrames === 0}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-slate-700 transition-colors hover:bg-slate-300 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600"
               >
                 {isPlaying ? '⏸' : '▶'}
               </button>
@@ -802,48 +802,48 @@ export default function SimulationComparePage() {
             />
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-1 rounded-lg border border-slate-700 bg-slate-900 p-4 space-y-3">
-                <h3 className="text-sm font-medium text-slate-400 border-b border-slate-800 pb-2">비교 결과 요약</h3>
+              <div className="md:col-span-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3">
+                <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 pb-2">비교 결과 요약</h3>
 
                 {/* 지표 비교표 */}
                 <table className="w-full text-xs tabular-nums">
                   <thead>
                     <tr className="text-slate-500">
                       <th className="text-left font-medium pb-1">지표</th>
-                      <th className="text-right font-medium pb-1 text-orange-400">개입 전</th>
-                      <th className="text-right font-medium pb-1 text-blue-400">개입 후</th>
+                      <th className="text-right font-medium pb-1 text-orange-600 dark:text-orange-400">개입 전</th>
+                      <th className="text-right font-medium pb-1 text-blue-600 dark:text-blue-400">개입 후</th>
                       <th className="text-right font-medium pb-1">변화</th>
                     </tr>
                   </thead>
-                  <tbody className="text-slate-300">
-                    <tr className="border-t border-slate-800">
-                      <td className="py-1.5 text-slate-400">최종 위험도</td>
-                      <td className="text-right text-orange-400 font-semibold">{fmtNum(predictResult?.finalOverallRiskScore, 1)}</td>
-                      <td className="text-right text-blue-400 font-semibold">{fmtNum(scenarioResult?.finalRiskScore?.score, 1)}</td>
+                  <tbody className="text-slate-600 dark:text-slate-300">
+                    <tr className="border-t border-slate-200 dark:border-slate-800">
+                      <td className="py-1.5 text-slate-500 dark:text-slate-400">최종 위험도</td>
+                      <td className="text-right text-orange-600 dark:text-orange-400 font-semibold">{fmtNum(predictResult?.finalOverallRiskScore, 1)}</td>
+                      <td className="text-right text-blue-600 dark:text-blue-400 font-semibold">{fmtNum(scenarioResult?.finalRiskScore?.score, 1)}</td>
                       <td className="text-right"><DeltaBadge before={predictResult?.finalOverallRiskScore} after={scenarioResult?.finalRiskScore?.score} digits={1} minBaseForPct={10} /></td>
                     </tr>
-                    <tr className="border-t border-slate-800">
-                      <td className="py-1.5 text-slate-400">평균 밀집도</td>
-                      <td className="text-right text-orange-400 font-semibold">{fmtNum(predictResult?.averageDensity, 2)}</td>
-                      <td className="text-right text-blue-400 font-semibold">{fmtNum(scenarioResult?.averageDensity, 2)}</td>
+                    <tr className="border-t border-slate-200 dark:border-slate-800">
+                      <td className="py-1.5 text-slate-500 dark:text-slate-400">평균 밀집도</td>
+                      <td className="text-right text-orange-600 dark:text-orange-400 font-semibold">{fmtNum(predictResult?.averageDensity, 2)}</td>
+                      <td className="text-right text-blue-600 dark:text-blue-400 font-semibold">{fmtNum(scenarioResult?.averageDensity, 2)}</td>
                       <td className="text-right"><DeltaBadge before={predictResult?.averageDensity} after={scenarioResult?.averageDensity} digits={2} minBaseForPct={0.05} /></td>
                     </tr>
-                    <tr className="border-t border-slate-800">
-                      <td className="py-1.5 text-slate-400">최대 밀집도</td>
-                      <td className="text-right text-orange-400 font-semibold">{fmtNum(predictResult?.maxDensity, 2)}</td>
-                      <td className="text-right text-blue-400 font-semibold">{fmtNum(scenarioResult?.maxDensity, 2)}</td>
+                    <tr className="border-t border-slate-200 dark:border-slate-800">
+                      <td className="py-1.5 text-slate-500 dark:text-slate-400">최대 밀집도</td>
+                      <td className="text-right text-orange-600 dark:text-orange-400 font-semibold">{fmtNum(predictResult?.maxDensity, 2)}</td>
+                      <td className="text-right text-blue-600 dark:text-blue-400 font-semibold">{fmtNum(scenarioResult?.maxDensity, 2)}</td>
                       <td className="text-right"><DeltaBadge before={predictResult?.maxDensity} after={scenarioResult?.maxDensity} digits={2} zone={scenarioResult?.maxDensityZoneName} minBaseForPct={0.05} /></td>
                     </tr>
-                    <tr className="border-t border-slate-800">
-                      <td className="py-1.5 text-slate-400">대피 인원</td>
-                      <td className="text-right text-orange-400 font-semibold">{fmtNum(predictResult?.evacuatedCount, 0)}</td>
-                      <td className="text-right text-blue-400 font-semibold">{fmtNum(scenarioResult?.evacuatedCount, 0)}</td>
+                    <tr className="border-t border-slate-200 dark:border-slate-800">
+                      <td className="py-1.5 text-slate-500 dark:text-slate-400">대피 인원</td>
+                      <td className="text-right text-orange-600 dark:text-orange-400 font-semibold">{fmtNum(predictResult?.evacuatedCount, 0)}</td>
+                      <td className="text-right text-blue-600 dark:text-blue-400 font-semibold">{fmtNum(scenarioResult?.evacuatedCount, 0)}</td>
                       <td className="text-right"><DeltaBadge before={predictResult?.evacuatedCount} after={scenarioResult?.evacuatedCount} digits={0} neutral /></td>
                     </tr>
-                    <tr className="border-t border-slate-800">
-                      <td className="py-1.5 text-slate-400">대피 소요(초)</td>
-                      <td className="text-right text-orange-400 font-semibold">{predictResult ? (predictResult.evacuationTimeSeconds ?? '미완료') : '-'}</td>
-                      <td className="text-right text-blue-400 font-semibold">{scenarioResult ? (scenarioResult.evacuationTimeSeconds ?? '미완료') : '-'}</td>
+                    <tr className="border-t border-slate-200 dark:border-slate-800">
+                      <td className="py-1.5 text-slate-500 dark:text-slate-400">대피 소요(초)</td>
+                      <td className="text-right text-orange-600 dark:text-orange-400 font-semibold">{predictResult ? (predictResult.evacuationTimeSeconds ?? '미완료') : '-'}</td>
+                      <td className="text-right text-blue-600 dark:text-blue-400 font-semibold">{scenarioResult ? (scenarioResult.evacuationTimeSeconds ?? '미완료') : '-'}</td>
                       <td className="text-right"><DeltaBadge before={predictResult?.evacuationTimeSeconds ?? undefined} after={scenarioResult?.evacuationTimeSeconds ?? undefined} digits={0} suffix="초" neutral /></td>
                     </tr>
                   </tbody>

@@ -77,7 +77,7 @@ export default function ZoneRiskSmallMultiples({ before, after, zones }: Props) 
 
   return (
     <div>
-      <div className="mb-2 text-sm font-medium text-slate-200">
+      <div className="mb-2 text-sm font-medium text-slate-800 dark:text-slate-200">
         구역별 위험도 추이{' '}
         <span className="text-xs font-normal text-slate-500">
           — 구역마다 스케일 자동조정(값이 작아도 차이가 보이게). 개입 전후가 같으면 “동일”로 표시, 다르면 사이를 음영으로.
@@ -107,9 +107,9 @@ export default function ZoneRiskSmallMultiples({ before, after, zones }: Props) 
           const segments = identical ? [] : bandSegments(b, a, scaleMax);
 
           return (
-            <div key={z.zoneId} className="rounded-xl border border-slate-700 bg-slate-900 p-2.5">
+            <div key={z.zoneId} className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-2.5">
               <div className="mb-1.5 flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-[13px] font-medium text-slate-100">
+                <span className="flex items-center gap-1.5 text-[13px] font-medium text-slate-900 dark:text-slate-100">
                   <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: levelColor(pA) }} />
                   {z.zoneName}
                 </span>
@@ -118,7 +118,7 @@ export default function ZoneRiskSmallMultiples({ before, after, zones }: Props) 
                 ) : identical ? (
                   <span className="text-[11px] text-slate-500">개입 전후 동일 · 최고 {pA.toFixed(1)}</span>
                 ) : (
-                  <span className="text-[11px] tabular-nums text-slate-400">
+                  <span className="text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
                     최고 {pB.toFixed(1)}→
                     <span className="font-semibold" style={{ color: dColor }}>{pA.toFixed(1)}</span>{' '}
                     <span style={{ color: dColor }}>{dArrow}{Math.abs(diff).toFixed(1)}</span>

@@ -14,6 +14,20 @@
     --border-color: #334155;
     --text-color: #f1f5f9;
     --text-muted: #94a3b8;
+    --text-strong: #e2e8f0;
+    --text-soft: #cbd5e1;
+
+    /* 2026-08-10 (라이트모드): 관제 화면 곳곳에 하드코딩돼 있던 어두운 면/틴트/그림자
+       색을 RGB 삼중항 변수로 뽑았다. 아래 라이트 모드 블록에서 이 세 줄만 뒤집으면
+       투명도(rgba의 alpha)는 그대로 둔 채 면 색만 밝은 쪽으로 바뀐다.
+       영상 위 오버레이·비상 알람처럼 "항상 어두워야 하는" 부분은 일부러 변수를
+       쓰지 않고 하드코딩 값을 남겨뒀다. */
+    --surface-deep-rgb: 15, 23, 42;    /* 헤더 요약바·드로어 등 큰 면 */
+    --surface-raised-rgb: 30, 41, 59;  /* 떠 있는 버튼 */
+    --surface-sunken-rgb: 9, 13, 22;   /* 카드 안쪽으로 파인 박스 */
+    --surface-modal-rgb: 17, 25, 40;   /* 모달 카드 */
+    --tint-rgb: 255, 255, 255;         /* 면 위에 얹는 반투명 틴트/테두리 */
+    --shadow-rgb: 0, 0, 0;
 
     --color-safe: #10b981;
     --color-warning: #f59e0b;
@@ -50,7 +64,7 @@
     background: var(--header-bg);
     backdrop-filter: blur(16px);
     border-bottom: 1px solid var(--border-color);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 4px 20px rgba(var(--shadow-rgb), 0.4);
 }
 
 .header-container {
@@ -101,7 +115,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    background: rgba(15, 23, 42, 0.7);
+    background: rgba(var(--surface-deep-rgb), 0.7);
     border: 1px solid var(--border-color);
     padding: 6px 16px;
     border-radius: 30px;
@@ -197,8 +211,8 @@
     right: 0;
     transform: translateY(-50%);
     z-index: 600;
-    background: rgba(30, 41, 59, 0.92);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(var(--surface-raised-rgb), 0.92);
+    border: 1px solid rgba(var(--tint-rgb), 0.15);
     border-right: none;
     border-radius: 10px 0 0 10px;
     color: var(--text-color);
@@ -209,16 +223,16 @@
     gap: 8px;
     cursor: pointer;
     backdrop-filter: blur(12px);
-    box-shadow: -4px 0 18px rgba(0, 0, 0, 0.5);
+    box-shadow: -4px 0 18px rgba(var(--shadow-rgb), 0.5);
     transition: all 0.3s ease;
 }
 
 .drawer-toggle-btn.param-btn {
-    top: 25%;
+    top: 30%;
 }
 
 .drawer-toggle-btn.weather-btn {
-    top: 65%;
+    top: 58%;
     border-color: rgba(245, 158, 11, 0.3);
 }
 
@@ -273,11 +287,11 @@
     right: calc(-1 * var(--drawer-width));
     width: var(--drawer-width);
     height: 100vh;
-    background: rgba(15, 23, 42, 0.95);
+    background: rgba(var(--surface-deep-rgb), 0.95);
     border-left: 1px solid var(--border-color);
     backdrop-filter: blur(20px);
     z-index: 1000;
-    box-shadow: -10px 0 40px rgba(0, 0, 0, 0.7);
+    box-shadow: -10px 0 40px rgba(var(--shadow-rgb), 0.7);
     display: flex;
     flex-direction: column;
     transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
@@ -292,7 +306,7 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-    background: rgba(9, 13, 22, 0.5);
+    background: rgba(var(--surface-sunken-rgb), 0.5);
     padding: 16px;
     border-radius: 12px;
     border: 1px solid var(--border-color);
@@ -301,7 +315,7 @@
 .section-title {
     font-size: 0.83rem;
     font-weight: 700;
-    color: #e2e8f0;
+    color: var(--text-strong);
     font-family: 'Outfit';
 }
 
@@ -312,7 +326,7 @@
 }
 
 .btn-weather {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(var(--tint-rgb), 0.05);
     border: 1px solid var(--border-color);
     color: var(--text-muted);
     padding: 10px;
@@ -326,7 +340,7 @@
 }
 
 .btn-weather:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(var(--tint-rgb), 0.1);
     color: var(--text-color);
 }
 
@@ -364,7 +378,7 @@
     color: var(--text-muted);
     line-height: 1.4;
     padding: 10px;
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(var(--tint-rgb), 0.02);
     border-radius: 6px;
     border: 1px dashed var(--border-color);
     margin-top: 5px;
@@ -388,7 +402,7 @@
     font-family: 'Outfit', sans-serif;
     font-size: 0.85rem;
     font-weight: 700;
-    color: #e2e8f0;
+    color: var(--text-strong);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -432,7 +446,7 @@
 }
 
 .btn-close-drawer {
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(var(--tint-rgb), 0.06);
     border: 1px solid var(--border-color);
     color: var(--text-muted);
     font-size: 1.1rem;
@@ -513,7 +527,7 @@
     color: var(--text-muted);
     line-height: 1.5;
     padding: 14px;
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(var(--tint-rgb), 0.02);
     border-radius: 8px;
     border: 1px dashed var(--border-color);
     margin-top: auto;
@@ -541,7 +555,7 @@
 }
 
 .btn-weather {
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(var(--tint-rgb), 0.04);
     border: 1px solid var(--border-color);
     color: var(--text-muted);
     padding: 8px 18px;
@@ -554,7 +568,7 @@
 }
 
 .btn-weather:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(var(--tint-rgb), 0.08);
     color: var(--text-color);
 }
 
@@ -593,7 +607,7 @@
     border-radius: 16px;
     padding: 20px;
     backdrop-filter: blur(16px);
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+    box-shadow: 0 8px 32px 0 rgba(var(--shadow-rgb), 0.4);
     display: flex;
     flex-direction: column;
     gap: 15px;
@@ -608,7 +622,7 @@
     justify-content: space-between;
     border-bottom: 1px solid var(--border-color);
     padding-bottom: 12px;
-    color: #e2e8f0;
+    color: var(--text-strong);
 }
 
 .live-badge {
@@ -688,7 +702,7 @@
     display: flex;
     align-items: center;
     gap: 15px;
-    background: rgba(9, 13, 22, 0.6);
+    background: rgba(var(--surface-sunken-rgb), 0.6);
     padding: 10px 15px;
     border-radius: 10px;
     border: 1px solid var(--border-color);
@@ -722,7 +736,7 @@
 
 /* 날씨 4종 드래그 슬라이더 박스 전용 CSS */
 .weather-mode-drag-box {
-    background: rgba(9, 13, 22, 0.6);
+    background: rgba(var(--surface-sunken-rgb), 0.6);
     border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 14px 16px;
@@ -732,8 +746,8 @@
 }
 
 .main-weather-mode-box {
-    background: rgba(15, 23, 42, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(var(--surface-deep-rgb), 0.5);
+    border: 1px solid rgba(var(--tint-rgb), 0.1);
     border-radius: 12px;
     padding: 12px 16px;
     margin-bottom: 14px;
@@ -771,7 +785,7 @@
 }
 
 .weather-mode-marks span:hover {
-    color: #ffffff;
+    color: var(--text-color);
 }
 
 .weather-mode-marks span.active-mark {
@@ -789,7 +803,7 @@
 }
 
 .metric-card {
-    background: rgba(15, 23, 42, 0.65);
+    background: rgba(var(--surface-deep-rgb), 0.65);
     border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 16px;
@@ -830,12 +844,12 @@
     font-family: 'Outfit', sans-serif;
     font-size: 1.55rem;
     font-weight: 900;
-    color: #f8fafc;
+    color: var(--text-strong);
 }
 
 .metric-card-sub {
     font-size: 0.7rem;
-    color: #94a3b8;
+    color: var(--text-muted);
 }
 
 /* ==========================================================================
@@ -857,7 +871,7 @@
 }
 
 .weather-timeline-item {
-    background: rgba(9, 13, 22, 0.4);
+    background: rgba(var(--surface-sunken-rgb), 0.4);
     border: 1px solid var(--border-color);
     padding: 12px 14px;
     border-radius: 10px;
@@ -910,7 +924,7 @@
 .item-main-text {
     font-size: 0.85rem;
     font-weight: 700;
-    color: #e2e8f0;
+    color: var(--text-strong);
 }
 
 .item-sub-text {
@@ -978,7 +992,7 @@
 }
 
 .score-display-box {
-    background: rgba(9, 13, 22, 0.4);
+    background: rgba(var(--surface-sunken-rgb), 0.4);
     border: 1px solid var(--border-color);
     padding: 12px;
     border-radius: 10px;
@@ -998,12 +1012,12 @@
     font-family: 'Outfit', sans-serif;
     font-size: 1.35rem;
     font-weight: 900;
-    color: #f8fafc;
+    color: var(--text-strong);
 }
 
 .progress-bar-container {
     height: 7px;
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(var(--tint-rgb), 0.06);
     border-radius: 4px;
     overflow: hidden;
 }
@@ -1046,13 +1060,13 @@
 }
 
 .modal-card {
-    background: rgba(17, 25, 40, 0.95);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(var(--surface-modal-rgb), 0.95);
+    border: 1px solid rgba(var(--tint-rgb), 0.12);
     border-radius: 18px;
     width: 90%;
     max-width: 650px;
     max-height: 85vh;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+    box-shadow: 0 20px 50px rgba(var(--shadow-rgb), 0.8);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -1090,7 +1104,7 @@
 }
 
 .btn-close-modal {
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(var(--tint-rgb), 0.06);
     border: 1px solid var(--border-color);
     color: var(--text-muted);
     font-size: 1.1rem;
@@ -1131,7 +1145,7 @@
 }
 
 .summary-badge {
-    background: rgba(9, 13, 22, 0.5);
+    background: rgba(var(--surface-sunken-rgb), 0.5);
     border: 1px solid var(--border-color);
     padding: 10px 8px;
     border-radius: 10px;
@@ -1154,7 +1168,7 @@
 }
 
 .summary-badge.total .summary-value {
-    color: #f8fafc;
+    color: var(--text-strong);
 }
 
 .summary-badge.critical .summary-value {
@@ -1176,7 +1190,7 @@
 .alert-log-section-title {
     font-size: 0.85rem;
     font-weight: 700;
-    color: #cbd5e1;
+    color: var(--text-soft);
     font-family: 'Outfit';
 }
 
@@ -1188,7 +1202,7 @@
 }
 
 .log-item {
-    background: rgba(9, 13, 22, 0.4);
+    background: rgba(var(--surface-sunken-rgb), 0.4);
     border: 1px solid var(--border-color);
     padding: 10px 14px;
     border-radius: 8px;
@@ -1235,7 +1249,7 @@
 }
 
 .log-desc {
-    color: #e2e8f0;
+    color: var(--text-strong);
 }
 
 .modal-footer {
@@ -1771,6 +1785,98 @@
     background: var(--text-muted);
 }
 
+/* ==========================================================================
+   2026-08-10 추가: 라이트 모드
+   ==========================================================================
+   앱 테마 토글(themeStore)이 <html>에 .dark 클래스를 붙였다 뗐다 하므로, 다크가
+   기본값이고 .dark가 없을 때만 아래 변수들로 덮어쓴다. 관제 화면은 원래 관제실용
+   다크 UI라 색을 통째로 다시 짜지 않고 "면/글자/테두리 변수만 뒤집는" 방식으로
+   맞췄다 - 위험도 상태색(안전/주의/위험)은 라이트 배경에서 대비가 떨어져서 한 단계
+   진한 톤으로 따로 지정한다.
+
+   영상 플레이어 위 오버레이, 비상 알람 드로어, AI 분석 로딩처럼 어두운 영상 위에
+   얹히는 요소는 라이트 모드에서도 그대로 어둡게 둔다(그쪽만 밝게 만들면 영상과
+   대비가 사라져 오히려 안 보인다). */
+:global(html:not(.dark)) .dashboard-root {
+    --bg-color: #f1f5f9;
+    --card-bg: #ffffff;
+    --header-bg: rgba(255, 255, 255, 0.88);
+    --border-color: #cbd5e1;
+    --text-color: #0f172a;
+    --text-muted: #475569;
+    --text-strong: #0f172a;
+    --text-soft: #334155;
+
+    --surface-deep-rgb: 255, 255, 255;
+    --surface-raised-rgb: 241, 245, 249;
+    --surface-sunken-rgb: 241, 245, 249;
+    --surface-modal-rgb: 255, 255, 255;
+    --tint-rgb: 15, 23, 42;
+    --shadow-rgb: 148, 163, 184;
+
+    --color-safe: #047857;
+    --color-warning: #b45309;
+    --color-danger: #dc2626;
+    --color-accent: #2563eb;
+    --color-purple: #7c3aed;
+}
+
+/* 큰 그림자는 라이트 배경에서 얼룩처럼 보여서 더 얕게 깐다. */
+:global(html:not(.dark)) .card {
+    box-shadow: 0 4px 16px rgba(148, 163, 184, 0.22);
+}
+
+:global(html:not(.dark)) .sticky-header {
+    box-shadow: 0 2px 10px rgba(148, 163, 184, 0.25);
+}
+
+:global(html:not(.dark)) .right-drawer {
+    box-shadow: -10px 0 30px rgba(148, 163, 184, 0.35);
+}
+
+:global(html:not(.dark)) .drawer-toggle-btn {
+    box-shadow: -4px 0 12px rgba(148, 163, 184, 0.3);
+}
+
+:global(html:not(.dark)) .modal-card {
+    box-shadow: 0 20px 50px rgba(100, 116, 139, 0.35);
+}
+
+/* 헤더 타이틀 그라데이션이 흰 배경에서 흐려 보여 한 단계 진하게. */
+:global(html:not(.dark)) .header-title {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8, #1e3a8a);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: none;
+}
+
+/* 상태 배지/알람 버튼은 반투명 배경이라 라이트 배경에서 글자만 뜬다. 배경을 살짝
+   더 진하게 깔아 대비를 확보한다. */
+:global(html:not(.dark)) .score-summary-status.safe {
+    background: rgba(16, 185, 129, 0.16);
+    border-color: rgba(4, 120, 87, 0.45);
+}
+
+:global(html:not(.dark)) .score-summary-status.warning {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: rgba(180, 83, 9, 0.45);
+}
+
+:global(html:not(.dark)) .score-summary-status.danger {
+    background: rgba(239, 68, 68, 0.16);
+    border-color: rgba(220, 38, 38, 0.5);
+}
+
+:global(html:not(.dark)) .btn-alert-log {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(220, 38, 38, 0.45);
+    color: #b91c1c;
+}
+
+:global(html:not(.dark)) .live-badge {
+    background: rgba(16, 185, 129, 0.14);
+}
 
 /* Added for Alert Log Download Buttons */
 .logItem { display: flex; justify-content: space-between; align-items: center; width: 100%; }

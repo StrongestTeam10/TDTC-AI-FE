@@ -8,6 +8,7 @@ import {
   YAxis,
   Legend,
 } from 'recharts';
+import { useChartTheme } from '../hooks/useChartTheme';
 import type { RiskTrendPoint } from '../types';
 
 interface RiskTrendChartProps {
@@ -17,6 +18,7 @@ interface RiskTrendChartProps {
 }
 
 export default function RiskTrendChart({ riskTrend, beforeTrend, afterTrend }: RiskTrendChartProps) {
+  const chartTheme = useChartTheme();
   const hasData = (riskTrend && riskTrend.length > 0) || 
                   (beforeTrend && beforeTrend.length > 0) || 
                   (afterTrend && afterTrend.length > 0);
@@ -66,24 +68,24 @@ export default function RiskTrendChart({ riskTrend, beforeTrend, afterTrend }: R
         <div className="mb-2 flex items-center gap-2">
           <h3 className="text-sm text-slate-500 dark:text-slate-400">스텝별 위험도 추이</h3>
           {overlap && (
-            <span className="rounded-full bg-slate-700/60 px-2 py-0.5 text-[10px] text-slate-300">
+            <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] text-slate-600 dark:bg-slate-700/60 dark:text-slate-300">
               개입 전후 동일(겹침) — 효과는 밀집도·대피에
             </span>
           )}
         </div>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: -16 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+            <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
             <XAxis
                 dataKey="step"
-                stroke="#94a3b8"
+                stroke={chartTheme.axis}
                 fontSize={11}
-                label={{ value: '스텝', position: 'insideBottom', offset: -2, fill: '#94a3b8', fontSize: 11 }}
+                label={{ value: '스텝', position: 'insideBottom', offset: -2, fill: chartTheme.axis, fontSize: 11 }}
             />
-            <YAxis stroke="#94a3b8" fontSize={11} />
+            <YAxis stroke={chartTheme.axis} fontSize={11} />
             <Tooltip
-                contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', fontSize: 12 }}
-                labelStyle={{ color: '#e2e8f0' }}
+                contentStyle={chartTheme.tooltipContentStyle}
+                labelStyle={chartTheme.tooltipLabelStyle}
                 labelFormatter={(step) => `스텝 ${step}`}
             />
             <Legend wrapperStyle={{ fontSize: 12, paddingTop: '10px' }} />

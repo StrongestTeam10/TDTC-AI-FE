@@ -590,7 +590,7 @@ export default function HeatmapView({
   if (loadError) {
     return (
         <div
-            className="relative rounded-lg border border-red-800 bg-red-950/30 flex items-center justify-center text-red-300 text-sm p-4"
+            className="relative flex items-center justify-center rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-600 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
             style={{ width, minHeight: height }}
         >
           카카오맵 로드 실패: {loadError}
@@ -603,22 +603,22 @@ export default function HeatmapView({
         <div ref={containerRef} style={{ width: '100%', height: '100%', borderRadius: 8, overflow: 'hidden' }} />
 
         {!ready && (
-            <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80 text-slate-400 text-sm rounded-lg">
+            <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 text-sm rounded-lg">
               지도를 불러오는 중입니다...
             </div>
         )}
 
-        <div className="absolute top-2 left-2 text-xs text-slate-100 bg-slate-900/80 rounded px-2 py-1 pointer-events-none">
+        <div className="absolute top-2 left-2 text-xs text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900/80 rounded px-2 py-1 pointer-events-none">
           구역 {zones.length}개 · 유동 인구 {agents.length}명
         </div>
 
         {placementType && (
-            <div className="absolute top-2 right-2 text-xs text-sky-100 bg-sky-900/90 rounded px-2 py-1 pointer-events-none">
+            <div className="pointer-events-none absolute top-2 right-2 rounded bg-sky-600/90 px-2 py-1 text-xs text-sky-50 dark:bg-sky-900/90 dark:text-sky-100">
               지도를 클릭해서 배치하세요
             </div>
         )}
 
-        <div className="absolute bottom-2 right-2 flex items-center gap-3 text-[10px] text-slate-100 bg-slate-900/80 rounded px-2 py-1 pointer-events-none">
+        <div className="absolute bottom-2 right-2 flex items-center gap-3 text-[10px] text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900/80 rounded px-2 py-1 pointer-events-none">
           {Object.entries(AGENT_COLOR).map(([state, color]) => (
               <span key={state} className="flex items-center gap-1">
             <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: color }} />

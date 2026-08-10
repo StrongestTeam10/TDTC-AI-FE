@@ -26,9 +26,9 @@ function EffectBar({ label, pct, neutral = false }: { label: string; pct: number
   const mag = (Math.min(Math.abs(pct), CAP) / CAP) * 48; // 반폭 48%
   return (
     <div className="grid items-center gap-2 text-[11px]" style={{ gridTemplateColumns: '92px 1fr 48px' }}>
-      <span className="text-right text-slate-300">{label}</span>
-      <div className="relative h-4 rounded border border-slate-800 bg-slate-950">
-        <span className="absolute inset-y-0 left-1/2 w-px bg-slate-700" />
+      <span className="text-right text-slate-600 dark:text-slate-300">{label}</span>
+      <div className="relative h-4 rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+        <span className="absolute inset-y-0 left-1/2 w-px bg-slate-200 dark:bg-slate-700" />
         {flat ? (
           <span className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: '#475569' }} />
         ) : (
@@ -52,24 +52,24 @@ function EvacFlag({ before, after }: { before: number | null | undefined; after:
   if (bDone && !aDone) {
     return (
       <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs">
-        <span className="font-semibold text-red-300">⚠ 대피 완료 → 미완료</span>
-        <span className="text-slate-400"> (개입 전 {before}초에 완료됐으나, 개입 후 기간 내 미완료 — 출구·경로 차단 가능성)</span>
+        <span className="font-semibold text-red-600 dark:text-red-300">⚠ 대피 완료 → 미완료</span>
+        <span className="text-slate-500 dark:text-slate-400"> (개입 전 {before}초에 완료됐으나, 개입 후 기간 내 미완료 — 출구·경로 차단 가능성)</span>
       </div>
     );
   }
   if (!bDone && aDone) {
     return (
       <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs">
-        <span className="font-semibold text-emerald-300">✓ 대피 미완료 → 완료({after}초)</span>
-        <span className="text-slate-400"> (개입으로 대피가 기간 내 끝나게 됨)</span>
+        <span className="font-semibold text-emerald-700 dark:text-emerald-300">✓ 대피 미완료 → 완료({after}초)</span>
+        <span className="text-slate-500 dark:text-slate-400"> (개입으로 대피가 기간 내 끝나게 됨)</span>
       </div>
     );
   }
   if (bDone && aDone && before !== after) {
     const worse = (after as number) > (before as number);
     return (
-      <div className="text-[11px] text-slate-400">
-        대피 소요 <b className={worse ? 'text-red-300' : 'text-emerald-300'}>{before}초 → {after}초</b> ({worse ? '지연' : '단축'})
+      <div className="text-[11px] text-slate-500 dark:text-slate-400">
+        대피 소요 <b className={worse ? 'text-red-600 dark:text-red-300' : 'text-emerald-700 dark:text-emerald-300'}>{before}초 → {after}초</b> ({worse ? '지연' : '단축'})
       </div>
     );
   }
@@ -83,12 +83,12 @@ function Tile({
   chip: React.ReactNode; foot: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-700 bg-slate-900 p-3.5">
-      <div className="text-xs text-slate-400 mb-1.5">
+    <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-3.5">
+      <div className="text-xs text-slate-500 dark:text-slate-400 mb-1.5">
         {label} <span className="text-slate-500">{sub}</span>
       </div>
       <div className="flex items-baseline gap-2">
-        <span className="text-2xl font-semibold text-slate-100 tabular-nums">{valueAfter}</span>
+        <span className="text-2xl font-semibold text-slate-900 dark:text-slate-100 tabular-nums">{valueAfter}</span>
         <span className="text-sm text-slate-500 tabular-nums">← {valueBefore}</span>
       </div>
       <div className="mt-2 text-xs">{chip}</div>
@@ -101,8 +101,8 @@ function Chip({ diff, digits = 0, suffix = '', neutral = false }: { diff: number
   if (Math.abs(diff) < Math.pow(10, -digits) / 2) return <span className="text-slate-500">±0</span>;
   const up = diff > 0;
   const body = `${up ? '▲' : '▼'} ${up ? '+' : ''}${diff.toFixed(digits)}${suffix}`;
-  if (neutral) return <span className="font-medium text-slate-400">{body}</span>;
-  const cls = !up ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10';
+  if (neutral) return <span className="font-medium text-slate-500 dark:text-slate-400">{body}</span>;
+  const cls = !up ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10' : 'text-red-600 dark:text-red-400 bg-red-500/10';
   return <span className={`font-semibold px-2 py-0.5 rounded-full ${cls}`}>{body}</span>;
 }
 
@@ -137,17 +137,17 @@ export default function ComparisonKpiTiles({ before, after, hasFire = false }: P
     { k: '평균 밀집도', pct: avgPct },
   ].reduce((m, c) => (Math.abs(c.pct) > Math.abs(m.pct) ? c : m));
   const meaningful = Math.abs(primary.pct) >= 5;
-  const headTone = meaningful ? (primary.pct > 0 ? 'text-red-300' : 'text-emerald-300') : 'text-slate-300';
+  const headTone = meaningful ? (primary.pct > 0 ? 'text-red-600 dark:text-red-300' : 'text-emerald-700 dark:text-emerald-300') : 'text-slate-600 dark:text-slate-300';
 
   return (
     <div className="space-y-2.5">
-      <div className="rounded-xl border border-slate-700 bg-slate-900 p-3.5 space-y-2.5">
+      <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-3.5 space-y-2.5">
         <div className="text-sm">
-          <span className="text-slate-400">개입 효과 한눈에</span>{' '}
+          <span className="text-slate-500 dark:text-slate-400">개입 효과 한눈에</span>{' '}
           {meaningful ? (
             <span className={headTone}>— 핵심: <b className="font-semibold">{primary.k} {primary.pct > 0 ? '+' : ''}{primary.pct}% {primary.pct > 0 ? '↑' : '↓'}</b></span>
           ) : (
-            <span className="text-slate-400">— 위험도·밀집도는 개입 전과 거의 같습니다</span>
+            <span className="text-slate-500 dark:text-slate-400">— 위험도·밀집도는 개입 전과 거의 같습니다</span>
           )}
         </div>
 
@@ -164,7 +164,7 @@ export default function ComparisonKpiTiles({ before, after, hasFire = false }: P
         </div>
 
         {peakSame && peak >= 50 && (
-          <div className="text-[11px] text-slate-400 border-t border-slate-800 pt-2">
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800 pt-2">
             {hasFire
               ? `최고 위험도(${peak.toFixed(0)}점)는 화재 진원이라 개입으로 낮출 수 없습니다 — 효과는 위 밀집도·대피에 나타납니다.`
               : `최고 위험도(${peak.toFixed(0)}점) 구역은 이 개입으로 바뀌지 않았습니다.`}
