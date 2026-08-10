@@ -10,7 +10,7 @@ import type { OpenDrawer } from './CctvSideDrawers';
 import CctvVideoPanel from './CctvVideoPanel';
 import CctvWeatherCard from './CctvWeatherCard';
 import ErrorBanner from '../ui/ErrorBanner';
-import { buildCctvResultVideoUrl, uploadCctvVideo } from '../../api/cctvClient';
+import { fetchCctvResultVideoUrl, uploadCctvVideo } from '../../api/cctvClient';
 import { fetchUnresolvedAlerts } from '../../api/client';
 import { WEATHER_SCENARIOS } from '../../constants/weatherScenario';
 import { FALLBACK_TOTAL_FRAMES, REAL_FRAME_DATA_MAP } from '../../data/realFrameData';
@@ -140,7 +140,32 @@ export default function CctvControlDashboard() {
   const [resultVideoUrl, setResultVideoUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!stream.completedFilename) return;
-    setResultVideoUrl(buildCctvResultVideoUrl(stream.completedFilename));
+
+    // 2026-08-10 변경: 서버 주소를 <video src>에 바로 넣지 않고 blob으로 받아온다.
+    // ngrok 무료 플랜이 브라우저 요청에 안내 페이지를 끼워넣는데, <video>에는
+    // 그걸 우회할 헤더를 붙일 수 없어서 재생이 실패했다.
+    let cancelled = false;
+    let created: string | null = null;
+
+    fetchCctvResultVideoUrl(stream.completedFilename)
+        .then((objectUrl) => {
+          if (cancelled) {
+            URL.revokeObjectURL(objectUrl);
+            return;
+          }
+          created = objectUrl;
+          setResultVideoUrl(objectUrl);
+        })
+        .catch((err) => {
+          // 결과 영상만 실패한 것이므로 업로드한 로컬 영상으로 계속 재생한다.
+          console.error('[CCTV] 결과 영상 로드 실패 (로컬 영상으로 재생)', err);
+          setResultVideoUrl(null);
+        });
+
+    return () => {
+      cancelled = true;
+      if (created) URL.revokeObjectURL(created);
+    };
   }, [stream.completedFilename]);
 
   // 업로드한 로컬 파일의 objectURL은 다 쓰고 나면 반드시 해제한다.
