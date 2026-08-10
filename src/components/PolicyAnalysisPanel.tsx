@@ -3,16 +3,55 @@ import { analyzePolicy } from '../api/client';
 import Spinner from './ui/Spinner';
 import type { PolicyAnalysisResult } from '../api/client';
 
+/**
+ * LLM objectsToRemove 항목 하나에 대한 제거 결과.
+ * 부모(SimulationComparePage)가 beforeObjects와 매칭한 뒤 채워서 넘게준다.
+ */
+export type ObjectRemovalResult = {
+  objectType: string;
+  zoneId: number;
+  action: string;
+  zoneName: string;        // zones에서 조회해서 담아옵
+  status: 'removed' | 'compliant'; // '철거 완료' | '현장 준수 처리'
+};
+
 interface PolicyAnalysisPanelProps {
   onAnalyzeSuccess: (result: PolicyAnalysisResult) => void;
+  /** LLM 분석 완료 후 "수동으로 편집" 버튼을 누를 때 호출 */
+  onSwitchToManual?: () => void;
+  /** "다시 분석" 버튼으로 초기화할 때 호출 (설정값 리셋) */
+  onReset?: () => void;
+  /** true이면 분석 완료 결과 요약 화면 표시, false이면 입력 폼 표시 */
+  isLlmMode?: boolean;
+  /**
+   * objectsToRemove 각 항목의 처리 결과.
+   * 부모가 beforeObjects와 비교해서 계산 후 넘겨준다.
+   * - 'removed'  : Before에 해당 오브젝트가 있었고 제거됨 → "철거 완료" 배지
+   * - 'compliant': Before에 없었음 (이미 준수) → "현장 준수 처리" 배지
+   * 미전달 시 모두 'compliant'로 폴백.
+   */
+  objectRemovalResults?: ObjectRemovalResult[];
 }
 
-export default function PolicyAnalysisPanel({ onAnalyzeSuccess }: PolicyAnalysisPanelProps) {
+const ACTION_LABEL: Record<string, string> = {
+  close: '폐쇄',
+  open: '개방',
+  one_way: '일방통행',
+};
+
+export default function PolicyAnalysisPanel({
+  onAnalyzeSuccess,
+  onSwitchToManual,
+  onReset,
+  isLlmMode = false,
+  objectRemovalResults,
+}: PolicyAnalysisPanelProps) {
   const [policyText, setPolicyText] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<React.ReactNode | null>(null);
+  /** 마지막 분석 성공 결과 (LLM 모드 요약 표시용) */
+  const [lastResult, setLastResult] = useState<PolicyAnalysisResult | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -35,29 +74,10 @@ export default function PolicyAnalysisPanel({ onAnalyzeSuccess }: PolicyAnalysis
     }
     setIsAnalyzing(true);
     setError(null);
-    setSuccessMessage(null);
     try {
       const result = await analyzePolicy(policyText, file);
-      
-      const summary = (
-        <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded text-xs text-green-800 dark:bg-green-900/30 dark:border-green-800 dark:text-green-300">
-          <p className="font-semibold mb-1">✅ 분석 완료 {file ? `(파일: ${file.name})` : '(텍스트 직접 입력)'}</p>
-          <ul className="list-disc pl-4 space-y-1">
-            {result.agentCount ? <li>수용 인원: {result.agentCount}명으로 자동 설정</li> : null}
-            {result.objectsToRemove?.length > 0 ? <li>철거 대상: {result.objectsToRemove.length}건 감지</li> : null}
-            {result.corridorPolicies?.length > 0 ? <li>통로 통제: {result.corridorPolicies.length}건 감지</li> : null}
-            {result.closedGateIds?.length > 0 ? <li>폐쇄 게이트: {result.closedGateIds.join(', ')}번</li> : null}
-            {!result.agentCount && !result.objectsToRemove?.length && !result.corridorPolicies?.length && !result.closedGateIds?.length && (
-              <li>특이 사항(변경점) 없음</li>
-            )}
-          </ul>
-        </div>
-      );
-      
-      setSuccessMessage(summary);
+      setLastResult(result);
       onAnalyzeSuccess(result);
-      setPolicyText('');
-      setFile(null);
     } catch (err: any) {
       setError(err?.response?.data?.detail || '공문 분석 중 오류가 발생했습니다.');
     } finally {
@@ -65,6 +85,158 @@ export default function PolicyAnalysisPanel({ onAnalyzeSuccess }: PolicyAnalysis
     }
   };
 
+  /** 다시 분석: 결과·입력 초기화 후 입력 폼으로 복귀 */
+  const handleReanalyze = () => {
+    setLastResult(null);
+    setPolicyText('');
+    setFile(null);
+    setError(null);
+    onReset?.();
+  };
+
+  /* ─────────────────────────────────────────────────
+     LLM 모드: 분석 완료 결과 요약
+  ───────────────────────────────────────────────── */
+  if (isLlmMode && lastResult) {
+    const { objectsToRemove = [], corridorPolicies = [], closedGateIds = [], agentCount } = lastResult;
+    const hasAny = objectsToRemove.length > 0 || corridorPolicies.length > 0 || closedGateIds.length > 0 || agentCount;
+
+    return (
+      <div className="rounded-lg border border-blue-700 bg-blue-950/40 p-4 space-y-3">
+        {/* 헤더 */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-blue-300 flex items-center gap-2">
+            <span>✨</span> LLM 정책 자동 세팅 완료
+          </h3>
+          <span className="text-[10px] bg-blue-800/60 text-blue-300 px-2 py-0.5 rounded-full font-medium tracking-wide">
+            POLICY MODE
+          </span>
+        </div>
+
+        {/* 추출된 항목 목록 */}
+        <div className="rounded-md bg-slate-900/60 p-3 space-y-2">
+          {!hasAny && (
+            <p className="text-xs text-slate-400">추출된 정책 항목이 없습니다.</p>
+          )}
+
+          {/* 오브젝트 제거 정책: 항목별로 철거됨/현장 준수 구분 */}
+          {(() => {
+            // objectRemovalResults(부모 계산값) 우선 사용, 없으면 모두 compliant로 폴백
+            const items: ObjectRemovalResult[] = objectRemovalResults && objectRemovalResults.length > 0
+              ? objectRemovalResults
+              : objectsToRemove.map(o => ({
+                  ...o,
+                  zoneName: `Zone ${o.zoneId}`,
+                  status: 'compliant' as const,
+                }));
+
+            const OBJ_LABEL: Record<string, string> = {
+              obstacle: '장애물/적재물',
+              food_truck: '푸드트럭',
+              event_zone: '행사존',
+              rest_area: '휴게공간',
+            };
+
+            if (items.length === 0) return null;
+            return (
+              <div className="space-y-1.5">
+                {items.map((item, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs">
+                    <span
+                      className={`mt-0.5 shrink-0 ${
+                        item.status === 'removed' ? 'text-blue-400' : 'text-emerald-400'
+                      }`}
+                    >
+                      ✓
+                    </span>
+                    <span className="text-slate-300">
+                      {OBJ_LABEL[item.objectType] ?? item.objectType}{' '}
+                      <span className="text-slate-500">({item.zoneName})</span>
+                      {item.status === 'removed' ? (
+                        <span className="ml-1.5 inline-block px-1.5 py-0.5 rounded text-[10px] bg-blue-900/50 text-blue-300 font-medium">
+                          철거 완료
+                        </span>
+                      ) : (
+                        <span className="ml-1.5 inline-block px-1.5 py-0.5 rounded text-[10px] bg-emerald-900/50 text-emerald-400 font-medium">
+                          현장 준수 처리
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* 통로 정책 */}
+          {corridorPolicies.map((c, i) => (
+            <div key={i} className="flex items-start gap-2 text-xs text-slate-300">
+              <span className="text-blue-400 mt-0.5 shrink-0">→</span>
+              <span>
+                통로 정책:{' '}
+                <span className="text-blue-300">Zone {c.fromZoneId} ↔ Zone {c.toZoneId}</span>
+                {' '}
+                <span className="text-slate-400">{ACTION_LABEL[c.action] ?? c.action}</span>
+                {c.action === 'one_way' && c.allowedDirection && (
+                  <span className="text-slate-500 ml-1">
+                    ({c.allowedDirection === 'from_to' ? '출발→도착' : '도착→출발'})
+                  </span>
+                )}
+              </span>
+            </div>
+          ))}
+
+          {/* 게이트 폐쇄 */}
+          {closedGateIds.length > 0 && (
+            <div className="flex items-start gap-2 text-xs text-slate-300">
+              <span className="text-orange-400 mt-0.5 shrink-0">✗</span>
+              <span>
+                게이트 폐쇄:{' '}
+                <span className="text-orange-300">{closedGateIds.join(', ')}번</span>
+              </span>
+            </div>
+          )}
+
+          {/* 수용 인원 제한 */}
+          {agentCount && (
+            <div className="flex items-start gap-2 text-xs text-slate-300">
+              <span className="text-yellow-400 mt-0.5 shrink-0">⚑</span>
+              <span>
+                수용 인원 제한:{' '}
+                <span className="text-yellow-300 font-medium">{agentCount.toLocaleString()}명</span>
+              </span>
+            </div>
+          )}
+        </div>
+
+        <p className="text-[11px] text-slate-500 leading-relaxed">
+          아래 시나리오 설정이 잠겨 있습니다.
+          직접 조작하려면{' '}
+          <span className="text-amber-400 font-medium">"수동으로 편집"</span>을 누르세요.
+        </p>
+
+        {/* 액션 버튼 */}
+        <div className="flex gap-2">
+          <button
+            onClick={handleReanalyze}
+            className="flex-1 py-1.5 text-xs border border-slate-600 text-slate-400 rounded hover:border-slate-400 hover:text-slate-200 transition-colors"
+          >
+            다시 분석
+          </button>
+          <button
+            onClick={() => onSwitchToManual?.()}
+            className="flex-1 py-1.5 text-xs border border-amber-700 text-amber-400 rounded hover:bg-amber-900/30 transition-colors font-medium"
+          >
+            수동으로 편집
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  /* ─────────────────────────────────────────────────
+     기본 모드: 공문 입력 폼
+  ───────────────────────────────────────────────── */
   return (
     <div className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-sm">
       <h3 className="text-md font-semibold text-slate-800 dark:text-slate-200 mb-2 flex items-center gap-2">
@@ -73,7 +245,7 @@ export default function PolicyAnalysisPanel({ onAnalyzeSuccess }: PolicyAnalysis
       <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
         정부 공문 텍스트를 입력하면 LLM이 분석하여 시나리오 환경을 자동으로 설정합니다.
       </p>
-      
+
       <textarea
         className="w-full h-24 p-2 text-sm border border-slate-300 dark:border-slate-600 rounded bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500"
         placeholder="공문 텍스트를 이곳에 붙여넣으세요..."
@@ -81,10 +253,10 @@ export default function PolicyAnalysisPanel({ onAnalyzeSuccess }: PolicyAnalysis
         onChange={(e) => setPolicyText(e.target.value)}
         disabled={isAnalyzing}
       />
-      
+
       <div className="mt-2">
         <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-          첨부파일 (선택) - 최대 10MB
+          첨부파일 (선택) — 최대 10MB
         </label>
         <input
           type="file"
@@ -99,11 +271,9 @@ export default function PolicyAnalysisPanel({ onAnalyzeSuccess }: PolicyAnalysis
           </p>
         )}
       </div>
-      
+
       {error && <div className="mt-2 text-xs text-red-500">{error}</div>}
-      
-      {successMessage}
-      
+
       <button
         onClick={handleAnalyze}
         disabled={(!policyText.trim() && !file) || isAnalyzing}

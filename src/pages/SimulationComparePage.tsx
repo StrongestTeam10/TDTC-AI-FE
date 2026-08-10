@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import HeatmapView from '../components/HeatmapView';
 import ScenarioForm from '../components/ScenarioForm';
 import PolicyAnalysisPanel from '../components/PolicyAnalysisPanel';
+import type { ObjectRemovalResult } from '../components/PolicyAnalysisPanel';
 import RiskTrendChart from '../components/RiskTrendChart';
 import ComparisonKpiTiles from '../components/ComparisonKpiTiles';
 import ZoneRiskSmallMultiples from '../components/ZoneRiskSmallMultiples';
@@ -167,6 +168,24 @@ export default function SimulationComparePage() {
 
   const [steps, setSteps] = useState(30);
   const [agentCount, setAgentCount] = useState(100);
+  /**
+   * 'llm': LLM 분석 완료 후 자동 세팅 상태. ScenarioForm이 잠김.
+   * 'manual': 기본 상태. ScenarioForm을 사용자가 직접 조작 가능.
+   */
+  const [scenarioMode, setScenarioMode] = useState<'manual' | 'llm'>('manual');
+  /**
+   * 현행안(Before)에 배치된 오브젝트 목록.
+   * 지금은 빈 배열(없음).
+   * 나중에 DB에 장애물 데이터를 심으면 이수학으로 로드하면 돼.
+   */
+  const [beforeObjects, setBeforeObjects] = useState<PlacedObject[]>([]);
+  /**
+   * LLM objectsToRemove 항목별 제거 결과.
+   * 목분은 beforeObjects와 매칭한 결과:
+   *  'removed'  → Before에 해당 오브젝트가 있었고 삭제됨 (철거 완료 배지)
+   *  'compliant'→ Before에 없었음 / 이미 준수 (현장 준수 처리 배지)
+   */
+  const [objectRemovalResults, setObjectRemovalResults] = useState<ObjectRemovalResult[]>([]);
 
   const {
     generate: generateReportFor,
@@ -368,6 +387,9 @@ export default function SimulationComparePage() {
     setIsPlaying(false);
     setRunError(null);
     clearReportError();
+    setScenarioMode('manual');
+    setBeforeObjects([]);
+    setObjectRemovalResults([]);
   };
 
   const handleAddCorridor = (policy: CorridorPolicy) => {
@@ -611,36 +633,58 @@ export default function SimulationComparePage() {
                       Before·After 양쪽 지도 어디서 찍든 같은 위치에 동시 반영됩니다.
                     </span>
                   </h3>
-                  <PolicyAnalysisPanel 
+                  <PolicyAnalysisPanel
+                    isLlmMode={scenarioMode === 'llm'}
+                    objectRemovalResults={objectRemovalResults}
+                    onSwitchToManual={() => setScenarioMode('manual')}
+                    onReset={() => {
+                      setCorridorPolicies([]);
+                      setAfterClosedGateIds(new Set());
+                      setObjectRemovalResults([]);
+                      setScenarioMode('manual');
+                    }}
                     onAnalyzeSuccess={(result) => {
-                      if (result.objectsToRemove) {
-                        setObjects((prev) => [
-                          ...prev, 
-                          ...result.objectsToRemove.map(obj => ({
-                            objectType: obj.objectType as 'food_truck' | 'obstacle' | 'event_zone' | 'rest_area',
-                            zoneId: obj.zoneId,
-                            intensity: 1.0,
-                            latitude: undefined,
-                            longitude: undefined
-                          }))
-                        ]);
+                      // objectsToRemove: beforeObjects와 매칭 → '철거됨' vs '현장 준수' 결정
+                      const removals = result.objectsToRemove ?? [];
+                      const newRemovalResults: ObjectRemovalResult[] = removals.map(removal => {
+                        const zn = zones.find(z => z.zoneId === removal.zoneId)?.zoneName
+                          ?? `Zone ${removal.zoneId}`;
+                        const matched = beforeObjects.find(
+                          o => o.zoneId === removal.zoneId && o.objectType === removal.objectType
+                        );
+                        return { ...removal, zoneName: zn, status: matched ? 'removed' : 'compliant' };
+                      });
+                      setObjectRemovalResults(newRemovalResults);
+
+                      // Before에서 매칭된 오브젝트 실제 제거 (나중에 DB 연동 시 효과적)
+                      const removedKeys = new Set(
+                        newRemovalResults
+                          .filter(r => r.status === 'removed')
+                          .map(r => `${r.zoneId}:${r.objectType}`)
+                      );
+                      if (removedKeys.size > 0) {
+                        setBeforeObjects(prev =>
+                          prev.filter(o => !removedKeys.has(`${o.zoneId}:${o.objectType}`))
+                        );
                       }
+
                       if (result.corridorPolicies) {
-                        setCorridorPolicies((prev) => [...prev, ...result.corridorPolicies]);
+                        setCorridorPolicies(result.corridorPolicies);
                       }
                       if (result.closedGateIds) {
-                        // AI 분석이 제안한 게이트 폐쇄는 개입(After) 시나리오에 적용.
                         setAfterClosedGateIds(new Set(result.closedGateIds));
                       }
                       if (result.agentCount) {
                         setAgentCount(result.agentCount);
-                        alert(`AI 분석 결과에 따라 수용 인원이 ${result.agentCount}명으로 자동 설정되었습니다.`);
                       }
-                    }} 
+                      setScenarioMode('llm');
+                    }}
                   />
+
                   <div className="mt-4">
                     <ScenarioForm
                       isRunning={isPredicting || isScenarioRunning}
+                      isLlmMode={scenarioMode === 'llm'}
                       steps={steps}
                       zones={zones}
                     objects={objects}

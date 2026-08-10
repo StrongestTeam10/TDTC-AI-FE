@@ -30,6 +30,12 @@ interface ScenarioFormProps {
   corridors: CorridorPolicy[];
   onAddCorridor: (policy: CorridorPolicy) => void;
   onRemoveCorridor: (index: number) => void;
+
+  /**
+   * LLM 정책 모드 활성화 여부. true이면 모든 입력이 비활성화되고 잠금 안내 배너가 표시된다.
+   * 사용자가 "수동으로 편집"을 누르면 부모가 이 값을 false로 바꾼다.
+   */
+  isLlmMode?: boolean;
 }
 
 const OBJECT_TYPE_OPTIONS: { value: PlacedObject['objectType']; label: string; hint: string }[] = [
@@ -74,7 +80,10 @@ export default function ScenarioForm({
   corridors,
   onAddCorridor,
   onRemoveCorridor,
+  isLlmMode = false,
 }: ScenarioFormProps) {
+  /** isRunning과 isLlmMode 중 하나라도 true이면 모든 입력을 잠근다 */
+  const isLocked = isRunning || isLlmMode;
   const [nextFromZoneId, setNextFromZoneId] = useState<number>(0);
   const [nextToZoneId, setNextToZoneId] = useState<number>(0);
   const [nextAction, setNextAction] = useState<CorridorPolicy['action']>('close');
@@ -115,8 +124,24 @@ export default function ScenarioForm({
 
   return (
     <div className="space-y-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-3">
-      {/* 오브젝트 배치 섹션 */}
-      <div className="rounded-lg border border-sky-200 bg-sky-50 p-2.5 space-y-2 dark:border-sky-800 dark:bg-sky-950/40">
+      {/* LLM 정책 모드: 오브젝트·통로는 잠김, 이벤트는 개방 안내 */}
+      {isLlmMode && (
+        <div className="flex items-center gap-2 rounded border border-amber-700/60 bg-amber-950/40 px-3 py-2">
+          <span className="text-amber-400 text-sm">🔒</span>
+          <p className="text-[11px] text-amber-300 leading-tight">
+            LLM 정책 모드 — 오브젝트·통로는 잠김,{' '}
+            <span className="text-rose-300 font-semibold">이벤트 설정은 열려 있습니다.</span>
+          </p>
+        </div>
+      )}
+      {/* 오브젝트 배치 섹션 — LLM 모드 시 frosted glass 잠금 */}
+      <div className="relative rounded-lg border border-sky-200 bg-sky-50 p-2.5 space-y-2 dark:border-sky-800 dark:bg-sky-950/40">
+        {/* Frosted glass overlay */}
+        {isLlmMode && (
+          <div className="absolute inset-0 z-10 rounded-lg bg-slate-900/55 backdrop-blur-[2px] flex items-center justify-center">
+            <span className="text-[11px] text-slate-400 select-none">🔒 LLM 정책 모드</span>
+          </div>
+        )}
         <h3 className="text-xs font-semibold text-sky-700 dark:text-sky-300">오브젝트 배치</h3>
         <p className="text-[11px] text-slate-500 dark:text-slate-400">
           {placementType
@@ -129,7 +154,7 @@ export default function ScenarioForm({
             <button
               key={opt.value}
               type="button"
-              disabled={isRunning}
+              disabled={isLocked}
               onClick={() => handleTogglePlacement(opt.value)}
               className={`rounded border px-1.5 py-1 text-[11px] text-left transition-colors ${
                 placementType === opt.value
@@ -152,7 +177,7 @@ export default function ScenarioForm({
                 <span>{objectTypeLabel(obj.objectType)} ({zoneName(obj.zoneId)})</span>
                 <button
                   type="button"
-                  disabled={isRunning}
+                  disabled={isLocked}
                   onClick={() => onRemoveObject(idx)}
                   className="text-red-600 hover:text-red-500 text-[10px] dark:text-red-400 dark:hover:text-red-300"
                 >
@@ -164,7 +189,7 @@ export default function ScenarioForm({
         )}
       </div>
 
-      {/* 이벤트 배치 섹션 */}
+      {/* 이벤트 배치 섹션 — LLM 모드에서도 항상 활성화 */}
       <div className="rounded-lg border border-rose-200 bg-rose-50 p-2.5 space-y-2 dark:border-rose-800 dark:bg-rose-950/40">
         <h3 className="text-xs font-semibold text-rose-700 dark:text-rose-300">이벤트 설정</h3>
         <div className="grid grid-cols-2 gap-1.5">
@@ -267,8 +292,14 @@ export default function ScenarioForm({
         )}
       </div>
 
-      {/* 통로 제어 섹션 */}
-      <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 space-y-2 dark:border-emerald-800 dark:bg-emerald-950/40">
+      {/* 통로 제어 섹션 — LLM 모드 시 frosted glass 잠금 */}
+      <div className="relative rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 space-y-2 dark:border-emerald-800 dark:bg-emerald-950/40">
+        {/* Frosted glass overlay */}
+        {isLlmMode && (
+          <div className="absolute inset-0 z-10 rounded-lg bg-slate-900/55 backdrop-blur-[2px] flex items-center justify-center">
+            <span className="text-[11px] text-slate-400 select-none">🔒 LLM 정책 모드</span>
+          </div>
+        )}
         <h3 className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">통로 제어 정책</h3>
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div>
@@ -277,7 +308,7 @@ export default function ScenarioForm({
               value={nextFromZoneId}
               onChange={(e) => setNextFromZoneId(Number(e.target.value))}
               className="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-slate-800 dark:text-slate-200"
-              disabled={isRunning}
+              disabled={isLocked}
             >
               {zones.map((z) => (
                 <option key={z.zoneId} value={z.zoneId}>{z.zoneName}</option>
@@ -290,7 +321,7 @@ export default function ScenarioForm({
               value={nextToZoneId}
               onChange={(e) => setNextToZoneId(Number(e.target.value))}
               className="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-slate-800 dark:text-slate-200"
-              disabled={isRunning}
+              disabled={isLocked}
             >
               {zones.map((z) => (
                 <option key={z.zoneId} value={z.zoneId}>{z.zoneName}</option>
@@ -306,7 +337,7 @@ export default function ScenarioForm({
               value={nextAction}
               onChange={(e) => setNextAction(e.target.value as CorridorPolicy['action'])}
               className="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-slate-800 dark:text-slate-200"
-              disabled={isRunning}
+              disabled={isLocked}
             >
               {CORRIDOR_ACTION_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -320,7 +351,7 @@ export default function ScenarioForm({
                 value={nextAllowedDirection}
                 onChange={(e) => setNextAllowedDirection(e.target.value as 'from_to' | 'to_from')}
                 className="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-slate-800 dark:text-slate-200"
-                disabled={isRunning}
+                disabled={isLocked}
               >
                 <option value="from_to">출발 ➔ 도착</option>
                 <option value="to_from">도착 ➔ 출발</option>
@@ -331,7 +362,7 @@ export default function ScenarioForm({
 
         <button
           type="button"
-          disabled={isRunning || nextFromZoneId === nextToZoneId}
+          disabled={isLocked || nextFromZoneId === nextToZoneId}
           onClick={handleAddCorridor}
           className="w-full rounded bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-400 dark:disabled:bg-slate-700 text-white text-xs py-1 transition-colors"
         >
@@ -349,7 +380,7 @@ export default function ScenarioForm({
                 </span>
                 <button
                   type="button"
-                  disabled={isRunning}
+                  disabled={isLocked}
                   onClick={() => onRemoveCorridor(idx)}
                   className="text-red-600 hover:text-red-500 text-[10px] dark:text-red-400 dark:hover:text-red-300"
                 >
