@@ -678,8 +678,19 @@ export async function fetchAdminUsers(
   return data;
 }
 
-export async function updateUserRole(userId: number, rulesCode: string): Promise<UserSummary> {
-  const { data } = await apiClient.patch<UserSummary>(`/admin/users/${userId}/role`, { rulesCode });
+// 2026-08-10 변경: 회원관리 화면이 권한과 소속 시장을 한 행에서 같이 고친 뒤 저장
+// 버튼으로 일괄 전송하는 방식이 되면서, 한 회원당 요청이 두 번 나가지 않도록 두 값을
+// 같이 보낸다. marketCode를 생략하면 BE는 소속 시장을 건드리지 않고, 빈 문자열을
+// 보내면 "소속 시장 없음"으로 지운다(관리자는 시장이 NULL인 것이 정상이라 필요함).
+export async function updateUserRole(
+    userId: number,
+    rulesCode: string,
+    marketCode?: string
+): Promise<UserSummary> {
+  const { data } = await apiClient.patch<UserSummary>(`/admin/users/${userId}/role`, {
+    rulesCode,
+    ...(marketCode === undefined ? {} : { marketCode }),
+  });
   return data;
 }
 

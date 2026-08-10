@@ -60,7 +60,7 @@ export default function FramePlayer({
 
   if (totalFrames === 0) {
     return (
-        <div className="rounded-lg border border-slate-700 bg-slate-900 p-8 text-center text-slate-500 text-sm">
+        <div className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-8 text-center text-slate-500 text-sm">
           재생할 시뮬레이션 결과가 없습니다. 먼저 시뮬레이션을 실행해주세요.
         </div>
     );
@@ -80,10 +80,10 @@ export default function FramePlayer({
             transitionMs={intervalMs}
         />
 
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-3 rounded bg-slate-900/90 px-4 py-2 text-xs text-slate-300 w-[90%] max-w-md shadow-lg border border-slate-700">
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-3 rounded bg-white dark:bg-slate-900/90 px-4 py-2 text-xs text-slate-600 dark:text-slate-300 w-[90%] max-w-md shadow-lg border border-slate-300 dark:border-slate-700">
           <button
             onClick={() => setIsPlaying(!isPlaying)}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-700 hover:bg-slate-600 text-white transition-colors"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-slate-700 transition-colors hover:bg-slate-300 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600"
           >
             {isPlaying ? '⏸' : '▶'}
           </button>
@@ -102,13 +102,13 @@ export default function FramePlayer({
 
           <div className="flex flex-col items-end min-w-[70px]">
             <span className="font-mono">{index + 1} / {totalFrames}</span>
-            <span className="text-[10px] text-slate-400">~{elapsedSeconds}초</span>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400">~{elapsedSeconds}초</span>
           </div>
 
           <select
               value={speed}
               onChange={(e) => setSpeed(Number(e.target.value))}
-              className="rounded border border-slate-600 bg-slate-800 px-1 py-1 text-slate-200 outline-none"
+              className="rounded border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 px-1 py-1 text-slate-800 dark:text-slate-200 outline-none"
           >
             {SPEED_OPTIONS.map((s) => (
                 <option key={s} value={s}>{s}x</option>

@@ -10,6 +10,7 @@ import {
   YAxis,
 } from 'recharts';
 import styles from './CctvDashboard.module.css';
+import { useChartTheme } from '../../hooks/useChartTheme';
 import { CRITICAL_THRESHOLD_LINE } from '../../utils/criScore';
 import type { CriHistoryPoint } from '../../hooks/useCriScore';
 import type { ControlStatus } from '../../types/cctv';
@@ -35,6 +36,8 @@ export default function CctvRiskChartCard({
   barColor,
   history,
 }: CctvRiskChartCardProps) {
+  const chartTheme = useChartTheme();
+
   return (
       <div className={`${styles.card} ${styles.chartCard}`}>
         <div className={styles.cardTitle}>
@@ -63,18 +66,18 @@ export default function CctvRiskChartCard({
         <div className={styles.lineChartContainer}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={history} margin={{ top: 8, right: 12, bottom: 0, left: -20 }}>
-              <CartesianGrid stroke="rgba(148, 163, 184, 0.1)" />
-              <XAxis dataKey="t" stroke="#94a3b8" fontSize={9} tickLine={false} />
+              <CartesianGrid stroke={chartTheme.grid} />
+              <XAxis dataKey="t" stroke={chartTheme.axis} fontSize={9} tickLine={false} />
               <YAxis
                   domain={[0, 100]}
                   ticks={[0, 25, 50, 75, 100]}
-                  stroke="#94a3b8"
+                  stroke={chartTheme.axis}
                   fontSize={10}
                   tickLine={false}
               />
               <Tooltip
-                  contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', fontSize: 12 }}
-                  labelStyle={{ color: '#e2e8f0' }}
+                  contentStyle={chartTheme.tooltipContentStyle}
+                  labelStyle={chartTheme.tooltipLabelStyle}
               />
               <Legend wrapperStyle={{ fontSize: 10 }} />
               <Area

@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Spinner from '../components/ui/Spinner';
 import ErrorBanner from '../components/ui/ErrorBanner';
+import TabButton from '../components/ui/TabButton';
 import {
   fetchAdminUsers,
   updateUserRole,
   fetchPendingUsers,
+  fetchCommonCodes,
   approveUser,
   rejectUser,
   type UserSummary,
@@ -21,7 +23,6 @@ import { toDisplayErrorMessage } from '../utils/errorMessage';
 //    (전체 시장 + 시장별 탭, 로컬 state로 필터링해서 목록 재조회)
 //  - 화면을 "사용자 관리"(전체 회원, 권한 변경) / "회원 승인"(가입 승인 대기자,
 //    체크박스로 여러 명 선택 후 일괄 승인/거부) 두 탭으로 분리
-//  - 권한 변경은 즉시 반영, 별도 승인 절차나 이력 화면 없음(재재님 확인)
 //
 // 2026-08-05 (2차): 원래 "회원 승인"을 별도 화면(UserApprovalPage, /admin/approvals)
 // 으로 나눠뒀었는데, 재재님이 "회원 승인 탭 하나로 통일 + 체크박스로 대상 구분"
@@ -30,20 +31,55 @@ import { toDisplayErrorMessage } from '../utils/errorMessage';
 // fetchPendingUsers/approveUser/rejectUser를 씀(승인/거부라는 명확한 의미가 역할
 // 드롭다운보다 이 화면 목적에 더 맞음). marketCode 필터는 BE에 파라미터가 없어서
 // 프론트에서 한 번 더 걸러냄(承認 대기자 수 자체가 적어서 성능 부담 없음).
+//
+// 2026-08-10 (3차) "사용자 관리" 탭 재작업:
+//  - 소속 시장도 콤보박스로 바꿀 수 있게 함(BE PATCH /admin/users/{id}/role 이
+//    marketCode를 같이 받도록 확장). 시장 목록은 회원가입 화면과 동일하게 공통코드
+//    (MKT)에서 받고, 실패하면 constants/marketCode.ts 폴백.
+//  - 콤보박스와 값이 같은 "현재 권한" 표시 컬럼은 중복이라 제거.
+//  - 셀을 바꿀 때마다 confirm/alert를 띄우고 곧바로 저장하던 방식을 버리고, 변경분을
+//    화면에 쌓아뒀다가 [저장] 한 번으로 일괄 전송한다(여러 명을 연달아 고칠 때 매번
+//    확인창이 뜨는 게 실제 운영에서 가장 불편한 지점이었음).
+//  - 각 행 앞 체크박스를 켠 행에서만 콤보박스가 열린다. 목록을 스크롤하다 휠이
+//    select에 걸려 권한이 바뀌는 사고를 막는 잠금 장치이기도 하다.
 const ROLE_OPTIONS: UserRole[] = ['ROL01', 'ROL02', 'ROL03'];
 const ALL_VALUE = ''; // "전체 시장"을 의미하는 내부 값(쿼리 파라미터 미전송) - BoardListPage와 동일한 관례
+const NO_MARKET_VALUE = ''; // 소속 시장 없음(관리자처럼 시장 제한이 없는 회원은 NULL이 정상)
 
 type ViewTab = 'manage' | 'pending';
+
+// 편집 중인 값. 저장 전까지는 서버 값(users)과 별개로 들고 있다가, 저장에 성공한
+// 행만 서버 응답으로 교체한다.
+interface UserDraft {
+  rulesCode: string;
+  marketCode: string;
+}
+
+const CELL_SELECT_CLASS =
+  'rounded border px-2 py-1 text-sm outline-none transition-colors ' +
+  'border-slate-300 bg-white text-slate-900 ' +
+  'dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 ' +
+  'focus:ring-2 focus:ring-blue-600 ' +
+  'disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 ' +
+  'dark:disabled:bg-slate-900 dark:disabled:text-slate-600';
 
 export default function UserAdminPage() {
   const [marketCode, setMarketCode] = useState(ALL_VALUE);
   const [tab, setTab] = useState<ViewTab>('manage');
 
+  // 회원가입 화면과 동일하게 공통코드(MKT)에서 받아오고, 실패하면 로컬 폴백을 그대로 씀
+  const [marketOptions, setMarketOptions] = useState(MARKET_CODE_OPTIONS);
+
   // 사용자 관리 탭
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [savingUserId, setSavingUserId] = useState<number | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  // 체크한 행에서만 콤보박스가 열린다(편집 잠금)
+  const [editableIds, setEditableIds] = useState<Set<number>>(new Set());
+  const [drafts, setDrafts] = useState<Record<number, UserDraft>>({});
 
   // 회원 승인 탭
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
@@ -51,10 +87,32 @@ export default function UserAdminPage() {
   const [processingIds, setProcessingIds] = useState<Set<number>>(new Set());
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
+  useEffect(() => {
+    fetchCommonCodes('MKT')
+      .then((codes) => {
+        if (codes.length > 0) {
+          setMarketOptions(codes.map((c) => ({ code: c.code, name: c.codeName })));
+        }
+      })
+      .catch((err) => {
+        console.error('공통코드(담당 시장) 조회 실패, 로컬 기본값 사용', err);
+      });
+  }, []);
+
+  const marketName = useCallback(
+    (code: string | null | undefined) =>
+      marketOptions.find((m) => m.code === code)?.name ?? code ?? '-',
+    [marketOptions]
+  );
+
   const load = useCallback(async () => {
     setIsLoading(true);
     setLoadError(null);
+    setSaveError(null);
+    setSaveNotice(null);
     setSelectedIds(new Set());
+    setEditableIds(new Set());
+    setDrafts({});
     try {
       if (tab === 'pending') {
         const data = await fetchPendingUsers();
@@ -74,23 +132,115 @@ export default function UserAdminPage() {
     load();
   }, [load]);
 
-  const handleRoleChange = async (user: UserSummary, nextRole: string) => {
-    if (nextRole === user.rulesCode) return;
-    const confirmed = window.confirm(
-      `${user.name}(${user.loginId})님의 권한을 "${ROLE_LABELS[nextRole as UserRole] ?? nextRole}"(으)로 즉시 변경합니다. 계속할까요?`
-    );
-    if (!confirmed) return;
+  // ===== 사용자 관리 탭: 편집 잠금 · 임시 변경값 =====
 
-    setSavingUserId(user.userId);
-    try {
-      const updated = await updateUserRole(user.userId, nextRole);
-      setUsers((prev) => prev.map((u) => (u.userId === user.userId ? updated : u)));
-    } catch (err) {
-      window.alert(toDisplayErrorMessage(err, '권한 변경에 실패했습니다.'));
-    } finally {
-      setSavingUserId(null);
+  const draftOf = useCallback(
+    (user: UserSummary): UserDraft =>
+      drafts[user.userId] ?? { rulesCode: user.rulesCode, marketCode: user.marketCode ?? NO_MARKET_VALUE },
+    [drafts]
+  );
+
+  const isDirty = useCallback(
+    (user: UserSummary) => {
+      const d = drafts[user.userId];
+      if (!d) return false;
+      return d.rulesCode !== user.rulesCode || d.marketCode !== (user.marketCode ?? NO_MARKET_VALUE);
+    },
+    [drafts]
+  );
+
+  const dirtyUsers = useMemo(() => users.filter((u) => isDirty(u)), [users, isDirty]);
+
+  const toggleEditable = (user: UserSummary) => {
+    setSaveNotice(null);
+    setEditableIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(user.userId)) next.delete(user.userId);
+      else next.add(user.userId);
+      return next;
+    });
+    // 체크를 풀면 그 행의 미저장 변경분도 같이 되돌린다 - 잠긴 행이 바뀐 채로 남아
+    // 있으면 [저장]을 눌렀을 때 화면에서 손댈 수 없는 값이 그대로 전송된다.
+    if (editableIds.has(user.userId)) {
+      setDrafts((prev) => {
+        const next = { ...prev };
+        delete next[user.userId];
+        return next;
+      });
     }
   };
+
+  const toggleEditableAll = () => {
+    setSaveNotice(null);
+    if (editableIds.size === users.length) {
+      setEditableIds(new Set());
+      setDrafts({});
+      return;
+    }
+    setEditableIds(new Set(users.map((u) => u.userId)));
+  };
+
+  const updateDraft = (user: UserSummary, patch: Partial<UserDraft>) => {
+    setSaveNotice(null);
+    setDrafts((prev) => ({
+      ...prev,
+      [user.userId]: { ...draftOf(user), ...patch },
+    }));
+  };
+
+  const handleCancelChanges = () => {
+    setDrafts({});
+    setEditableIds(new Set());
+    setSaveError(null);
+    setSaveNotice(null);
+  };
+
+  const handleSave = async () => {
+    if (dirtyUsers.length === 0) return;
+
+    setIsSaving(true);
+    setSaveError(null);
+    setSaveNotice(null);
+
+    const saved: UserSummary[] = [];
+    const failed: string[] = [];
+
+    for (const user of dirtyUsers) {
+      const draft = draftOf(user);
+      try {
+        const updated = await updateUserRole(user.userId, draft.rulesCode, draft.marketCode);
+        saved.push(updated);
+      } catch (err) {
+        failed.push(`${user.name}(${toDisplayErrorMessage(err, '저장 실패')})`);
+      }
+    }
+
+    if (saved.length > 0) {
+      const savedById = new Map(saved.map((u) => [u.userId, u]));
+      setUsers((prev) => prev.map((u) => savedById.get(u.userId) ?? u));
+      // 저장에 성공한 행만 임시 변경분과 편집 상태를 정리하고, 실패한 행은 다시
+      // 시도할 수 있도록 입력값을 그대로 남긴다.
+      setDrafts((prev) => {
+        const next = { ...prev };
+        saved.forEach((u) => delete next[u.userId]);
+        return next;
+      });
+      setEditableIds((prev) => {
+        const next = new Set(prev);
+        saved.forEach((u) => next.delete(u.userId));
+        return next;
+      });
+    }
+
+    if (failed.length > 0) {
+      setSaveError(`${failed.length}명의 정보를 저장하지 못했습니다: ${failed.join(', ')}`);
+    } else {
+      setSaveNotice(`${saved.length}명의 정보를 저장했습니다.`);
+    }
+    setIsSaving(false);
+  };
+
+  // ===== 회원 승인 탭 =====
 
   const toggleSelected = (userId: number) => {
     setSelectedIds((prev) => {
@@ -162,18 +312,18 @@ export default function UserAdminPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-xl font-semibold text-slate-100">회원관리</h1>
-        <p className="mt-1 text-sm text-slate-400">
-          권한 변경은 저장 즉시 반영되며, 별도 이력은 남지 않습니다.
+        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">회원관리</h1>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          권한과 소속 시장은 체크한 행에서만 수정할 수 있고, 수정한 내용은 [저장]을 눌러야 반영됩니다.
         </p>
       </div>
 
       {/* 시장 선택 - BoardListPage의 관리자 시장 탭과 동일한 UI/로직 */}
-      <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+      <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3 dark:border-slate-800">
         <TabButton active={marketCode === ALL_VALUE} onClick={() => setMarketCode(ALL_VALUE)} small>
           전체 시장
         </TabButton>
-        {MARKET_CODE_OPTIONS.map((m) => (
+        {marketOptions.map((m) => (
           <TabButton key={m.code} active={marketCode === m.code} onClick={() => setMarketCode(m.code)} small>
             {m.name}
           </TabButton>
@@ -195,51 +345,133 @@ export default function UserAdminPage() {
 
       {/* ===== 사용자 관리 탭 ===== */}
       {!isLoading && !loadError && tab === 'manage' && (
-        <div className="overflow-x-auto rounded-lg border border-slate-800">
-          <table className="w-full min-w-[640px] text-left text-sm">
-            <thead className="bg-slate-900 text-slate-400">
-              <tr>
-                <th className="px-4 py-2 font-medium">이름</th>
-                <th className="px-4 py-2 font-medium">아이디</th>
-                <th className="px-4 py-2 font-medium">소속 시장</th>
-                <th className="px-4 py-2 font-medium">현재 권한</th>
-                <th className="px-4 py-2 font-medium">권한 변경</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
-              {users.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
-                    표시할 회원이 없습니다.
-                  </td>
-                </tr>
+        <div className="flex flex-col gap-3">
+          {saveError && <ErrorBanner message={saveError} />}
+
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              수정할 회원의 체크박스를 켜면 권한·소속 시장을 고칠 수 있습니다.
+            </p>
+            <div className="flex items-center gap-2">
+              {saveNotice && (
+                <span className="text-xs text-emerald-600 dark:text-emerald-400">{saveNotice}</span>
               )}
-              {users.map((u) => (
-                <tr key={u.userId} className="text-slate-200">
-                  <td className="px-4 py-2">{u.name}</td>
-                  <td className="px-4 py-2 text-slate-400">{u.loginId}</td>
-                  <td className="px-4 py-2 text-slate-400">
-                    {MARKET_CODE_OPTIONS.find((m) => m.code === u.marketCode)?.name ?? u.marketCode ?? '-'}
-                  </td>
-                  <td className="px-4 py-2">{ROLE_LABELS[u.rulesCode as UserRole] ?? u.rulesCode}</td>
-                  <td className="px-4 py-2">
-                    <select
-                      value={u.rulesCode}
-                      disabled={savingUserId === u.userId}
-                      onChange={(e) => handleRoleChange(u, e.target.value)}
-                      className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600 disabled:opacity-50"
-                    >
-                      {ROLE_OPTIONS.map((r) => (
-                        <option key={r} value={r}>
-                          {ROLE_LABELS[r]}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                {dirtyUsers.length > 0 ? `${dirtyUsers.length}건 수정됨` : '수정된 내용 없음'}
+              </span>
+              <button
+                type="button"
+                onClick={handleCancelChanges}
+                disabled={dirtyUsers.length === 0 || isSaving}
+                className="rounded border border-slate-300 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                되돌리기
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={dirtyUsers.length === 0 || isSaving}
+                className="rounded bg-blue-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSaving ? '저장 중...' : '저장'}
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <thead className="bg-slate-100 text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+                <tr>
+                  <th className="w-10 px-4 py-2">
+                    <input
+                      type="checkbox"
+                      checked={users.length > 0 && editableIds.size === users.length}
+                      onChange={toggleEditableAll}
+                      disabled={users.length === 0 || isSaving}
+                      aria-label="전체 수정 활성화"
+                    />
+                  </th>
+                  <th className="px-4 py-2 font-medium">이름</th>
+                  <th className="px-4 py-2 font-medium">아이디</th>
+                  <th className="px-4 py-2 font-medium">소속 시장</th>
+                  <th className="px-4 py-2 font-medium">권한</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                {users.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                      표시할 회원이 없습니다.
+                    </td>
+                  </tr>
+                )}
+                {users.map((u) => {
+                  const editable = editableIds.has(u.userId);
+                  const draft = draftOf(u);
+                  const dirty = isDirty(u);
+                  return (
+                    <tr
+                      key={u.userId}
+                      className={`text-slate-800 dark:text-slate-200 ${
+                        dirty ? 'bg-blue-50 dark:bg-blue-500/10' : ''
+                      }`}
+                    >
+                      <td className="px-4 py-2">
+                        <input
+                          type="checkbox"
+                          checked={editable}
+                          onChange={() => toggleEditable(u)}
+                          disabled={isSaving}
+                          aria-label={`${u.name} 수정 활성화`}
+                        />
+                      </td>
+                      <td className="px-4 py-2">{u.name}</td>
+                      <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{u.loginId}</td>
+                      <td className="px-4 py-2">
+                        <select
+                          value={draft.marketCode}
+                          disabled={!editable || isSaving}
+                          onChange={(e) => updateDraft(u, { marketCode: e.target.value })}
+                          aria-label={`${u.name} 소속 시장`}
+                          className={CELL_SELECT_CLASS}
+                        >
+                          <option value={NO_MARKET_VALUE}>소속 없음</option>
+                          {marketOptions.map((m) => (
+                            <option key={m.code} value={m.code}>
+                              {m.name}
+                            </option>
+                          ))}
+                          {/* 공통코드에 없는 값이 이미 저장돼 있어도 현재 값이 사라지지 않게 함 */}
+                          {draft.marketCode !== NO_MARKET_VALUE &&
+                            !marketOptions.some((m) => m.code === draft.marketCode) && (
+                              <option value={draft.marketCode}>{marketName(draft.marketCode)}</option>
+                            )}
+                        </select>
+                      </td>
+                      <td className="px-4 py-2">
+                        <select
+                          value={draft.rulesCode}
+                          disabled={!editable || isSaving}
+                          onChange={(e) => updateDraft(u, { rulesCode: e.target.value })}
+                          aria-label={`${u.name} 권한`}
+                          className={CELL_SELECT_CLASS}
+                        >
+                          {ROLE_OPTIONS.map((r) => (
+                            <option key={r} value={r}>
+                              {ROLE_LABELS[r]}
+                            </option>
+                          ))}
+                          {!ROLE_OPTIONS.includes(draft.rulesCode as UserRole) && (
+                            <option value={draft.rulesCode}>{draft.rulesCode}</option>
+                          )}
+                        </select>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -247,11 +479,11 @@ export default function UserAdminPage() {
       {!isLoading && !loadError && tab === 'pending' && (
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               가입 승인 대기 중인 회원만 보여줍니다. 체크박스로 여러 명을 선택해서 한 번에 승인/거부할 수 있습니다.
             </p>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">{selectedIds.size}명 선택됨</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">{selectedIds.size}명 선택됨</span>
               <button
                 type="button"
                 disabled={selectedIds.size === 0 || isBulkProcessing}
@@ -264,16 +496,16 @@ export default function UserAdminPage() {
                 type="button"
                 disabled={selectedIds.size === 0 || isBulkProcessing}
                 onClick={() => handleBulkAction('reject')}
-                className="rounded border border-red-500/40 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded border border-red-500/40 px-3 py-1.5 text-xs text-red-600 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-300"
               >
                 선택 항목 거부
               </button>
             </div>
           </div>
 
-          <div className="overflow-x-auto rounded-lg border border-slate-800">
+          <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
             <table className="w-full min-w-[680px] text-left text-sm">
-              <thead className="bg-slate-900 text-slate-400">
+              <thead className="bg-slate-100 text-slate-500 dark:bg-slate-900 dark:text-slate-400">
                 <tr>
                   <th className="w-10 px-4 py-2">
                     <input
@@ -292,7 +524,7 @@ export default function UserAdminPage() {
                   <th className="px-4 py-2 font-medium" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800">
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                 {pendingUsers.length === 0 && (
                   <tr>
                     <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
@@ -303,7 +535,7 @@ export default function UserAdminPage() {
                 {pendingUsers.map((u) => {
                   const isProcessing = processingIds.has(u.userId);
                   return (
-                    <tr key={u.userId} className="text-slate-200">
+                    <tr key={u.userId} className="text-slate-800 dark:text-slate-200">
                       <td className="px-4 py-2">
                         <input
                           type="checkbox"
@@ -314,11 +546,9 @@ export default function UserAdminPage() {
                         />
                       </td>
                       <td className="px-4 py-2">{u.name}</td>
-                      <td className="px-4 py-2 text-slate-400">{u.loginId}</td>
-                      <td className="px-4 py-2 text-slate-400">{u.orgCode}</td>
-                      <td className="px-4 py-2 text-slate-400">
-                        {MARKET_CODE_OPTIONS.find((m) => m.code === u.marketCode)?.name ?? u.marketCode ?? '-'}
-                      </td>
+                      <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{u.loginId}</td>
+                      <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{u.orgCode}</td>
+                      <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{marketName(u.marketCode)}</td>
                       <td className="px-4 py-2 text-xs text-slate-500">
                         {new Date(u.createdAt).toLocaleString('ko-KR')}
                       </td>
@@ -335,7 +565,7 @@ export default function UserAdminPage() {
                           type="button"
                           disabled={isProcessing || isBulkProcessing}
                           onClick={() => handleSingleAction(u, 'reject')}
-                          className="rounded border border-red-500/40 px-3 py-1 text-xs text-red-300 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="rounded border border-red-500/40 px-3 py-1 text-xs text-red-600 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-300"
                         >
                           거부
                         </button>
@@ -349,31 +579,5 @@ export default function UserAdminPage() {
         </div>
       )}
     </div>
-  );
-}
-
-function TabButton({
-  active,
-  onClick,
-  children,
-  small,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-  small?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-full border px-3 ${small ? 'py-1 text-xs' : 'py-1.5 text-sm'} ${
-        active
-          ? 'border-blue-600 bg-blue-600/20 text-blue-300'
-          : 'border-slate-700 text-slate-400 hover:bg-slate-800'
-      }`}
-    >
-      {children}
-    </button>
   );
 }

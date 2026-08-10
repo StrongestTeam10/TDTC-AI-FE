@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useThemeStore } from '../store/themeStore';
 import type { AgentState, Zone, PlacedObject, Gate, EventTrigger, Building } from '../types';
 
 // 특정 구역의 위험도 정보 (파이프라인 A: SIM ZoneResult 기반, 선택적)
@@ -87,10 +88,32 @@ const EVENT_EMOJI: Record<EventTrigger['eventType'], string> = {
 const GATE_OPEN_EMOJI = '🚪';
 const GATE_CLOSED_EMOJI = '🚫';
 
-const BUILDING_FILL_MEASURED = 'rgba(148, 163, 184, 0.45)';
-const BUILDING_STROKE_MEASURED = '#94a3b8';
-const BUILDING_FILL_ESTIMATED = 'rgba(148, 163, 184, 0.2)';
-const BUILDING_STROKE_ESTIMATED = '#64748b';
+// 2026-08-10 (라이트모드): 지도 바탕이 남색(다크)일 때와 흰색(라이트)일 때 같은 회색
+// 계열을 쓰면 건물/길이 배경에 묻힌다. SVG 속성 색은 Tailwind dark: variant가 닿지
+// 않는 자리라(클래스가 아니라 값이라서) 테마별 팔레트를 값으로 들고 골라 쓴다.
+// 구역 위험도색(RISK_*)과 에이전트 색은 채도가 높아 두 배경 모두에서 읽히므로 공통.
+const MAP_PALETTE = {
+  dark: {
+    zoneLabel: '#e2e8f0',
+    corridor: '#334155',
+    buildingFillMeasured: 'rgba(148, 163, 184, 0.45)',
+    buildingStrokeMeasured: '#94a3b8',
+    buildingFillEstimated: 'rgba(148, 163, 184, 0.2)',
+    buildingStrokeEstimated: '#64748b',
+    agentOutline: '#0f172a',
+    agentOutlineStaying: '#ffffff',
+  },
+  light: {
+    zoneLabel: '#0f172a',
+    corridor: '#94a3b8',
+    buildingFillMeasured: 'rgba(100, 116, 139, 0.35)',
+    buildingStrokeMeasured: '#64748b',
+    buildingFillEstimated: 'rgba(100, 116, 139, 0.15)',
+    buildingStrokeEstimated: '#94a3b8',
+    agentOutline: '#ffffff',
+    agentOutlineStaying: '#0f172a',
+  },
+} as const;
 
 interface Viewport {
   zoom: number;
@@ -159,6 +182,7 @@ export default function HeatmapView({
   viewZoom,
   onViewportChange,
 }: HeatmapViewProps) {
+  const mapColors = MAP_PALETTE[useThemeStore((s) => s.resolvedTheme)];
   const PADDING = 32;
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -510,7 +534,7 @@ export default function HeatmapView({
     return (
       <div
         ref={containerRef}
-        className="relative rounded-lg border border-slate-700 bg-slate-900 flex items-center justify-center text-slate-500 text-sm"
+        className="relative flex items-center justify-center rounded-lg border border-slate-300 bg-slate-50 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900"
         style={{ width, minHeight: height }}
       >
         구역 데이터를 불러오는 중입니다...
@@ -524,7 +548,7 @@ export default function HeatmapView({
   return (
     <div
       ref={containerRef}
-      className="relative rounded-lg border border-slate-700 bg-slate-900 overflow-hidden touch-none select-none"
+      className="relative overflow-hidden rounded-lg border border-slate-300 bg-slate-50 touch-none select-none dark:border-slate-700 dark:bg-slate-900"
       style={{ width, minHeight: height, cursor: placementType ? 'crosshair' : 'grab' }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -550,7 +574,7 @@ export default function HeatmapView({
             <text
               x={z.centroid[0]}
               y={z.centroid[1]}
-              fill="#e2e8f0"
+              fill={mapColors.zoneLabel}
               fontSize={11}
               textAnchor="middle"
               dominantBaseline="middle"
@@ -566,7 +590,7 @@ export default function HeatmapView({
             key={`corridor-${idx}`}
             points={pointsAttr}
             fill="none"
-            stroke="#334155"
+            stroke={mapColors.corridor}
             strokeWidth={2}
             strokeDasharray="4 3"
           />
@@ -576,8 +600,8 @@ export default function HeatmapView({
           <polygon
             key={b.buildingId}
             points={b.pointsAttr}
-            fill={b.heightEstimated ? BUILDING_FILL_ESTIMATED : BUILDING_FILL_MEASURED}
-            stroke={b.heightEstimated ? BUILDING_STROKE_ESTIMATED : BUILDING_STROKE_MEASURED}
+            fill={b.heightEstimated ? mapColors.buildingFillEstimated : mapColors.buildingFillMeasured}
+            stroke={b.heightEstimated ? mapColors.buildingStrokeEstimated : mapColors.buildingStrokeMeasured}
             strokeWidth={0.75}
             strokeDasharray={b.heightEstimated ? '3 2' : undefined}
           />
@@ -657,7 +681,7 @@ export default function HeatmapView({
               cy={agent.y}
               r={2}
               fill={agentColorByDanger(agent.dangerLevel)}
-              stroke={agent.actionState === 'STAYING' ? '#ffffff' : '#0f172a'}
+              stroke={agent.actionState === 'STAYING' ? mapColors.agentOutlineStaying : mapColors.agentOutline}
               strokeWidth={agent.actionState === 'STAYING' ? 0.5 : 0.4}
               style={
                 transitionMs > 0
@@ -676,22 +700,22 @@ export default function HeatmapView({
         ))}
       </svg>
 
-      <div className="absolute top-2 left-2 text-xs text-slate-400 bg-slate-900/70 rounded px-2 py-1">
+      <div className="absolute top-2 left-2 rounded bg-white/80 px-2 py-1 text-xs text-slate-600 dark:bg-slate-900/70 dark:text-slate-400">
         구역 {zones.length}개 · 유동 인구 {agents.length}명
         {buildings ? ` · 건물 ${buildings.length}개` : ''}
       </div>
 
       {placementType && (
-        <div className="absolute top-2 right-2 text-xs text-sky-100 bg-sky-900/90 rounded px-2 py-1 pointer-events-none">
+        <div className="pointer-events-none absolute top-2 right-2 rounded bg-sky-600/90 px-2 py-1 text-xs text-sky-50 dark:bg-sky-900/90 dark:text-sky-100">
           클릭한 위치에 배치됩니다
         </div>
       )}
 
-      <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded bg-slate-900/70 px-1 py-1">
+      <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded bg-white/80 px-1 py-1 dark:bg-slate-900/70">
         <button
           type="button"
           onClick={() => zoomBy(ZOOM_STEP)}
-          className="w-6 h-6 flex items-center justify-center rounded bg-slate-800 text-slate-200 text-sm hover:bg-slate-700"
+          className="flex h-6 w-6 items-center justify-center rounded bg-slate-200 text-sm text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           aria-label="확대"
         >
           +
@@ -699,7 +723,7 @@ export default function HeatmapView({
         <button
           type="button"
           onClick={() => zoomBy(1 / ZOOM_STEP)}
-          className="w-6 h-6 flex items-center justify-center rounded bg-slate-800 text-slate-200 text-sm hover:bg-slate-700"
+          className="flex h-6 w-6 items-center justify-center rounded bg-slate-200 text-sm text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           aria-label="축소"
         >
           −
@@ -707,14 +731,14 @@ export default function HeatmapView({
         <button
           type="button"
           onClick={resetViewport}
-          className="px-2 h-6 flex items-center justify-center rounded bg-slate-800 text-slate-400 text-[10px] hover:bg-slate-700"
+          className="flex h-6 items-center justify-center rounded bg-slate-200 px-2 text-[10px] text-slate-600 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
           aria-label="보기 초기화"
         >
           초기화
         </button>
       </div>
 
-      <div className="absolute bottom-2 right-2 flex items-center gap-3 text-[10px] text-slate-400 bg-slate-900/70 rounded px-2 py-1">
+      <div className="absolute bottom-2 right-2 flex items-center gap-3 rounded bg-white/80 px-2 py-1 text-[10px] text-slate-600 dark:bg-slate-900/70 dark:text-slate-400">
         {[
           { label: '안전', color: AGENT_DANGER_BLUE },
           { label: '주의', color: AGENT_DANGER_YELLOW },
@@ -732,12 +756,12 @@ export default function HeatmapView({
 
       {hoveredAgent && (
         <div
-          className="absolute z-10 pointer-events-none rounded bg-slate-800 border border-slate-600 px-3 py-2 text-xs text-white shadow-lg"
+          className="pointer-events-none absolute z-10 rounded border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 shadow-lg dark:border-slate-600 dark:bg-slate-800 dark:text-white"
           style={{ left: hoveredAgent.x + 10, top: hoveredAgent.y + 10 }}
         >
-          <div className="font-bold mb-1 border-b border-slate-600 pb-1">Agent #{hoveredAgent.agent.agentId}</div>
+          <div className="mb-1 border-b border-slate-300 pb-1 font-bold dark:border-slate-600">Agent #{hoveredAgent.agent.agentId}</div>
           <div>
-            <span className="text-slate-400">유형:</span>{' '}
+            <span className="text-slate-500 dark:text-slate-400">유형:</span>{' '}
             {hoveredAgent.agent.agentType
               ? hoveredAgent.agent.agentType === 'SHOPPING'
                 ? '🛍️ 쇼핑형'
@@ -747,7 +771,7 @@ export default function HeatmapView({
               : '데이터 없음 (과거 기록)'}
           </div>
           <div>
-            <span className="text-slate-400">행동:</span>{' '}
+            <span className="text-slate-500 dark:text-slate-400">행동:</span>{' '}
             {hoveredAgent.agent.actionState
               ? hoveredAgent.agent.actionState === 'STAYING'
                 ? '체류 중'
@@ -759,7 +783,7 @@ export default function HeatmapView({
               : '데이터 없음'}
           </div>
           <div>
-            <span className="text-slate-400">상태:</span>{' '}
+            <span className="text-slate-500 dark:text-slate-400">상태:</span>{' '}
             {hoveredAgent.agent.state === 'normal'
               ? '정상'
               : hoveredAgent.agent.state === 'congested'
