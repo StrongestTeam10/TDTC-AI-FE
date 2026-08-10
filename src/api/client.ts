@@ -12,7 +12,7 @@ import type {
   Building,
   CorridorPolicy,
 } from '../types';
-import type { PostListResponse, PostDetail } from '../types/board';
+import type { PostListResponse, PostDetail, PageResponse } from '../types/board';
 import type {
   EmergencyAlert,
   ExternalFactor,
@@ -150,6 +150,169 @@ export async function analyzePolicy(policyText: string): Promise<PolicyAnalysisR
   const { data } = await apiClient.post<PolicyAnalysisResult>('/policy/analyze', { policyText }, {
     timeout: SIMULATION_TIMEOUT_MS,
   });
+  return data;
+}
+
+// ===== 시나리오 이력 · 정책 보고서 (2026-08-06 추가) =====
+// BE ScenarioHistoryController(/api/simulation/scenarios), ReportController
+// (/api/simulation/reports)와 대응. 이 경로는 BE SecurityConfig에서 ROL01·ROL02만
+// 허용하므로 조회자(ROL03)가 호출하면 403이 온다.
+
+// BE ScenarioHistoryDto와 1:1 매칭. 보고서가 있는 실행과 없는 실행이 함께 나온다.
+export interface ScenarioHistoryItem {
+  scenarioId: number;
+  scenarioName: string;
+  marketId: number;
+  marketName: string | null;
+  agentCount: number | null;
+  policyTypeCode: string | null;
+  executedAt: string | null;
+  hasReport: boolean;
+  // hasReport가 false면 아래 두 필드는 null이다.
+  reportTitle: string | null;
+  downloadPath: string | null;
+  // 실행자 이름. 관리자 전체 목록에서 실행자를 구분하는 데 쓴다.
+  // user_id를 채우기 전에 만들어진 옛 데이터는 null.
+  ownerName: string | null;
+  // 종합 위험 점수(0~100). 위험도 계산 이전 데이터는 null.
+  // 등급(안전/주의/위험/심각) 구분은 화면이 RISK_BUCKETS로 정한다 - BE는 점수만 준다.
+  predictedRiskScore: number | null;
+}
+
+/**
+ * 검색어를 어느 항목에서 찾을지. BE ReportService.normalizeSearchField와 값이 같아야 하며,
+ * 알 수 없는 값을 보내면 BE가 'all'로 되돌린다.
+ *
+ * 'owner'(실행자)는 관리자 전체 조회에서만 의미가 있다 - 본인 목록은 전부 자기 실행이다.
+ * 시나리오명은 대상에 없다: DB에 저장된 원본과 화면에 보이는 표시명이 달라(BE
+ * ScenarioDisplayNameResolver가 조립) 보이는 대로 입력하면 걸리지 않는다.
+ */
+export type ScenarioSearchField = 'all' | 'market' | 'policy' | 'reportTitle' | 'owner';
+
+export interface ScenarioHistoryQuery {
+  keyword?: string;
+  searchField?: ScenarioSearchField;
+  withReportOnly?: boolean;
+  // 위험 점수 범위(둘 다 생략하면 위험도로 거르지 않음). 등급 경계는 화면이 정한다.
+  // 범위를 지정하면 점수가 없는(null) 옛 이력은 결과에서 빠진다 - 어느 등급에도
+  // 속한다고 볼 수 없기 때문이다.
+  minRiskScore?: number;
+  maxRiskScore?: number;
+  page?: number;
+  size?: number;
+}
+
+/**
+ * 시나리오 한 건의 실행 설정. BE ScenarioDetailDto와 1:1 매칭.
+ *
+ * 목록의 이름은 같은 시장·같은 정책유형이면 구분되지 않아, 어느 실행인지 알려면
+ * 이 설정을 봐야 한다. zoneName/name은 해당 구역·게이트가 지워졌으면 null이다.
+ */
+export interface ScenarioDetail {
+  scenarioId: number;
+  scenarioName: string;
+  marketId: number;
+  marketName: string | null;
+  agentCount: number | null;
+  // 실행 요청 JSON에만 있는 값이라, 옛 데이터는 null일 수 있다.
+  steps: number | null;
+  policyTypeCode: string | null;
+  regDatetime: string | null;
+  objects: {
+    objectType: string; zoneId: number | null; zoneName: string | null; intensity: number | null;
+  }[];
+  events: {
+    eventType: string; zoneId: number | null; zoneName: string | null; intensity: number | null;
+    triggerStep: number | null; burnSteps: number | null; recoverySteps: number | null;
+  }[];
+  corridorPolicies: {
+    fromZoneId: number | null; fromZoneName: string | null;
+    toZoneId: number | null; toZoneName: string | null;
+    action: string; allowedDirection: string | null;
+  }[];
+  closedGates: { facilityId: number; name: string | null }[];
+}
+
+export async function fetchScenarioDetail(scenarioId: number): Promise<ScenarioDetail> {
+  const { data } = await apiClient.get<ScenarioDetail>(`/simulation/scenarios/${scenarioId}`);
+  return data;
+}
+
+/** 로그인한 사용자가 실행한 시뮬레이션 이력(최신순). */
+export async function fetchMyScenarios(
+    params: ScenarioHistoryQuery = {}
+): Promise<PageResponse<ScenarioHistoryItem>> {
+  const { data } = await apiClient.get<PageResponse<ScenarioHistoryItem>>(
+      '/simulation/scenarios/my', { params });
+  return data;
+}
+
+/**
+ * 실행자와 무관한 전체 시뮬레이션 이력(최신순). 관리자(ROL01) 전용 - 그 외 권한이
+ * 호출하면 BE ReportService.assertAdmin이 403으로 거절한다.
+ * marketId를 주면 그 시장만 거른다.
+ */
+export async function fetchAllScenarios(
+    marketId?: number,
+    query: ScenarioHistoryQuery = {}
+): Promise<PageResponse<ScenarioHistoryItem>> {
+  const { data } = await apiClient.get<PageResponse<ScenarioHistoryItem>>(
+      '/simulation/scenarios', {
+    params: { ...query, ...(marketId !== undefined ? { marketId } : {}) },
+  });
+  return data;
+}
+
+/**
+ * 보고서 생성은 RAG 검색 + LLM 생성 + 차트 렌더까지 도는 작업이라 1~3분이 걸린다.
+ * BE도 SIM 호출에 3분 타임아웃을 두므로(SimulationEngineClient.generateReportDocx)
+ * 그보다 넉넉하게 잡는다. 공용 15초로는 매번 브라우저가 먼저 끊어버리고, 그러면
+ * BE/SIM은 계속 만들던 보고서를 사용자만 실패로 보게 된다.
+ */
+const REPORT_TIMEOUT_MS = 300_000; // 5분
+
+export interface ReportGenerateRequest {
+  scenarioId: number;
+  // 비우면 SIM이 "OO시장 ... 결과 보고서" 형태로 자동 생성한다. BE가 200자로 제한한다.
+  reportTitle?: string;
+  // 보고서가 답해야 할 질문. 비우면 SIM 기본 문구가 쓰인다.
+  decisionQuestion?: string;
+}
+
+export interface ReportGenerateResponse {
+  reportId: string;
+  scenarioId: number;
+  // 만료 시간이 있는 presigned URL. 만료되면 fetchReportDownloadUrl로 재발급하면 되고
+  // 보고서를 다시 만들 필요는 없다.
+  downloadUrl: string;
+  storageKey: string;
+}
+
+export async function generateReport(
+    request: ReportGenerateRequest
+): Promise<ReportGenerateResponse> {
+  const { data } = await apiClient.post<ReportGenerateResponse>('/simulation/reports', request, {
+    timeout: REPORT_TIMEOUT_MS,
+  });
+  return data;
+}
+
+export interface ReportDownload {
+  scenarioId: number;
+  downloadUrl: string;
+  expiresInSeconds: number;
+}
+
+/**
+ * 이미 만들어 둔 보고서의 다운로드 주소를 새로 발급받는다(보고서 재생성 아님).
+ *
+ * BE가 302 리다이렉트 대신 JSON으로 URL을 주는 이유는, 이 API에 JWT가 필요한데
+ * 브라우저가 단순 이동하면 Authorization 헤더가 실리지 않고 fetch로 부르면
+ * S3로 리다이렉트될 때 CORS에 막히기 때문이다. 받은 URL로 직접 이동하면 된다.
+ */
+export async function fetchReportDownloadUrl(scenarioId: number): Promise<ReportDownload> {
+  const { data } = await apiClient.get<ReportDownload>(
+      `/simulation/reports/${scenarioId}/download`);
   return data;
 }
 

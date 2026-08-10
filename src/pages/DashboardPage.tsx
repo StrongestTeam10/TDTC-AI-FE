@@ -39,7 +39,7 @@ export default function DashboardPage() {
         </div>
 
         {isAdmin && (
-            <div className="flex flex-wrap gap-2 border-t border-slate-200 dark:border-slate-800 pt-3">
+            <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
               <TabButton
                   active={selectedMarketId === 1}
                   onClick={() => setSelectedMarketId(1)}

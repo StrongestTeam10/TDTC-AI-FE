@@ -147,7 +147,7 @@ export default function BoardListPage() {
 
       {/* 관리자 전용 시장 전환 탭 */}
       {isAdmin && (
-        <div className="flex flex-wrap gap-2 border-t border-slate-200 dark:border-slate-800 pt-3">
+        <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
           <TabButton active={marketParam === ALL_VALUE} onClick={() => updateParams({ market: ALL_VALUE })} small>
             전체 시장
           </TabButton>

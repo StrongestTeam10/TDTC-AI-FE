@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { homePathFor } from '../auth/permissions';
 
 // 2026-08-04 추가 (상점 위치 등록 화면)
 //
@@ -12,7 +13,8 @@ export default function RequireFacilityManager({ children }: { children: ReactNo
   const canManage = user?.rulesCode === 'ROL01' || user?.orgCode === 'ORGMA';
 
   if (!canManage) {
-    return <Navigate to="/dashboard" replace />;
+    // 2026-08-06: /dashboard 고정에서 권한별 기본 화면으로 바꿈(RequireAuth와 같은 이유).
+    return <Navigate to={homePathFor(user)} replace />;
   }
   return <>{children}</>;
 }

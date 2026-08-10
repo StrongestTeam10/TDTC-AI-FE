@@ -170,6 +170,7 @@ export interface ScenarioRequest {
 }
 
 export interface ScenarioResult {
+  // SIM이 실행마다 만드는 UUID. 보고서 생성에는 쓸 수 없다(아래 persistedScenarioId 참고).
   scenarioId: string;
   requestedAt: string;
   frames: AgentState[][];
@@ -182,6 +183,11 @@ export interface ScenarioResult {
   maxDensityZoneId?: number | null;
   maxDensityZoneName?: string | null;
   evacuatedCount?: number;
+  // 2026-08-06 추가: 이 실행이 저장된 DB 시나리오 번호(simscnr01m.scenario_id).
+  // 보고서 생성(POST /api/simulation/reports)이 요구하는 식별자이며 위 scenarioId로는
+  // 대체할 수 없다. BE ScenarioResultDto.persistedScenarioId와 1:1 매칭.
+  // BE가 이 필드를 내려주기 전 버전과 섞여 돌 수 있어 optional로 둔다.
+  persistedScenarioId?: number | null;
 }
 
 // 2026-07-24 추가: 실측 상태에서 출발한 예측 시뮬레이션(파이프라인 A 확장) 요청/응답.

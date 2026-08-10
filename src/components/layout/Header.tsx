@@ -1,6 +1,7 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { ROLE_LABELS } from '../../types/auth';
+import { canAccessControlSystem } from '../../auth/permissions';
 import ThemeToggle from '../ui/ThemeToggle';
 
 // 2026-07-24 추가
@@ -28,6 +29,11 @@ export default function Header() {
   const navigate = useNavigate();
   // 2026-08-04 추가: 상점 위치 등록 탭은 관리자(ROL01) 또는 상인회(ORGMA)에게만 노출
   const canManageFacilities = user?.rulesCode === 'ROL01' || user?.orgCode === 'ORGMA';
+  // 2026-08-06 추가: 관제 대시보드·시뮬레이션 비교·시나리오 이력은 관리자(ROL01)와
+  // 관제요원(ROL02)만. BE도 /api/dashboard/** 와 /api/simulation/** 을 이 두 권한으로
+  // 제한하므로, 조회자(ROL03, 상인회)에게 메뉴를 남겨두면 눌러도 403만 보게 된다.
+  // 상인회에게 열려 있는 것은 게시판과 상점 위치 등록이다.
+  const canAccessControl = canAccessControlSystem(user);
 
   const handleLogout = () => {
     logout();
@@ -53,12 +59,23 @@ export default function Header() {
         </Link>
 
         <nav aria-label="주요 메뉴" className="flex gap-2">
-          <NavLink to="/compare" className={navClass}>
-            시뮬레이션 비교
-          </NavLink>
-          <NavLink to="/dashboard" className={navClass}>
-            관제 대시보드
-          </NavLink>
+          {canAccessControl && (
+            <NavLink to="/compare" className={navClass}>
+              시뮬레이션 비교
+            </NavLink>
+          )}
+          {canAccessControl && (
+            <NavLink to="/dashboard" className={navClass}>
+              관제 대시보드
+            </NavLink>
+          )}
+          {/* 경로를 /scenarios가 아니라 /scenario-history로 둔 이유: 아직 남아 있는
+              유휴 라우트 /scenario(ScenarioPage)와 한 글자 차이가 되어 혼동을 부른다. */}
+          {canAccessControl && (
+            <NavLink to="/scenario-history" className={navClass}>
+              시나리오 이력
+            </NavLink>
+          )}
           {canManageFacilities && (
             <NavLink to="/facilities" className={navClass}>
               상점 위치 등록
