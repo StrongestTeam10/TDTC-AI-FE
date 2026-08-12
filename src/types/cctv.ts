@@ -106,9 +106,11 @@ export interface CctvAnalysisProgress {
 export interface EmergencyAlert {
   alertId: number;
   zoneId: number;
-  alertType: string;
+  alertType: 'MANUAL_REPORT' | 'AUTO_REPORT';
   isResolved: boolean;
   alertedAt: string;
+  pdfUrl?: string;       // 백엔드 조인 (PSTRPRT01H.s3_pdf_url)
+  dangerClipUrl?: string; // 백엔드 조인 (MRKRISK01M.video_url)
 }
 
 /**

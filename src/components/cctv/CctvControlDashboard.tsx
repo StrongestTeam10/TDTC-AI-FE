@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './CctvDashboard.module.css';
-import CctvAlertLogModal from './CctvAlertLogModal';
 import CctvEmergencyOverlay from './CctvEmergencyOverlay';
 import CctvMetricCards from './CctvMetricCards';
 import CctvZoneGallery from './CctvZoneGallery';
@@ -10,13 +9,12 @@ import CctvVideoPanel from './CctvVideoPanel';
 import CctvWeatherCard from './CctvWeatherCard';
 import ErrorBanner from '../ui/ErrorBanner';
 import { fetchCctvResultVideoUrl, uploadCctvVideo, triggerCctvAlert } from '../../api/cctvClient';
-import { fetchUnresolvedAlerts } from '../../api/client';
+import { fetchUnresolvedAlerts, fetchVideoClips, fetchPostReports } from '../../api/client';
 import { WEATHER_SCENARIOS } from '../../constants/weatherScenario';
-import { FALLBACK_TOTAL_FRAMES, REAL_FRAME_DATA_MAP } from '../../data/realFrameData';
 import { useCctvStream } from '../../hooks/useCctvStream';
 import { useCriScore } from '../../hooks/useCriScore';
 import { useEmergencyTimer } from '../../hooks/useEmergencyTimer';
-import type { ControlParams, EmergencyAlert, WeatherMode } from '../../types/cctv';
+import type { ControlParams, EmergencyAlert, WeatherMode, VideoClip } from '../../types/cctv';
 import {
   DEFAULT_CONTROL_PARAMS,
   estimateOccupancyRate,
@@ -48,13 +46,10 @@ export default function CctvControlDashboard() {
   const [expandedZoneId, setExpandedZoneId] = useState<number | null>(null);
   const [weatherMode, setWeatherMode] = useState<WeatherMode>('PREDICTIVE_RAIN');
 
-  // ----- 패널 열림 상태 -----
-  const [isAlertModalOpen, setAlertModalOpen] = useState(false);
-
   // ----- 영상 재생 상태 -----
   const videoRef = useRef<HTMLVideoElement>(null);
   const [currentFrame, setCurrentFrame] = useState(1);
-  const [totalFrames, setTotalFrames] = useState(FALLBACK_TOTAL_FRAMES);
+  const [totalFrames, setTotalFrames] = useState(0);
   const [isPlaying, setPlaying] = useState(false);
   const [localVideoUrl, setLocalVideoUrl] = useState<string | null>(null);
   const [fileLabel, setFileLabel] = useState('CCTV 영상을 업로드해 주세요');
@@ -66,6 +61,8 @@ export default function CctvControlDashboard() {
 
   // ----- BE 미해결 알람 -----
   const [alerts, setAlerts] = useState<EmergencyAlert[]>([]);
+  const [videoClips, setVideoClips] = useState<VideoClip[]>([]);
+  const [postReports, setPostReports] = useState<any[]>([]);
   const [isAlertLoading, setAlertLoading] = useState(false);
   const [alertError, setAlertError] = useState<string | null>(null);
 
@@ -73,14 +70,21 @@ export default function CctvControlDashboard() {
     setAlertLoading(true);
     setAlertError(null);
     try {
-      setAlerts(await fetchUnresolvedAlerts());
+      const [alertsData, clipsData, reportsData] = await Promise.all([
+        fetchUnresolvedAlerts(),
+        fetchVideoClips(selectedZoneId === null ? undefined : selectedZoneId),
+        fetchPostReports(selectedZoneId === null ? undefined : selectedZoneId)
+      ]);
+      setAlerts(alertsData);
+      setVideoClips(clipsData);
+      setPostReports(reportsData);
     } catch (err) {
       console.error('미해결 알람 로드 실패', err);
       setAlertError(toDisplayErrorMessage(err, '알람 이력을 불러오지 못했습니다.'));
     } finally {
       setAlertLoading(false);
     }
-  }, []);
+  }, [selectedZoneId]);
 
   useEffect(() => {
     loadAlerts();
@@ -90,71 +94,139 @@ export default function CctvControlDashboard() {
   // 우선순위: AI 스트림 실측 > 정적 폴백(원본 영상 604프레임) > 0
   // 스트림 데이터가 하나라도 들어온 뒤에는 폴백을 조회하지 않는다. 업로드한 영상을
   // 보고 있는데 원본 영상의 인원수가 섞여 나오면 안 되기 때문이다(원본 동작 유지).
-  const hasStreamData = Object.keys(stream.frameData).length > 0;
+  const hasStreamData = useMemo(() => {
+    return Object.values(stream.multiZoneFrameData).some(zoneData => Object.keys(zoneData).length > 0);
+  }, [stream.multiZoneFrameData]);
+
+  const rawZones = useMemo(() => {
+    const getZoneData = (zId: number) => {
+      const streamed = stream.multiZoneFrameData[zId]?.[currentFrame];
+      if (streamed) {
+        return {
+          pedestrianCount: streamed.pedestrianCount,
+          occupancyRate: streamed.occupancyRate,
+          stagnationSec: streamed.stagnationSec,
+          criScore: streamed.criScore,
+          isEstimated: false
+        };
+      }
+      return {
+        pedestrianCount: 0,
+        occupancyRate: 0,
+        stagnationSec: 0,
+        criScore: null,
+        isEstimated: true
+      };
+    };
+    return [getZoneData(1), getZoneData(2), getZoneData(3)];
+  }, [stream.multiZoneFrameData, currentFrame]);
+
+  // 구역별 개별 CRI 스코어 및 타이머 산출 (항상 3구역 모두 백그라운드 추적)
+  const zone1Cri = useCriScore({ pedestrianCount: rawZones[0].pedestrianCount, incomingCriScore: rawZones[0].criScore, weatherMode, params });
+  const zone2Cri = useCriScore({ pedestrianCount: rawZones[1].pedestrianCount, incomingCriScore: rawZones[1].criScore, weatherMode, params });
+  const zone3Cri = useCriScore({ pedestrianCount: rawZones[2].pedestrianCount, incomingCriScore: rawZones[2].criScore, weatherMode, params });
+
+  const zone1Timer = useEmergencyTimer(zone1Cri.statusResult.status, params.alarmDelaySec);
+  const zone2Timer = useEmergencyTimer(zone2Cri.statusResult.status, params.alarmDelaySec);
+  const zone3Timer = useEmergencyTimer(zone3Cri.statusResult.status, params.alarmDelaySec);
+
+  const zonesData = useMemo(() => [
+    { id: 1, name: '남측 구역', raw: rawZones[0], criData: zone1Cri, timer: zone1Timer },
+    { id: 2, name: '중앙 구역', raw: rawZones[1], criData: zone2Cri, timer: zone2Timer },
+    { id: 3, name: '북측 구역', raw: rawZones[2], criData: zone3Cri, timer: zone3Timer },
+  ], [rawZones, zone1Cri, zone2Cri, zone3Cri, zone1Timer, zone2Timer, zone3Timer]);
 
   const metrics = useMemo(() => {
-    const streamed = stream.frameData[currentFrame];
-    if (streamed) {
+    // 1. 단일 구역 선택 시
+    if (selectedZoneId !== null) {
+      const z = rawZones[selectedZoneId - 1];
       return {
-        pedestrianCount: streamed.pedestrianCount,
-        occupancyRate: streamed.occupancyRate,
-        stagnationSec: streamed.stagnationSec,
-        incomingCriScore: streamed.criScore,
-        isEstimated: false,
+        pedestrianCount: z.pedestrianCount,
+        occupancyRate: z.occupancyRate,
+        stagnationSec: z.stagnationSec,
+        incomingCriScore: z.criScore,
+        highestRiskZoneId: selectedZoneId,
+        isEstimated: z.isEstimated,
       };
     }
 
-    const fallbackCount = REAL_FRAME_DATA_MAP[currentFrame];
-    if (!hasStreamData && fallbackCount !== undefined) {
-      return {
-        pedestrianCount: fallbackCount,
-        occupancyRate: estimateOccupancyRate(fallbackCount),
-        stagnationSec: estimateStagnationSec(fallbackCount),
-        incomingCriScore: null,
-        isEstimated: true,
-      };
-    }
+    // 2. 종합 대시보드 (3개 구역 데이터 병합)
+    const z1 = rawZones[0];
+    const z2 = rawZones[1];
+    const z3 = rawZones[2];
 
-    // 업로드 영상 재생 중인데 해당 프레임 데이터가 아직 안 온 경우.
-    // 인원 0으로 두되 스코어가 완전히 0으로 떨어지지 않도록 바닥값을 준다(원본과 동일).
+    const totalCount = z1.pedestrianCount + z2.pedestrianCount + z3.pedestrianCount;
+    // 공간 밀집률 평균 계산 시 소수점이 길어지는 것을 방지 (소수점 1자리까지 반올림)
+    const avgOccupancy = Math.round(((z1.occupancyRate + z2.occupancyRate + z3.occupancyRate) / 3) * 10) / 10;
+    const maxStagnation = Math.max(z1.stagnationSec, z2.stagnationSec, z3.stagnationSec);
+    let maxCriScore: number | null = null;
+    let highestRiskZoneId: number | null = 1;
+    [z1, z2, z3].forEach((z, idx) => {
+      if (z.criScore !== null && (maxCriScore === null || z.criScore > maxCriScore)) {
+        maxCriScore = z.criScore;
+        highestRiskZoneId = idx + 1;
+      }
+    });
+
     return {
-      pedestrianCount: 0,
-      occupancyRate: 0,
-      stagnationSec: 0,
-      incomingCriScore: hasStreamData ? 10 : null,
-      isEstimated: true,
+      pedestrianCount: totalCount,
+      occupancyRate: Math.min(100, avgOccupancy), // 최대 100%
+      stagnationSec: maxStagnation,
+      incomingCriScore: maxCriScore,
+      highestRiskZoneId,
+      isEstimated: z1.isEstimated && z2.isEstimated && z3.isEstimated,
     };
-  }, [stream.frameData, currentFrame, hasStreamData]);
+  }, [rawZones, selectedZoneId]);
 
-  // ----- 위험도 산출 & 비상 타이머 -----
+  // ----- 위험도 산출 & 비상 타이머 (글로벌 차트용 단일 인스턴스) -----
   const { cri, statusResult, history, reset: resetCri } = useCriScore({
     pedestrianCount: metrics.pedestrianCount,
     incomingCriScore: metrics.incomingCriScore,
     weatherMode,
     params,
   });
-
-  const emergency = useEmergencyTimer(statusResult.status, params.alarmDelaySec);
   
-  // ----- [Method A] 수동/자동 신고 연동 상태 -----
-  const [actionTaken, setActionTaken] = useState(false);
+  // ----- [Method A] 수동/자동 신고 연동 상태 (구역별 분리) -----
+  const [actionTakenState, setActionTakenState] = useState<Record<number, boolean>>({ 1: false, 2: false, 3: false });
   
-  // 위험 상태가 해제되거나, '오경보'로 인해 타이머가 0초(countdown 30초)로 리셋되면 actionTaken 초기화
+  // 위험 상태가 해제되거나, 타이머가 0초(countdown 30초)로 리셋되면 actionTaken 초기화
   useEffect(() => {
-    if (statusResult.status !== 'danger' || emergency.countdownSec === 30) {
-      setActionTaken(false);
-    }
-  }, [statusResult.status, emergency.countdownSec]);
+    zonesData.forEach(z => {
+      if (z.criData.statusResult.status !== 'danger' || z.timer.countdownSec === 30) {
+        if (actionTakenState[z.id]) {
+          setActionTakenState(prev => ({ ...prev, [z.id]: false }));
+        }
+      }
+    });
+  }, [zonesData, actionTakenState]);
 
-  // 30초 경과 시 자동 신고(AUTO_REPORT) 발송
+  // 30초 경과 시 자동 신고(AUTO_REPORT) 발송 (독립 타이머 기반)
   useEffect(() => {
-    if (emergency.isAutoDispatched && !actionTaken) {
-      setActionTaken(true);
-      triggerCctvAlert('AUTO_REPORT').catch((err) => {
-        console.error('자동 신고 API 호출 실패:', err);
-      });
-    }
-  }, [emergency.isAutoDispatched, actionTaken]);
+    zonesData.forEach(z => {
+      if (z.timer.isAutoDispatched && !actionTakenState[z.id]) {
+        setActionTakenState(prev => ({ ...prev, [z.id]: true }));
+        triggerCctvAlert('AUTO_REPORT', z.id).catch((err) => {
+          console.error(`[${z.id}구역] 자동 신고 API 호출 실패:`, err);
+        });
+      }
+    });
+  }, [zonesData, actionTakenState]);
+
+  // 오버레이용 알람 배열 구성
+  const activeEmergencies = useMemo(() => {
+    return zonesData
+      .filter(z => z.timer.isBlocking)
+      .map(z => ({
+        zoneId: z.id,
+        zoneName: z.name,
+        countdownSec: z.timer.countdownSec,
+        isAutoDispatched: z.timer.isAutoDispatched,
+        onConfirm: () => {
+          z.timer.confirm();
+          setExpandedZoneId(z.id);
+        }
+      }));
+  }, [zonesData]);
 
   // ----- 분석 완료 시 비식별 처리된 결과 영상으로 교체 -----
   const [resultVideoUrl, setResultVideoUrl] = useState<string | null>(null);
@@ -207,7 +279,7 @@ export default function CctvControlDashboard() {
         stream.resetFrameData();
         setResultVideoUrl(null);
         setCurrentFrame(1);
-        setTotalFrames(FALLBACK_TOTAL_FRAMES);
+        setTotalFrames(0);
 
         setLocalVideoUrl((previous) => {
           if (previous) URL.revokeObjectURL(previous);
@@ -219,7 +291,7 @@ export default function CctvControlDashboard() {
         stream.beginAnalysis(`🤖 [AI 모델링 분석 대기 중...] ${file.name}`);
 
         try {
-          await uploadCctvVideo(file);
+          await uploadCctvVideo(file, selectedZoneId || 1);
           // 이후 진행률/완료/프레임 스트리밍은 WebSocket으로 도착한다.
         } catch (err) {
           console.error('[CCTV] AI 서버 업로드 실패', err);
@@ -232,7 +304,7 @@ export default function CctvControlDashboard() {
           );
         }
       },
-      [resetCri, stream]
+      [resetCri, stream, selectedZoneId]
   );
 
   // ----- 재생 컨트롤 -----
@@ -276,13 +348,9 @@ export default function CctvControlDashboard() {
     setCurrentFrame(Math.max(1, Math.floor((video.currentTime / video.duration) * totalFrames)));
   }, [totalFrames]);
 
-  // ----- 비디오 패널 / 알람 로그 제어 -----
-  const handleOpenAlertLog = useCallback(() => {
-    setAlertModalOpen(true);
-    loadAlerts();
-  }, [loadAlerts]);
-
   const frameTimeLabel = `${(currentFrame / FRAMES_PER_SECOND).toFixed(1)}s`;
+
+  const currentZoneName = selectedZoneId === null ? '종합대시보드' : selectedZoneId === 1 ? '남측 구역' : selectedZoneId === 2 ? '중앙 구역' : '북측 구역';
 
   return (
       <div className={styles.dashboardRoot}>
@@ -294,27 +362,6 @@ export default function CctvControlDashboard() {
           )}
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-strong)' }}>임시 영상 테스트:</span>
-              <input 
-                type="file" 
-                accept="video/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    setLocalVideoUrl(URL.createObjectURL(file));
-                    setPlaying(true);
-                  }
-                }}
-                style={{ fontSize: '0.8rem', width: '150px' }}
-              />
-              <button 
-                onClick={() => setLocalVideoUrl(null)}
-                style={{ padding: '4px 8px', fontSize: '0.8rem', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}
-              >
-                초기화
-              </button>
-            </div>
           </div>
 
           <CctvZoneGallery
@@ -332,7 +379,7 @@ export default function CctvControlDashboard() {
 
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '24px 0 32px 0', minHeight: '32px' }}>
             <div style={{ fontWeight: '800', fontSize: '1.75rem', color: 'var(--text-main)' }}>
-              {selectedZoneId === null ? '종합대시보드' : selectedZoneId === 1 ? '남측 구역' : selectedZoneId === 2 ? '중앙 구역' : '북측 구역'}
+              {currentZoneName}
             </div>
           </div>
 
@@ -361,41 +408,74 @@ export default function CctvControlDashboard() {
                 ) : (
                   alerts
                     .filter(a => !selectedZoneId || a.zoneId === selectedZoneId)
-                    .map((alert) => (
-                    <div key={alert.id} className={styles.inlineLogItem}>
-                      <div className={styles.inlineLogTime}>
-                        {new Date(alert.detectedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                        {` [구역 ${alert.zoneId}]`}
-                      </div>
-                      <div className={styles.inlineLogDesc} style={{ color: alert.status === 'RESOLVED' ? '#10b981' : '#ef4444' }}>
-                        {alert.alertType} ({alert.status})
-                      </div>
-                    </div>
-                  ))
+                    .sort((a, b) => new Date(b.alertedAt).getTime() - new Date(a.alertedAt).getTime()) // 최신순 정렬
+                    .map((alert) => {
+                      // 1. 해당 알람과 연결된 PDF 명세서 찾기 (alert_id)
+                      const pdf = postReports.find(r => r.alert_id === alert.alertId);
+                      
+                      // 2. 해당 알람 시간(alertedAt)과 구역(zoneId)에 근접한 위험 클립(RISK) 찾기
+                      // (alertedAt이 35초 클립 시간대에 포함된다고 가정하거나 단순 시간차로 매핑)
+                      const alertTime = new Date(alert.alertedAt).getTime();
+                      const clip = videoClips.find(c => 
+                        c.clipType === 'RISK' && 
+                        c.zoneId === alert.zoneId && 
+                        c.startTime && Math.abs(new Date(c.startTime).getTime() - alertTime) < 60000 // 1분 이내 생성된 RISK 클립
+                      );
+
+                      return (
+                        <div key={`alert-${alert.alertId}`} className={styles.inlineLogItem} style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div className={styles.inlineLogTime}>
+                              {new Date(alert.alertedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                              {` [구역 ${alert.zoneId}]`}
+                            </div>
+                            <div className={styles.inlineLogDesc} style={{ color: alert.isResolved ? '#10b981' : '#ef4444' }}>
+                              {alert.alertType} ({alert.isResolved ? 'RESOLVED' : 'UNRESOLVED'})
+                            </div>
+                          </div>
+                          
+                          {(clip || pdf) && (
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '8px', justifyContent: 'flex-end' }}>
+                              {clip && (
+                                <button className={styles.btnInlineDownload} onClick={() => window.open(clip.s3ClipUrl || '', '_blank')} style={{ background: '#ef4444', border: 'none', color: '#fff' }}>
+                                  ⬇️ 위험 클립 (35s)
+                                </button>
+                              )}
+                              {pdf && (
+                                <button className={styles.btnInlineDownload} onClick={() => window.open(pdf.s3_pdf_url, '_blank')} style={{ background: '#3b82f6', border: 'none', color: '#fff' }}>
+                                  ⬇️ PDF 명세서
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                  })
                 )}
               </div>
             </div>
             
             <div className={styles.inlineLogBox}>
-              <div className={styles.inlineLogTitle}>🎥 녹화 영상</div>
+              <div className={styles.inlineLogTitle}>🎥 정기 녹화 영상 (raw-videos)</div>
               <div className={styles.inlineLogContent}>
-                {alerts.length === 0 ? (
+                {videoClips.filter(c => (c.clipType === 'TEMP' || c.clipType === 'LIVE') && (!selectedZoneId || c.zoneId === selectedZoneId)).length === 0 ? (
                   <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                     녹화된 영상이 없습니다.
                   </div>
                 ) : (
-                  alerts
-                    .filter(a => !selectedZoneId || a.zoneId === selectedZoneId)
-                    .map((alert) => (
-                    <div key={`video-${alert.id}`} className={styles.inlineVideoItem}>
+                  videoClips
+                    .filter(c => (c.clipType === 'TEMP' || c.clipType === 'LIVE') && (!selectedZoneId || c.zoneId === selectedZoneId))
+                    .sort((a, b) => new Date(b.startTime || 0).getTime() - new Date(a.startTime || 0).getTime()) // 최신순 정렬
+                    .map((clip) => (
+                    <div key={`video-${clip.clipId}`} className={styles.inlineVideoItem}>
                       <div>
                         <div className={styles.inlineLogTime}>
-                          {new Date(alert.detectedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                          {` [구역 ${alert.zoneId}]`}
+                          {new Date(clip.startTime || '').toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          {` [구역 ${clip.zoneId}]`}
                         </div>
-                        <div className={styles.inlineLogDesc}>1분 정기 영상</div>
+                        <div className={styles.inlineLogDesc}>1분 정기 영상 (raw)</div>
                       </div>
-                      <button className={styles.btnInlineDownload} onClick={() => alert("비디오 다운로드는 백엔드 연결 후 활성화됩니다.")}>
+                      <button className={styles.btnInlineDownload} onClick={() => window.open(clip.s3ClipUrl || '', '_blank')}>
                         ⬇️ 받기
                       </button>
                     </div>
@@ -416,37 +496,43 @@ export default function CctvControlDashboard() {
           </div>
         </main>
 
-        {expandedZoneId && (
-          <CctvZonePopupModal
-            zoneId={expandedZoneId}
-            onClose={() => setExpandedZoneId(null)}
-            videoRef={videoRef}
-            videoSrc={videoSrc}
-            metrics={metrics}
-            cri={cri}
-            statusResult={statusResult}
-            history={history}
-            showEmergencyActions={statusResult.status === 'danger' && emergency.countdownSec > 0 && emergency.countdownSec <= 15 && !emergency.isBlocking && !actionTaken}
-            onResolveEmergency={(type) => {
-              setActionTaken(true);
-              emergency.resetTimer();
-              if (type === 'dispatch') {
-                alert('현장 출동 지시가 접수되었습니다.');
-              }
-            }}
-          />
-        )}
+        {expandedZoneId && (() => {
+          const targetZone = zonesData.find(z => z.id === expandedZoneId)!;
+          const isShowActions = targetZone.criData.statusResult.status === 'danger' && targetZone.timer.countdownSec > 0 && targetZone.timer.countdownSec <= 15 && !targetZone.timer.isBlocking && !actionTakenState[expandedZoneId];
+          return (
+            <CctvZonePopupModal
+              zoneId={expandedZoneId}
+              onClose={() => setExpandedZoneId(null)}
+              videoRef={videoRef}
+              videoSrc={videoSrc}
+              metrics={{
+                pedestrianCount: targetZone.raw.pedestrianCount,
+                occupancyRate: targetZone.raw.occupancyRate,
+                stagnationSec: targetZone.raw.stagnationSec,
+                incomingCriScore: targetZone.raw.criScore,
+                highestRiskZoneId: expandedZoneId,
+                isEstimated: targetZone.raw.isEstimated
+              }}
+              cri={targetZone.criData.cri}
+              statusResult={targetZone.criData.statusResult}
+              history={targetZone.criData.history}
+              showEmergencyActions={isShowActions}
+              onResolveEmergency={(type) => {
+                setActionTakenState(prev => ({ ...prev, [expandedZoneId]: true }));
+                if (type === 'dispatch') {
+                  triggerCctvAlert('MANUAL_REPORT', expandedZoneId)
+                    .then(() => console.log('수동 신고 접수 완료'))
+                    .catch((err) => console.error('수동 신고 접수 실패:', err));
+                  targetZone.timer.confirm();
+                } else if (type === 'false_alarm') {
+                  targetZone.timer.confirm();
+                }
+              }}
+            />
+          );
+        })()}
 
-        <CctvEmergencyOverlay
-            isVisible={emergency.isBlocking}
-            countdownSec={emergency.countdownSec}
-            isAutoDispatched={emergency.isAutoDispatched}
-            onConfirm={() => {
-              emergency.confirm();
-              const targetZone = selectedZoneId || 1;
-              setExpandedZoneId(targetZone);
-            }}
-        />
+        <CctvEmergencyOverlay emergencies={activeEmergencies} />
       </div>
   );
 }

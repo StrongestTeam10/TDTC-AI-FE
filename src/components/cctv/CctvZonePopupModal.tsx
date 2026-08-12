@@ -91,13 +91,19 @@ export default function CctvZonePopupModal({
             {showEmergencyActions && (
               <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
                 <button 
-                  onClick={() => onResolveEmergency?.('dispatch')}
+                  onClick={() => {
+                    onResolveEmergency?.('dispatch');
+                    handleClose();
+                  }}
                   style={{ flex: 1, padding: '12px', backgroundColor: '#ef4444', color: 'white', borderRadius: '8px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
                 >
                   🚨 현장 출동 지시
                 </button>
                 <button 
-                  onClick={() => onResolveEmergency?.('false_alarm')}
+                  onClick={() => {
+                    onResolveEmergency?.('false_alarm');
+                    handleClose();
+                  }}
                   style={{ flex: 1, padding: '12px', backgroundColor: '#334155', color: 'white', borderRadius: '8px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
                 >
                   ✅ 오경보 해제
