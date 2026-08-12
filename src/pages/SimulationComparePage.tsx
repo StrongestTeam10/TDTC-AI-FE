@@ -9,13 +9,13 @@ import ZoneRiskSmallMultiples from '../components/ZoneRiskSmallMultiples';
 import Spinner from '../components/ui/Spinner';
 import ErrorBanner from '../components/ui/ErrorBanner';
 import TabButton from '../components/ui/TabButton';
-import { fetchMarkets, fetchZones, fetchCorridors, fetchGates, fetchBuildings, runPredictSimulation, runScenarioSimulation } from '../api/client';
+import { fetchMarkets, fetchZones, fetchCorridors, fetchGates, fetchBuildings, fetchMarketObjects, runPredictSimulation, runScenarioSimulation } from '../api/client';
 import { useSimulationStore } from '../store/simulationStore';
 import { useAuthStore } from '../store/authStore';
 import { canSwitchMarket } from '../auth/permissions';
 import { useReportGeneration } from '../hooks/useReportGeneration';
 import { toDisplayErrorMessage } from '../utils/errorMessage';
-import type { PredictRequest, ScenarioRequest, PlacedObject, EventTrigger, CorridorPolicy, Corridor, Gate, Zone, Building } from '../types';
+import type { PredictRequest, ScenarioRequest, PlacedObject, EventTrigger, CorridorPolicy, Corridor, Gate, Building } from '../types';
 
 type PlacementKind = PlacedObject['objectType'] | EventTrigger['eventType'];
 const OBJECT_TYPES = new Set<PlacedObject['objectType']>(['food_truck', 'obstacle', 'event_zone', 'rest_area']);
@@ -180,6 +180,14 @@ export default function SimulationComparePage() {
    */
   const [beforeObjects, setBeforeObjects] = useState<PlacedObject[]>([]);
   /**
+   * 2026-08-12 완성본: 시장 구조 등록(mrkobjt01m)에서 불러온 "현행" 오브젝트/통로정책.
+   * 개입 전(Before)은 이 현행을 그대로 표시·전송하고 수정하지 않는다(불변).
+   * 개입 후(After)는 loadLayout에서 이 현행을 복사한 objects/corridorPolicies state에서 편집한다.
+   * (공문분석이 쓰는 beforeObjects와는 별개 - 그쪽 로직은 건드리지 않는다.)
+   */
+  const [baselineObjects, setBaselineObjects] = useState<PlacedObject[]>([]);
+  const [baselineCorridorPolicies, setBaselineCorridorPolicies] = useState<CorridorPolicy[]>([]);
+  /**
    * LLM objectsToRemove 항목별 제거 결과.
    * 목분은 beforeObjects와 매칭한 결과:
    *  'removed'  → Before에 해당 오브젝트가 있었고 삭제됨 (철거 완료 배지)
@@ -212,12 +220,34 @@ export default function SimulationComparePage() {
       fetchCorridors(marketId),
       fetchGates(marketId),
       fetchBuildings(marketId),
+      // 2026-08-12: 현행 조회는 실패해도 화면 전체를 막지 않는다(빈 현행으로 폴백).
+      // 권한/네트워크 등으로 조회가 안 되더라도 개입 전은 빈 상태로라도 뜨게 한다.
+      fetchMarketObjects(marketId).catch((err) => {
+        console.warn('현행(시장 구조) 조회 실패 - 빈 현행으로 진행', err);
+        return { marketId, objects: [], corridorPolicies: [], updatedAt: null };
+      }),
     ])
-      .then(([zoneData, corridorData, gateData, buildingData]: [Zone[], Corridor[], Gate[], Building[]]) => {
+      .then(([zoneData, corridorData, gateData, buildingData, objectConfig]) => {
         setZones(zoneData);
         setCorridors(corridorData);
         setGates(gateData);
         setBuildings(buildingData);
+
+        // 2026-08-12 완성본: 시장 구조 등록의 "현행"을 개입 전/후 초기값으로 반영한다.
+        // - 개입 전(Before): 현행 그대로, 수정 불가 → baseline* 에 담는다.
+        // - 개입 후(After): 현행을 복사해 편집 가능한 state(objects/corridorPolicies/afterClosedGateIds)에 넣는다.
+        const currentObjects = objectConfig.objects ?? [];
+        const currentCorridors = objectConfig.corridorPolicies ?? [];
+        // 닫힌 게이트 = isActive === false 인 GATE. (null/true는 열림으로 간주)
+        const closedGateIds = gateData.filter((g) => g.isActive === false).map((g) => g.facilityId);
+
+        setBaselineObjects(currentObjects);
+        setBaselineCorridorPolicies(currentCorridors);
+        setBeforeClosedGateIds(new Set(closedGateIds));
+
+        setObjects(currentObjects.map((o) => ({ ...o })));
+        setCorridorPolicies(currentCorridors.map((c) => ({ ...c })));
+        setAfterClosedGateIds(new Set(closedGateIds));
       })
       .catch((err) => {
         console.error('레이아웃 정보 로드 실패', err);
@@ -318,6 +348,9 @@ export default function SimulationComparePage() {
     clearReportError();
 
     const marketId = selectedMarketId;
+    // 개입 후(scenario) SIM은 agentCount >= 1만 허용한다. 입력칸을 min=1로 막아뒀지만
+    // 직접 0/빈값을 타이핑한 경우까지 방어해 양쪽 파이프라인이 같은 유효값을 받게 한다.
+    const safeAgentCount = Math.max(1, Math.floor(agentCount) || 1);
     // 실행 시점에 발생/진압 스텝으로 연소기간(burnSteps)을 재계산해 SIM에 보낸다.
     // (발생·진압을 나중에 수정해도 항상 일관되게 반영되도록)
     const simEvents: EventTrigger[] = events.map((ev) => {
@@ -332,14 +365,17 @@ export default function SimulationComparePage() {
     const predictReq: PredictRequest = {
       marketId,
       steps,
-      totalInflow: agentCount,
+      totalInflow: safeAgentCount,
       events: simEvents,
       closedGateIds: Array.from(beforeClosedGateIds),
+      // 2026-08-12 완성본: 개입 전(Before)도 현행 오브젝트/통로정책을 그대로 반영.
+      objects: baselineObjects,
+      corridorPolicies: baselineCorridorPolicies,
     };
     const scenarioReq: ScenarioRequest = {
       marketId,
       steps,
-      agentCount,
+      agentCount: safeAgentCount,
       objects,
       events: simEvents,
       closedGateIds: Array.from(afterClosedGateIds),
@@ -374,12 +410,13 @@ export default function SimulationComparePage() {
   };
 
   const handleReset = () => {
-    setObjects([]);
+    // 2026-08-12 완성본: 개입 후(After)를 현행(baseline)으로 되돌린다.
+    // 개입 전(Before)/현행 baseline은 항상 현행이라 초기화 대상이 아니다.
+    setObjects(baselineObjects.map((o) => ({ ...o })));
+    setCorridorPolicies(baselineCorridorPolicies.map((c) => ({ ...c })));
+    setAfterClosedGateIds(new Set(beforeClosedGateIds));
     setEvents([]);
     setSubmittedEvents([]);
-    setCorridorPolicies([]);
-    setAfterClosedGateIds(new Set());
-    setBeforeClosedGateIds(new Set());
     setPlacementType(null);
     setPredictResult(null);
     setScenarioResult(null);
@@ -474,7 +511,7 @@ export default function SimulationComparePage() {
       return next;
     });
   };
-  const handleBeforeGateClick = toggleGate(setBeforeClosedGateIds);
+  // 2026-08-12 완성본: 개입 전(Before) 게이트는 현행 그대로(읽기전용)라 토글 핸들러가 없다.
   const handleAfterGateClick = toggleGate(setAfterClosedGateIds);
 
   const getBeforeAgents = () => {
@@ -612,7 +649,7 @@ export default function SimulationComparePage() {
                   </label>
                   <input
                     type="number"
-                    min={0}
+                    min={1}
                     max={100000}
                     value={agentCount}
                     onChange={(e) => setAgentCount(Number(e.target.value))}
@@ -621,7 +658,7 @@ export default function SimulationComparePage() {
                   />
                   <p className="mt-1 text-xs text-slate-500">
                     스텝마다 인원수가 들쭉날쭉하게 무작위로 유입되고, 전체 합계가 이 값에
-                    맞춰집니다. 0으로 두면 신규 유입 없이 현재 인원의 자연스러운 이동만 봅니다.
+                    맞춰집니다. 최소 1명 이상이어야 합니다(개입 후 시나리오가 0명을 허용하지 않음).
                   </p>
                 </div>
 
@@ -629,8 +666,9 @@ export default function SimulationComparePage() {
                   <h3 className="mb-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
                     정책 개입 · 이벤트
                     <span className="block font-normal text-slate-500 normal-case mt-1">
-                      오브젝트/통로정책/게이트는 After 전용, 이벤트(화재·음향이상)는
-                      Before·After 양쪽 지도 어디서 찍든 같은 위치에 동시 반영됩니다.
+                      현행(오브젝트/통로정책/게이트)은 개입 전·후에 자동 반영되고,
+                      개입 후에서만 삭제·추가할 수 있습니다. 화재는 실행 시 찍는 위치가
+                      개입 전·후 양쪽에 동시 반영됩니다.
                     </span>
                   </h3>
                   <PolicyAnalysisPanel
@@ -748,7 +786,7 @@ export default function SimulationComparePage() {
                     corridors={corridors}
                     gates={gates}
                     closedGateIds={beforeClosedGateIds}
-                    onGateClick={handleBeforeGateClick}
+                    placedObjects={baselineObjects}
                     placementType={beforePlacementType}
                     onPlaceObject={handlePlaceObject}
                     events={visibleEvents}
