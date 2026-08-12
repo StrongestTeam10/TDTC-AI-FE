@@ -11,6 +11,7 @@ import type {
   Gate,
   Building,
   CorridorPolicy,
+  PlacedObject,
 } from '../types';
 import type { PostListResponse, PostDetail, PageResponse } from '../types/board';
 import type {
@@ -664,6 +665,103 @@ export async function fetchFacilityPhotos(facilityId: number): Promise<FacilityP
 
 export async function deleteFacilityPhoto(facilityId: number, photoId: number): Promise<void> {
   await apiClient.delete(`/facilities/${facilityId}/photos/${photoId}`);
+}
+
+// ===== CCTV 관제 구역 (2026-08-11 추가, 08-11 2차 재설계) =====
+// BE CctvZoneController(/api/cctv-zones)와 대응.
+//
+// ⚠️ 시뮬레이션 구역(fetchZones, /api/markets/{id}/zones)과는 완전히 별개의 테이블
+// (mrkcctv01m)이다. 여기서 구역을 저장해도 시뮬레이션 비교 화면의 구역 폴리곤이나
+// SIM의 위험도 계산에는 영향이 없다 - 섞이면 SIM이 CCTV 구역까지 에이전트 배치
+// 대상으로 잡아버려서 일부러 분리했다.
+//
+// 2차 재설계: 고정 슬롯(1~4)을 버리고 소속 시뮬레이션 구역(zoneId)에 붙는 행을 등록마다
+// 추가한다. 저장은 신규 POST / 수정 PUT(id) / 삭제 DELETE(id), 목록은 게시판식 페이징.
+
+export interface CctvZone {
+  cctvZoneId: number;
+  marketId: number;
+  /** 소속 시뮬레이션 구역 zone_id */
+  zoneId: number;
+  /** 소속 시뮬레이션 구역명(BE가 zone 조인해 채워줌) */
+  zoneName: string;
+  /** CCTV 사용/미사용 */
+  isActive: boolean;
+  /** GeoJSON Polygon 문자열. 시뮬레이션 구역과 같은 형식이라 파싱 코드를 공유할 수 있다. */
+  polygonCoordinates: string;
+  rmk: string | null;
+  updatedAt: string | null;
+}
+
+export interface CctvZoneSaveRequest {
+  marketId: number;
+  zoneId: number;
+  polygonCoordinates: string;
+  isActive?: boolean;
+  rmk?: string;
+}
+
+export async function fetchCctvZones(
+    marketId: number,
+    page = 0,
+    size = 10
+): Promise<PageResponse<CctvZone>> {
+  const { data } = await apiClient.get<PageResponse<CctvZone>>('/cctv-zones', {
+    params: { marketId, page, size },
+  });
+  return data;
+}
+
+export async function createCctvZone(request: CctvZoneSaveRequest): Promise<CctvZone> {
+  const { data } = await apiClient.post<CctvZone>('/cctv-zones', request);
+  return data;
+}
+
+export async function updateCctvZone(
+    cctvZoneId: number,
+    request: CctvZoneSaveRequest
+): Promise<CctvZone> {
+  const { data } = await apiClient.put<CctvZone>(`/cctv-zones/${cctvZoneId}`, request);
+  return data;
+}
+
+export async function deleteCctvZone(cctvZoneId: number): Promise<void> {
+  await apiClient.delete(`/cctv-zones/${cctvZoneId}`);
+}
+
+// ===== 시장 오브젝트/구조 설정 (2026-08-11 추가) =====
+// BE MarketObjectConfigController(/api/market-objects)와 대응.
+//
+// 시뮬레이션 비교(파이프라인 B)의 초기 배치로 쓸 "오브젝트 배치 + 통로 제어 정책"을
+// 시장 구조 등록 화면에서 미리 등록해두는 곳. 시장당 1세트(통째로 덮어쓰기).
+// objects/corridorPolicies는 시뮬레이션 요청(ScenarioRequest)과 같은 형식이라,
+// 불러온 그대로 시뮬레이션 비교의 초기값으로 넘길 수 있다.
+
+export interface MarketObjectConfig {
+  marketId: number;
+  objects: PlacedObject[];
+  corridorPolicies: CorridorPolicy[];
+  updatedAt: string | null;
+}
+
+export interface MarketObjectConfigSaveRequest {
+  marketId: number;
+  objects: PlacedObject[];
+  corridorPolicies: CorridorPolicy[];
+}
+
+export async function fetchMarketObjects(marketId: number): Promise<MarketObjectConfig> {
+  const { data } = await apiClient.get<MarketObjectConfig>('/market-objects', {
+    params: { marketId },
+  });
+  return data;
+}
+
+export async function saveMarketObjects(
+    request: MarketObjectConfigSaveRequest
+): Promise<MarketObjectConfig> {
+  const { data } = await apiClient.put<MarketObjectConfig>('/market-objects', request);
+  return data;
 }
 
 // ===== 회원관리 (2026-08-05 추가) =====

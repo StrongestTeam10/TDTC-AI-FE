@@ -59,14 +59,11 @@ export default function Header() {
         </Link>
 
         <nav aria-label="주요 메뉴" className="flex gap-2">
+          {/* 2026-08-11 메뉴 순서 변경: 시뮬레이션 비교 > 시나리오 이력 > 관제 대시보드 >
+              시장 구조 등록 > 회원관리 > 게시판 */}
           {canAccessControl && (
             <NavLink to="/compare" className={navClass}>
               시뮬레이션 비교
-            </NavLink>
-          )}
-          {canAccessControl && (
-            <NavLink to="/dashboard" className={navClass}>
-              관제 대시보드
             </NavLink>
           )}
           {/* 경로를 /scenarios가 아니라 /scenario-history로 둔 이유: 아직 남아 있는
@@ -76,9 +73,16 @@ export default function Header() {
               시나리오 이력
             </NavLink>
           )}
+          {canAccessControl && (
+            <NavLink to="/dashboard" className={navClass}>
+              관제 대시보드
+            </NavLink>
+          )}
+          {/* 2026-08-11: "상점 위치 등록" → "시장 구조 등록"으로 개명(상점/출입구뿐 아니라
+              CCTV 구역·시장 오브젝트까지 등록하는 화면이 됨). 경로(/facilities)는 유지. */}
           {canManageFacilities && (
             <NavLink to="/facilities" className={navClass}>
-              상점 위치 등록
+              시장 구조 등록
             </NavLink>
           )}
           {/* 2026-08-05 추가 (회원관리) - 관리자만 노출. RequireAuth가 URL 직접 접근도 막아주지만, 메뉴 자체를 숨겨서 혼란을 줄임.
