@@ -1,31 +1,26 @@
 import { useEffect, useState } from 'react';
+import InfoTooltip from './ui/InfoTooltip';
 import type { Zone, PlacedObject, EventTrigger, CorridorPolicy } from '../types';
 
 type PlacementKind = PlacedObject['objectType'] | EventTrigger['eventType'];
 
+// 2026-08-12: 이벤트(화재) 관련 props는 EventSettingsPanel(Step 3 실행 조건)로 옮겨갔다.
 interface ScenarioFormProps {
   isRunning: boolean;
-  steps: number;
   zones: Zone[];
 
   objects: PlacedObject[];
   onRemoveObject: (index: number) => void;
-  events: EventTrigger[];
-  onRemoveEvent: (index: number) => void;
-  onUpdateEventTriggerStep: (index: number, value: number) => void;
-  onUpdateEventExtinguishStep: (index: number, value: number) => void;
 
   placementType: PlacementKind | null;
   onSelectPlacementType: (type: PlacementKind | null) => void;
-  nextIntensity: number;
-  onNextIntensityChange: (value: number) => void;
 
-  nextTriggerStep: number;
-  onNextTriggerStepChange: (value: number) => void;
-
-  // 2026-08-XX: 화재 진압 스텝(발생~진압 사이가 연소 기간).
-  nextExtinguishStep: number;
-  onNextExtinguishStepChange: (value: number) => void;
+  /**
+   * 2026-08-12(3차): 잠금 배너에서 바로 잠금을 풀 수 있게 부모의 해제 동작을 받는다.
+   * 같은 동작이 Step 1의 PolicyAnalysisPanel에도 있지만, 그쪽은 다른 단계라
+   * 접혀 있으면 보이지 않는다(아래 배너 주석 참고).
+   */
+  onSwitchToManual?: () => void;
 
   corridors: CorridorPolicy[];
   onAddCorridor: (policy: CorridorPolicy) => void;
@@ -45,38 +40,20 @@ const OBJECT_TYPE_OPTIONS: { value: PlacedObject['objectType']; label: string; h
   { value: 'obstacle', label: '장애물/적재물', hint: '해당 지점 통행 차단 + 매력도 하락' },
 ];
 
-const EVENT_TYPE_OPTIONS: { value: EventTrigger['eventType']; label: string; hint: string }[] = [
-  { value: 'fire', label: '화재', hint: '해당 구역 위험도를 강제로 끌어올려 지속 대피 유발' },
-];
-
 const CORRIDOR_ACTION_OPTIONS: { value: CorridorPolicy['action']; label: string }[] = [
   { value: 'close', label: '폐쇄' },
   { value: 'open', label: '개방' },
   { value: 'one_way', label: '일방통행' },
 ];
 
-function isEventType(kind: PlacementKind): kind is EventTrigger['eventType'] {
-  return kind === 'fire';
-}
-
 export default function ScenarioForm({
   isRunning,
-  steps,
   zones,
   objects,
   onRemoveObject,
-  events,
-  onRemoveEvent,
-  onUpdateEventTriggerStep,
-  onUpdateEventExtinguishStep,
   placementType,
   onSelectPlacementType,
-  nextIntensity,
-  onNextIntensityChange,
-  nextTriggerStep,
-  onNextTriggerStepChange,
-  nextExtinguishStep,
-  onNextExtinguishStepChange,
+  onSwitchToManual,
   corridors,
   onAddCorridor,
   onRemoveCorridor,
@@ -100,10 +77,8 @@ export default function ScenarioForm({
 
   const objectTypeLabel = (t: PlacedObject['objectType']) =>
     OBJECT_TYPE_OPTIONS.find((o) => o.value === t)?.label ?? t;
-  const eventTypeLabel = (t: EventTrigger['eventType']) =>
-    EVENT_TYPE_OPTIONS.find((o) => o.value === t)?.label ?? t;
-  const placementLabel = (kind: PlacementKind) =>
-    isEventType(kind) ? eventTypeLabel(kind) : objectTypeLabel(kind);
+  // 이 폼에서 고를 수 있는 배치는 오브젝트뿐이다(화재는 Step 3의 EventSettingsPanel).
+  const placementLabel = (kind: PlacementKind) => objectTypeLabel(kind as PlacedObject['objectType']);
   const zoneName = (zoneId: number) => zones.find((z) => z.zoneId === zoneId)?.zoneName ?? `Zone ${zoneId}`;
   const actionLabel = (a: CorridorPolicy['action']) =>
     CORRIDOR_ACTION_OPTIONS.find((o) => o.value === a)?.label ?? a;
@@ -124,14 +99,39 @@ export default function ScenarioForm({
 
   return (
     <div className="space-y-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-3">
-      {/* LLM 정책 모드: 오브젝트·통로는 잠김, 이벤트는 개방 안내 */}
+      {/* LLM 정책 모드: 오브젝트·통로는 잠김, 이벤트는 개방 안내
+          2026-08-12 (UIUX 피드백 p01 "멘트 수정 필요"): "오브젝트·통로는 잠김,
+          이벤트 설정은 열려 있습니다"가 무엇이 왜 잠겼는지는 말하지 않고 상태만
+          나열해서, 잠금을 풀 방법이 있는지조차 알 수 없었다. 잠긴 이유(공문에서 읽어온
+          값이라)와 푸는 방법(위의 "수동으로 편집")을 함께 적는다.
+          다크 전용 색(amber-950/40, amber-300)이던 것도 라이트 모드에서 배경이 거의
+          검게 나와 함께 고쳤다. */}
+      {/* 2026-08-12(3차): 안내가 "위의 '수동으로 편집'을 누르세요"였는데, 그 버튼은
+          Step 1(정책 입력 방식)의 PolicyAnalysisPanel 안에 있다. 단계 아코디언으로
+          바뀐 뒤로는 Step 2를 보고 있을 때 Step 1이 접혀 있어, 가리키는 버튼이 화면에
+          아예 없었다(잠금을 풀 방법이 사라진 것처럼 보였다).
+          잠금을 알리는 자리에서 바로 풀 수 있도록 버튼을 여기에 둔다. */}
       {isLlmMode && (
-        <div className="flex items-center gap-2 rounded border border-amber-700/60 bg-amber-950/40 px-3 py-2">
-          <span className="text-amber-400 text-sm">🔒</span>
-          <p className="text-[11px] text-amber-300 leading-tight">
-            LLM 정책 모드 — 오브젝트·통로는 잠김,{' '}
-            <span className="text-rose-300 font-semibold">이벤트 설정은 열려 있습니다.</span>
-          </p>
+        <div className="flex items-start gap-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 dark:border-amber-700/60 dark:bg-amber-950/40">
+          <span className="mt-px shrink-0 text-sm">🔒</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] leading-relaxed text-amber-800 dark:text-amber-300">
+              공문에서 읽어온 설정이라 <b>오브젝트·통로 정책은 잠겨 있습니다.</b>
+              <br />
+              <span className="text-rose-700 dark:text-rose-300">
+                화재 등 이벤트는 공문과 무관하므로 지금도 설정할 수 있습니다.
+              </span>
+            </p>
+            {onSwitchToManual && (
+              <button
+                type="button"
+                onClick={onSwitchToManual}
+                className="mt-1.5 w-full rounded border border-amber-500 bg-white px-2 py-1 text-[11px] font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-600 dark:bg-slate-900/40 dark:text-amber-200 dark:hover:bg-amber-900/40"
+              >
+                🔓 수동으로 편집
+              </button>
+            )}
+          </div>
         </div>
       )}
       {/* 오브젝트 배치 섹션 — LLM 모드 시 frosted glass 잠금 */}
@@ -142,12 +142,20 @@ export default function ScenarioForm({
             <span className="text-[11px] text-slate-400 select-none">🔒 LLM 정책 모드</span>
           </div>
         )}
-        <h3 className="text-xs font-semibold text-sky-700 dark:text-sky-300">오브젝트 배치</h3>
-        <p className="text-[11px] text-slate-500 dark:text-slate-400">
-          {placementType
-            ? `배치 모드: ${placementLabel(placementType)} — 지도를 클릭하세요`
-            : '종류를 선택한 뒤 지도를 클릭하세요'}
-        </p>
+        <h3 className="flex items-center gap-1.5 text-xs font-semibold text-sky-700 dark:text-sky-300">
+          오브젝트 배치
+          <InfoTooltip label="오브젝트 배치 설명">
+            종류를 고른 뒤 <b>개입 후(After) 지도</b>를 클릭하면 그 자리에 배치됩니다.
+            푸드트럭·행사존·휴게 공간은 사람을 끌어모으고, 장애물/적재물은 통행을 막습니다.
+          </InfoTooltip>
+        </h3>
+        {/* 배치 모드일 때만 남긴다 - 이건 설명이 아니라 "지금 클릭하면 무엇이 찍히는지"를
+            알려주는 상태 표시라, 접어두면 클릭 전에 확인할 방법이 없다. */}
+        {placementType && (
+          <p className="text-[11px] font-medium text-sky-700 dark:text-sky-300">
+            배치 모드: {placementLabel(placementType)} — 지도를 클릭하세요
+          </p>
+        )}
 
         <div className="grid grid-cols-2 gap-1.5">
           {OBJECT_TYPE_OPTIONS.map((opt) => (
@@ -189,109 +197,6 @@ export default function ScenarioForm({
         )}
       </div>
 
-      {/* 이벤트 배치 섹션 — LLM 모드에서도 항상 활성화 */}
-      <div className="rounded-lg border border-rose-200 bg-rose-50 p-2.5 space-y-2 dark:border-rose-800 dark:bg-rose-950/40">
-        <h3 className="text-xs font-semibold text-rose-700 dark:text-rose-300">이벤트 설정</h3>
-        <div className="grid grid-cols-2 gap-1.5">
-          {EVENT_TYPE_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              disabled={isRunning}
-              onClick={() => handleTogglePlacement(opt.value)}
-              className={`rounded border px-1.5 py-1 text-[11px] text-left transition-colors ${
-                placementType === opt.value
-                  ? 'border-rose-500 bg-rose-100 text-rose-900 dark:border-rose-400 dark:bg-rose-900/60 dark:text-rose-100'
-                  : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-500'
-              }`}
-              title={opt.hint}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-3 gap-2 text-xs">
-          <div>
-            <label className="block text-[10px] text-slate-500 dark:text-slate-400 mb-0.5">발생 스텝</label>
-            <input
-              type="number"
-              min={0}
-              max={steps}
-              value={nextTriggerStep}
-              onChange={(e) => onNextTriggerStepChange(Number(e.target.value))}
-              className="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-slate-800 dark:text-slate-200"
-              disabled={isRunning}
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] text-slate-500 dark:text-slate-400 mb-0.5">진압 스텝</label>
-            <input
-              type="number"
-              min={0}
-              max={steps}
-              value={nextExtinguishStep}
-              onChange={(e) => onNextExtinguishStepChange(Number(e.target.value))}
-              className="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-slate-800 dark:text-slate-200"
-              disabled={isRunning}
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] text-slate-500 dark:text-slate-400 mb-0.5">강도 (0~1)</label>
-            <input
-              type="number"
-              min={0}
-              max={1}
-              step={0.1}
-              value={nextIntensity}
-              onChange={(e) => onNextIntensityChange(Number(e.target.value))}
-              className="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-slate-800 dark:text-slate-200"
-              disabled={isRunning}
-            />
-          </div>
-        </div>
-
-        {/* 이벤트 목록 */}
-        {events.length > 0 && (
-          <div className="mt-2 pt-2 border-t border-slate-300 dark:border-slate-700/50 space-y-1">
-            <div className="text-[10px] text-slate-500 dark:text-slate-400">설정된 이벤트 ({events.length})</div>
-            {events.map((ev, idx) => (
-              <div key={idx} className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900/40 px-2 py-1 rounded">
-                <span>{eventTypeLabel(ev.eventType)} ({zoneName(ev.zoneId)})</span>
-                <div className="flex items-center gap-1">
-                  <span className="text-[10px] text-slate-500">발생</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={ev.triggerStep}
-                    onChange={(e) => onUpdateEventTriggerStep(idx, Number(e.target.value))}
-                    className="w-10 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-1 text-[10px] text-slate-800 dark:text-slate-200"
-                    disabled={isRunning}
-                  />
-                  <span className="text-[10px] text-slate-500">진압</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={ev.extinguishStep ?? ''}
-                    onChange={(e) => onUpdateEventExtinguishStep(idx, Number(e.target.value))}
-                    className="w-10 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-1 text-[10px] text-slate-800 dark:text-slate-200"
-                    disabled={isRunning}
-                  />
-                  <button
-                    type="button"
-                    disabled={isRunning}
-                    onClick={() => onRemoveEvent(idx)}
-                    className="text-red-600 hover:text-red-500 text-[10px] dark:text-red-400 dark:hover:text-red-300"
-                  >
-                    삭제
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
       {/* 통로 제어 섹션 — LLM 모드 시 frosted glass 잠금 */}
       <div className="relative rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 space-y-2 dark:border-emerald-800 dark:bg-emerald-950/40">
         {/* Frosted glass overlay */}
@@ -300,14 +205,20 @@ export default function ScenarioForm({
             <span className="text-[11px] text-slate-400 select-none">🔒 LLM 정책 모드</span>
           </div>
         )}
-        <h3 className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">통로 제어 정책</h3>
+        <h3 className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+          통로 제어 정책
+          <InfoTooltip label="통로 제어 정책 설명">
+            구역과 구역 사이 통로를 막거나(폐쇄), 한 방향으로만 다니게(일방통행) 만듭니다.
+            <b> 개입 후(After)에만</b> 적용되어, 개입 전과의 차이로 효과를 봅니다.
+          </InfoTooltip>
+        </h3>
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div>
             <label className="block text-[10px] text-slate-500 dark:text-slate-400 mb-0.5">출발 구역</label>
             <select
               value={nextFromZoneId}
               onChange={(e) => setNextFromZoneId(Number(e.target.value))}
-              className="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-slate-800 dark:text-slate-200"
+              className="no-spinner w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-slate-800 dark:text-slate-200"
               disabled={isLocked}
             >
               {zones.map((z) => (
@@ -320,7 +231,7 @@ export default function ScenarioForm({
             <select
               value={nextToZoneId}
               onChange={(e) => setNextToZoneId(Number(e.target.value))}
-              className="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-slate-800 dark:text-slate-200"
+              className="no-spinner w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-slate-800 dark:text-slate-200"
               disabled={isLocked}
             >
               {zones.map((z) => (
@@ -336,7 +247,7 @@ export default function ScenarioForm({
             <select
               value={nextAction}
               onChange={(e) => setNextAction(e.target.value as CorridorPolicy['action'])}
-              className="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-slate-800 dark:text-slate-200"
+              className="no-spinner w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-slate-800 dark:text-slate-200"
               disabled={isLocked}
             >
               {CORRIDOR_ACTION_OPTIONS.map((opt) => (
@@ -350,7 +261,7 @@ export default function ScenarioForm({
               <select
                 value={nextAllowedDirection}
                 onChange={(e) => setNextAllowedDirection(e.target.value as 'from_to' | 'to_from')}
-                className="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-slate-800 dark:text-slate-200"
+                className="no-spinner w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-slate-800 dark:text-slate-200"
                 disabled={isLocked}
               >
                 <option value="from_to">출발 ➔ 도착</option>

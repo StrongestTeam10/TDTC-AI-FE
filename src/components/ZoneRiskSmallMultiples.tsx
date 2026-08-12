@@ -77,11 +77,35 @@ export default function ZoneRiskSmallMultiples({ before, after, zones }: Props) 
 
   return (
     <div>
-      <div className="mb-2 text-sm font-medium text-slate-800 dark:text-slate-200">
-        구역별 위험도 추이{' '}
-        <span className="text-xs font-normal text-slate-500">
-          — 구역마다 스케일 자동조정(값이 작아도 차이가 보이게). 개입 전후가 같으면 “동일”로 표시, 다르면 사이를 음영으로.
-        </span>
+      {/* 2026-08-12 (UIUX 피드백 p05 "좀 위로 둘까요?"): 범례가 차트 아래에 있어서,
+          구역이 세 개 이상이라 두 줄로 접히면 화면 밖으로 밀려 무슨 선인지 모른 채
+          차트를 먼저 보게 됐다. 범례는 그림을 읽는 열쇠라 그림보다 먼저 와야 한다.
+          제목 줄 오른쪽 끝에 붙여 줄 하나를 더 쓰지 않는다. */}
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <div className="text-sm font-medium text-slate-800 dark:text-slate-200">
+          구역별 위험도 추이{' '}
+          <span className="text-xs font-normal text-slate-500">
+            — 구역마다 스케일 자동조정(값이 작아도 차이가 보이게). 개입 전후가 같으면 “동일”로 표시, 다르면 사이를 음영으로.
+          </span>
+        </div>
+        <div className="flex shrink-0 items-center gap-4 text-[11px] text-slate-500">
+          <span className="flex items-center gap-1.5">
+            <svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke={BEFORE_COLOR} strokeWidth="2" strokeDasharray="5 3" /></svg>
+            개입 전
+          </span>
+          <span className="flex items-center gap-1.5">
+            <svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke={AFTER_COLOR} strokeWidth="2" /></svg>
+            개입 후
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-3 rounded-sm" style={{ backgroundColor: IMPROVED, opacity: 0.5 }} />
+            개선
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-3 rounded-sm" style={{ backgroundColor: WORSE, opacity: 0.5 }} />
+            악화
+          </span>
+        </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5">
         {zones.map((z) => {
@@ -125,6 +149,14 @@ export default function ZoneRiskSmallMultiples({ before, after, zones }: Props) 
                   </span>
                 )}
               </div>
+              {/* 2026-08-12 (UIUX 피드백 "선 볼딩 빼고 스텝별 위험도 추이와 같은 사이즈로")
+                  선이 옆 차트보다 훨씬 굵어 보이던 원인은 굵기 값이 아니라 좌표계였다.
+                  viewBox가 200x62인데 카드 폭은 400px이 넘고 preserveAspectRatio="none"이라,
+                  strokeWidth={2}가 가로로 2배 넘게 늘어나면서 점선 간격까지 함께 부풀었다
+                  (가로·세로 배율이 달라 선이 두껍고 뭉툭해 보였다).
+                  vectorEffect="non-scaling-stroke"를 주면 선 굵기와 점선 패턴이 viewBox가
+                  아니라 화면 픽셀 기준이 되어, recharts로 그린 스텝별 위험도 추이의
+                  strokeWidth={2} / strokeDasharray="5 3"과 정확히 같은 두께가 된다. */}
               <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="block">
                 {thresholds.map((t) => {
                   const y = (H - PAD - ((H - 2 * PAD) * t) / scaleMax).toFixed(1);
@@ -132,6 +164,7 @@ export default function ZoneRiskSmallMultiples({ before, after, zones }: Props) 
                     <line
                       key={t} x1={PAD} y1={y} x2={W - PAD} y2={y}
                       stroke={t >= 75 ? '#ef4444' : '#f97316'} strokeWidth={1} strokeDasharray="2 3" opacity={0.5}
+                      vectorEffect="non-scaling-stroke"
                     />
                   );
                 })}
@@ -141,37 +174,21 @@ export default function ZoneRiskSmallMultiples({ before, after, zones }: Props) 
                 {!identical && b.length > 0 && (
                   <polyline
                     fill="none" stroke={BEFORE_COLOR} strokeWidth={2} strokeDasharray="5 3"
-                    strokeLinejoin="round" points={pointsOf(b, scaleMax)}
+                    strokeLinejoin="round" vectorEffect="non-scaling-stroke"
+                    points={pointsOf(b, scaleMax)}
                   />
                 )}
                 {a.length > 0 && (
                   <polyline
                     fill="none" stroke={AFTER_COLOR} strokeWidth={2}
-                    strokeLinejoin="round" points={pointsOf(a, scaleMax)}
+                    strokeLinejoin="round" vectorEffect="non-scaling-stroke"
+                    points={pointsOf(a, scaleMax)}
                   />
                 )}
               </svg>
             </div>
           );
         })}
-      </div>
-      <div className="mt-2 flex items-center gap-4 text-[11px] text-slate-500">
-        <span className="flex items-center gap-1.5">
-          <svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke={BEFORE_COLOR} strokeWidth="2" strokeDasharray="5 3" /></svg>
-          개입 전
-        </span>
-        <span className="flex items-center gap-1.5">
-          <svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke={AFTER_COLOR} strokeWidth="2" /></svg>
-          개입 후
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-3 rounded-sm" style={{ backgroundColor: IMPROVED, opacity: 0.5 }} />
-          개선
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-3 rounded-sm" style={{ backgroundColor: WORSE, opacity: 0.5 }} />
-          악화
-        </span>
       </div>
     </div>
   );

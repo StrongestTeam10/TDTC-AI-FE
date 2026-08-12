@@ -91,22 +91,17 @@ function bucketOfScore(score: number | null): RiskBucket | null {
 // 시나리오명은 목록에 없다: 검색은 DB 원본(예: "시나리오 2026-08-07T05:06:00Z")을 보는데
 // 화면에 보이는 이름은 BE가 조립한 값(예: "2026-08-07 14:06 망원시장 화재 시나리오")이라
 // 보이는 대로 입력하면 걸리지 않는다. 되지 않는 선택지를 두는 것보다 빼는 편이 낫다.
+//
+// 2026-08-12: '정책 유형'도 같은 이유로 뺐다. 그 검색은 simscnr01m.policy_type_code
+// 한 칸을 보는데, 코드가 하나만 저장돼(화재+통로폐쇄를 함께 걸면 화재만 남는다)
+// "통로폐쇄"로 찾으면 실제로 통로를 막은 실행이 결과에서 빠진다. 표의 정책 유형 열을
+// 없앤 것과 같은 판단이다 - 화면에 없는 값을, 그것도 부정확하게 찾게 두지 않는다.
 const SEARCH_FIELDS: { value: ScenarioSearchField; label: string; adminOnly?: boolean }[] = [
   { value: 'all', label: '전체' },
   { value: 'market', label: '시장' },
-  { value: 'policy', label: '정책 유형' },
   { value: 'reportTitle', label: '보고서 제목' },
   { value: 'owner', label: '실행자', adminOnly: true },
 ];
-
-// comcode01m POL 도메인. BE가 코드만 내려주므로 화면 문구는 여기서 붙인다.
-// 코드가 추가되면 여기도 갱신할 것 - 없는 코드는 코드값 그대로 보여준다.
-const POLICY_TYPE_LABELS: Record<string, string> = {
-  POLNO: '없음',
-  POLFR: '화재',
-  POLAC: '음향이상',
-  POLCB: '통로폐쇄',
-};
 
 export default function ScenarioHistoryPage() {
   const user = useAuthStore((s) => s.user);
@@ -320,8 +315,14 @@ export default function ScenarioHistoryPage() {
     reload();
   };
 
-  // 펼치기 · # · 시나리오 · 시장 · [실행자] · 유입 인원 · 정책 유형 · 위험도 · 보고서
-  const columnCount = isAdmin ? 9 : 8;
+  // 펼치기 · # · 시나리오 · 시장 · [실행자] · 유입 인원 · 위험도 · 보고서
+  //
+  // 2026-08-12: "정책 유형" 열을 뺐다. simscnr01m.policy_type_code가 코드 한 개짜리
+  // 컬럼이라, 화재와 통로폐쇄를 함께 실행해도 우선순위상 하나만 남는다(화재로 표시되고
+  // 통로폐쇄는 사라짐). 실제로 무엇을 걸었는지는 행을 펼치면 나오는 실행 설정
+  // (ScenarioDetailPanel - 이벤트·오브젝트·통로 정책을 원본 요청에서 그대로 읽는다)에
+  // 다 나오고, 보고서도 그 원본 JSON을 쓴다. 부정확한 요약을 열로 두는 것보다 뺀다.
+  const columnCount = isAdmin ? 8 : 7;
 
   // 첫 진입에만 스피너를 띄운다. 이후 재조회는 표를 유지한 채 흐리게만 처리해
   // 페이지를 넘길 때 화면이 통째로 사라지지 않게 한다.
@@ -340,18 +341,6 @@ export default function ScenarioHistoryPage() {
       () => SEARCH_FIELDS.filter((f) => !f.adminOnly || isAdmin),
       [isAdmin],
   );
-
-  // 안내 문구를 고른 대상에 맞춘다. 전부 나열하면 실제로 어디를 찾는지 알 수 없다.
-  const searchPlaceholder = useMemo(() => {
-    if (searchField !== 'all') {
-      const label = SEARCH_FIELDS.find((f) => f.value === searchField)?.label ?? '';
-      return `${label} 검색`;
-    }
-    return searchFieldOptions
-        .filter((f) => f.value !== 'all')
-        .map((f) => f.label)
-        .join(', ') + ' 검색';
-  }, [searchField, searchFieldOptions]);
 
   const handleSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -419,12 +408,10 @@ export default function ScenarioHistoryPage() {
     setPage(0);
   };
 
-  // 체크박스가 켜져 있으면 총 개수가 곧 보고서 개수다. 라벨만 바꿔 그 정보를 살린다
+  // 표 바로 위에 "total N건"으로 표시한다. 조건이 걸려 있으면 그 조건으로 좁힌
+  // 개수이고, 체크박스가 켜져 있으면 그 수가 곧 보고서 개수라 옆에 덧붙여 알린다
   // (서버 필터로 옮긴 뒤에는 전체 개수와 보고서 개수를 한 쿼리로 함께 얻을 수 없다).
   const totalCount = historyPage?.totalElements ?? 0;
-  const reportCountLabel = onlyWithReport
-      ? `보고서 ${totalCount}건`
-      : `${hasActiveFilter ? '검색 결과' : '전체'} ${totalCount}건`;
 
   return (
       <div className="flex flex-col gap-4">
@@ -437,59 +424,22 @@ export default function ScenarioHistoryPage() {
                   : '내가 실행한 시뮬레이션입니다. 각 실행으로 정책 보고서를 만들거나 이미 만든 보고서를 내려받을 수 있습니다.'}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            {/* 재조회 중이라는 표시. 표를 스피너로 갈아치우지 않고 여기서만 알린다.
-                조건부로 넣고 빼면 이 줄의 폭이 변해 아래 내용이 밀렸다 돌아오므로,
-                자리는 항상 차지하게 두고 보이기만 전환한다.
-
-                공용 Spinner를 쓰지 않는 이유: 그 컴포넌트는 로딩 영역 한가운데 놓이도록
-                py-10(위아래 40px)을 갖고 있다. className으로 py-0을 덧붙여도 Tailwind는
-                클래스 문자열 순서로 우선순위를 정하지 않아 py-10이 그대로 이겨,
-                보이지도 않는 요소가 96px 높이로 헤더를 부풀렸다. */}
-            <span
-                role="status"
-                className={`flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 ${
-                  isLoading && !isInitialLoading ? 'visible' : 'invisible'
-                }`}
-            >
-              <span
-                  aria-hidden
-                  className="h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-blue-500 dark:border-slate-600"
-              />
-              조회 중...
-            </span>
-            <span className="text-xs text-slate-500">{reportCountLabel}</span>
-            {/* 필터 초기화를 검색 줄 끝에서 여기로 옮겼다. 거기서는 줄바꿈에 따라 왼쪽
-                아래로 내려가 눈에 띄지 않았다. 조건부로 넣고 빼는 대신 항상 두고
-                지울 필터가 없을 때 잠근다 - 나타났다 사라지면 그때마다 줄이 흔들린다. */}
-            <button
-                type="button"
-                onClick={resetFilters}
-                disabled={!hasActiveFilter}
-                className="rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
-            >
-              필터 초기화
-            </button>
-            <button
-                type="button"
-                onClick={reload}
-                disabled={isLoading}
-                className="rounded bg-slate-200 dark:bg-slate-700 px-3 py-1.5 text-sm text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 disabled:opacity-50"
-            >
-              {isLoading ? '갱신 중...' : '새로고침'}
-            </button>
-          </div>
         </div>
 
-        {/* 시장 탭(왼쪽)과 보고서 필터(오른쪽)를 한 줄에 둔다. 둘 다 "목록을 좁히는
-            조건"이라 같은 줄에 모아야 읽기 쉽고, 헤더의 동작 버튼(필터 초기화·새로고침)
-            바로 아래에 놓여 위치도 자연스럽다.
-            시장 탭은 관리자에게만 나오지만 이 줄 자체는 항상 그려서, 권한에 따라
-            체크박스가 위로 올라갔다 내려갔다 하지 않게 한다. */}
+        {/* 2026-08-12 재배치 (UIUX 피드백 9·10페이지)
+            예전에는 제목 오른쪽에 조회 상태·건수·필터 초기화·새로고침이 몰려 있고,
+            체크박스는 시장 탭 줄, 위험도는 검색 줄에 흩어져 있었다. 같은 역할끼리
+            묶어 세 줄로 정리한다.
+              (1) 필터 줄  : 시장 탭 · 위험도 ─ 오른쪽 끝에 [필터 초기화]
+              (2) 검색 줄  : [보고서만] 체크박스 → 검색 대상 → 검색어 → [검색] [새로고침]
+              (3) 건수 줄  : 표 바로 위에 total, 오른쪽에 조회 중 표시
+            콤보박스에는 왼쪽 라벨을 붙였다. 닫힌 상태의 글자만으로 무슨 기준인지
+            알게 하던 방식은 두 개가 나란히 놓이자 서로 구분되지 않았다. */}
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-slate-200 pb-3 dark:border-slate-800">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             {isAdmin && markets.length > 0 && (
-                <>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-slate-500 dark:text-slate-400">시장</span>
                   <TabButton
                       active={marketFilter === ALL_MARKETS}
                       onClick={() => selectMarket(ALL_MARKETS)}
@@ -507,47 +457,51 @@ export default function ScenarioHistoryPage() {
                         {m.marketName}
                       </TabButton>
                   ))}
-                </>
+                </div>
             )}
+            <div className="flex items-center gap-2">
+              <label htmlFor="risk-filter" className="shrink-0 text-sm text-slate-500 dark:text-slate-400">
+                위험도
+              </label>
+              <select
+                  id="risk-filter"
+                  value={riskBucketId}
+                  onChange={(event) => selectRiskBucket(event.target.value)}
+                  className="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              >
+                {RISK_BUCKETS.map((bucket) => (
+                    <option key={bucket.id} value={bucket.id}>
+                      {bucket.optionLabel}
+                    </option>
+                ))}
+              </select>
+            </div>
           </div>
-          <label className="flex shrink-0 items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400">
-            <input
-                type="checkbox"
-                checked={onlyWithReport}
-                onChange={(e) => {
-                  setOnlyWithReport(e.target.checked);
-                  setPage(0);
-                }}
-                className="h-4 w-4 accent-blue-600"
-            />
-            보고서 생성된 것만 보기
-          </label>
+
+          {/* 2026-08-12(2차): "필터 초기화" -> "전체 초기화". 이 버튼은 원래도 시장·
+              위험도·보고서 여부뿐 아니라 검색어와 검색 대상까지 전부 되돌린다.
+              이름이 필터만 지우는 것처럼 읽혀서 하는 일과 맞췄다.
+              조건부로 넣고 빼는 대신 항상 두고 지울 것이 없을 때 잠근다 -
+              나타났다 사라지면 그때마다 줄이 흔들린다. */}
+          <button
+              type="button"
+              onClick={resetFilters}
+              disabled={!hasActiveFilter}
+              className="shrink-0 rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+          >
+            전체 초기화
+          </button>
         </div>
 
-        {/* 위험도 드롭다운과 검색창을 한 줄에 둔다. 시장 탭이 이미 한 줄을 쓰고 있어서
-            위험도를 따로 한 줄 더 두면 헤더가 표보다 커진다.
-            칩(세그먼티드) 대신 드롭다운을 쓴 이유: 선택지가 다섯 개라 한 줄에 펼치면
-            검색창 자리를 많이 빼앗고, 이 레포가 이미 시점 선택·권한 변경·재생 속도에
-            네이티브 select를 쓰고 있어 패턴이 맞다. 네이티브라 키보드·스크린리더
-            대응과 모바일 기본 선택기가 그대로 따라온다.
-            눈에 보이는 라벨을 따로 두지 않은 대신(닫힌 상태가 "위험도 전체"로 스스로를
-            설명한다) aria-label로 보조기기에는 기준을 알린다. */}
-        <form onSubmit={handleSearch} className="flex flex-wrap items-center gap-2">
+        {/* 2026-08-12(2차): 검색줄은 검색만 남기고 오른쪽으로 몰았다. 입력이 남는 폭을
+            전부 먹어(flex-1) 화면 절반을 차지했는데, 이 화면의 주인공은 표라서 검색이
+            그만큼 클 이유가 없다. 폭을 고정하고 오른쪽 끝에 붙인다. */}
+        <form onSubmit={handleSearch} className="flex flex-wrap items-center justify-end gap-2">
+          <label htmlFor="search-field" className="shrink-0 text-sm text-slate-500 dark:text-slate-400">
+            검색 대상
+          </label>
           <select
-              aria-label="위험도 필터"
-              value={riskBucketId}
-              onChange={(event) => selectRiskBucket(event.target.value)}
-              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-          >
-            {RISK_BUCKETS.map((bucket) => (
-                <option key={bucket.id} value={bucket.id}>
-                  {bucket.optionLabel}
-                </option>
-            ))}
-          </select>
-          {/* 검색 대상. 게시판의 검색 조건 선택과 같은 관례로 입력창 바로 앞에 둔다. */}
-          <select
-              aria-label="검색 대상"
+              id="search-field"
               value={searchField}
               onChange={(event) => setSearchField(event.target.value as ScenarioSearchField)}
               className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
@@ -560,6 +514,7 @@ export default function ScenarioHistoryPage() {
           </select>
           <input
               type="search"
+              aria-label="검색어"
               value={searchInput}
               onChange={(event) => {
                 const next = event.target.value;
@@ -571,17 +526,81 @@ export default function ScenarioHistoryPage() {
                   setPage(0);
                 }
               }}
-              placeholder={searchPlaceholder}
-              className="min-w-[200px] flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              className="w-full max-w-xs rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 sm:w-64 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
           />
           <button
               type="submit"
               disabled={isLoading || !canSearch}
-              className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="shrink-0 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             검색
           </button>
+          {/* 캐시를 버리고 서버에서 다시 읽는다. 옆의 "전체 초기화"와 글자로 나란히
+              두면 둘 다 무언가를 되돌리는 것처럼 읽혀서, 이쪽은 아이콘만 남겼다.
+              읽히는 이름은 aria-label/title로만 준다. */}
+          <button
+              type="button"
+              onClick={reload}
+              disabled={isLoading}
+              aria-label="목록 다시 불러오기"
+              title="목록 다시 불러오기"
+              className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded bg-slate-200 text-slate-700 hover:bg-slate-300 disabled:opacity-50 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+          >
+            <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
+                aria-hidden
+            >
+              <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+              <path d="M21 3v6h-6" />
+            </svg>
+          </button>
         </form>
+
+        {/* 건수는 표 바로 위에 둔다. 헤더 오른쪽 구석에 작게 있을 때는 어느 목록의
+            개수인지 연결이 안 됐다.
+            조회 중 표시는 자리를 항상 차지하게 두고 보이기만 전환한다 - 조건부로
+            넣고 빼면 이 줄의 높이가 변해 표가 위아래로 흔들린다.
+            공용 Spinner를 쓰지 않는 이유: 그 컴포넌트는 로딩 영역 한가운데 놓이도록
+            py-10을 갖고 있어, 보이지도 않는 요소가 96px 높이로 줄을 부풀린다. */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-4">
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              total {totalCount.toLocaleString()}건
+            </span>
+            {/* 이 체크박스는 목록의 개수를 직접 바꾸는 조건이라 건수 바로 옆에 둔다.
+                켜면 위 total이 곧 보고서 개수가 된다. */}
+            <label className="flex shrink-0 items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400">
+              <input
+                  type="checkbox"
+                  checked={onlyWithReport}
+                  onChange={(e) => {
+                    setOnlyWithReport(e.target.checked);
+                    setPage(0);
+                  }}
+                  className="h-4 w-4 accent-blue-600"
+              />
+              보고서 생성된 것만 보기
+            </label>
+          </div>
+          <span
+              role="status"
+              className={`flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 ${
+                isLoading && !isInitialLoading ? 'visible' : 'invisible'
+              }`}
+          >
+            <span
+                aria-hidden
+                className="h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-blue-500 dark:border-slate-600"
+            />
+            조회 중...
+          </span>
+        </div>
 
         {loadError && <ErrorBanner message={loadError} onRetry={reload} />}
         {reportError && !target && <ErrorBanner message={reportError} />}
@@ -693,7 +712,6 @@ export default function ScenarioHistoryPage() {
                   <th className="w-28 px-4 py-2 font-medium">시장</th>
                   {isAdmin && <th className="w-28 px-4 py-2 font-medium">실행자</th>}
                   <th className="w-24 px-4 py-2 font-medium">유입 인원</th>
-                  <th className="w-28 px-4 py-2 font-medium">정책 유형</th>
                   <th className="w-28 px-4 py-2 font-medium">위험도</th>
                   {/* 너비를 고정한다. 보고서가 있는 행은 버튼이 둘(다운로드·재생성),
                       없는 행은 하나(보고서 생성)라 내용에 따라 이 열의 폭이 변한다.
@@ -743,13 +761,13 @@ export default function ScenarioHistoryPage() {
                               expandedId === s.scenarioId ? '접기' : '펼치기'}`}
                             className="flex h-9 w-9 items-center justify-center rounded border border-transparent text-base leading-none text-slate-500 hover:border-slate-300 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-100"
                         >
-                          <span
-                              aria-hidden
-                              className={`transition-transform ${
-                                expandedId === s.scenarioId ? 'rotate-180' : ''
-                              }`}
-                          >
-                            ▾
+                          {/* 2026-08-12: 같은 ▾ 하나를 180도 돌려 쓰던 것을 접힘 ▶ /
+                              펼침 ▼ 두 글자로 바꿨다. 회전은 "접혀 있음"과 "펼쳐져
+                              있음"이 같은 모양의 각도 차이라 한눈에 구분되지 않는다.
+                              오른쪽을 가리키면 "열면 나온다", 아래를 가리키면 "지금
+                              아래에 있다"로 방향 자체가 상태를 말해준다. */}
+                          <span aria-hidden className="text-xs">
+                            {expandedId === s.scenarioId ? '▼' : '▶'}
                           </span>
                         </button>
                       </td>
@@ -780,11 +798,6 @@ export default function ScenarioHistoryPage() {
                       )}
                       <td className="px-4 py-2 text-slate-500 dark:text-slate-400">
                         {s.agentCount ?? '-'}
-                      </td>
-                      <td className="px-4 py-2 text-slate-500 dark:text-slate-400">
-                        {s.policyTypeCode
-                            ? POLICY_TYPE_LABELS[s.policyTypeCode] ?? s.policyTypeCode
-                            : '-'}
                       </td>
                       <td className="px-4 py-2">
                         {/* 점수와 등급을 함께 보여준다. 점수만 있으면 75가 심각인지

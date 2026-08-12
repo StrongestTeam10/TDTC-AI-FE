@@ -1,6 +1,6 @@
 // 2026-07-24 추가
 // 행안부 가이드라인 사용성 원칙: "오류 메시지는 명확하고 간결하게 제공한다".
-// 지금까지 ScenarioPage/PredictionPage는 window.alert()로 오류를 띄웠는데,
+// 도입 당시 시뮬레이션 화면들은 window.alert()로 오류를 띄웠는데,
 // alert()는 (1) 화면 흐름을 강제로 막고 (2) 모바일에서 UX가 나쁘고
 // (3) 가이드라인이 말하는 "화면 안내 영역"과 맞지 않아서 이 배너로 교체함.
 interface ErrorBannerProps {

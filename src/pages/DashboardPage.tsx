@@ -9,8 +9,8 @@ import { useAuthStore } from '../store/authStore';
 // 못 읽고 (3) 앱 다크모드 토글과 무관하게 동작했다. 정적 HTML/JS를 React 컴포넌트로
 // 옮기고 iframe을 제거함(components/cctv/*).
 //
-// ⚠️ 이전 버전에서 주석 처리돼 있던 useSimulationData 기반 구현(HeatmapView /
-// RiskScorePanel / AlertLogTable / 시점 선택 드롭다운)은 복구하지 않았다. 그쪽은
+// ⚠️ 이전 버전에서 주석 처리돼 있던 구역 스냅샷 기반 구현(위험도 패널 / 알람 로그 /
+// 시점 선택 드롭다운)은 복구하지 않았고, 2026-08-12에 그 컴포넌트들을 삭제했다. 그쪽은
 // SIM 엔진의 구역 단위 스냅샷을 보는 화면이고, 지금 이 화면은 CCTV 프레임 단위
 // 실시간 관제라 데이터 그레인 자체가 다르다. 두 화면을 합칠지는 별도 판단이 필요하다.
 

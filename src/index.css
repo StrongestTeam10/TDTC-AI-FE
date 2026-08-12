@@ -36,3 +36,18 @@ html.dark body {
   background-color: #020617; /* slate-950 - 다크 모드 기본 배경(기존 값 유지) */
   color: #e2e8f0; /* slate-200 */
 }
+
+/* 2026-08-12 추가 (UIUX 피드백): <input type="number">의 위/아래 스피너 화살표를 없앤다.
+   시뮬레이션 설정의 발생 스텝·진압 스텝·강도는 값 범위가 넓어(1~1000스텝) 화살표로
+   맞추는 것이 현실적이지 않은데, 화살표가 입력칸 오른쪽을 좁게 만들고 클릭 대상이
+   생겨 실수로 값이 한 칸씩 움직이기도 했다. 숫자를 직접 입력하는 쪽으로 통일한다.
+   type="number"는 유지한다 - 모바일 숫자 키패드와 min/max 검증이 여기서 나온다. */
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.no-spinner {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}

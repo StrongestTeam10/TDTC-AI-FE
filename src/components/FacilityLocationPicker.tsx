@@ -5,7 +5,7 @@ import { zoneColor } from '../utils/cctvZonePolygon';
 // 2026-08-04 추가 (시설 관리 화면 - 상점 위치 등록)
 //
 // 기존 프로토타입(store-location-prototype.html)의 손그림 SVG 지도 클릭 방식을
-// 실제 카카오맵으로 교체함. KakaoMapView.tsx는 시뮬레이션 구역(zones)/에이전트에
+// 실제 카카오맵으로 교체함. 시뮬레이션 지도(HeatmapView)는 구역(zones)/에이전트에
 // 강하게 엮여 있어 재사용하기보다, SDK 로더만 공유하고 이 화면 전용의 가벼운
 // 지도 컴포넌트를 새로 만듦(클릭 → 위경도, 기존 시설 마커 표시 정도만 필요).
 //
@@ -36,7 +36,7 @@ export interface CctvZoneOverlay {
 /**
  * 참고용으로 깔아줄 시뮬레이션 구역(mrkaddr01d). CCTV 구역과는 다른 데이터라
  * 저장 대상이 아니라 "여기에 시뮬레이션 구역이 있다"만 보여주는 배경이다.
- * 시뮬레이션 비교 화면(KakaoMapView)의 구역 폴리곤과 같은 좌표를 쓴다.
+ * 시뮬레이션 비교 화면(HeatmapView)의 구역 폴리곤과 같은 좌표를 쓴다.
  */
 export interface SimulationZoneOverlay {
   zoneId: number;

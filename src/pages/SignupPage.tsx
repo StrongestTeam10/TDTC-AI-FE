@@ -1,12 +1,10 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TermsModal from '../components/TermsModal';
 import ThemeToggle from '../components/ui/ThemeToggle';
 import { PASSWORD_RULES, isPasswordValid } from '../utils/password';
 import { TERMS_TEXT, PRIVACY_TEXT } from '../constants/legalText';
-import { ORG_CODE_OPTIONS } from '../constants/orgCode';
-import { MARKET_CODE_OPTIONS } from '../constants/marketCode';
-import { fetchCommonCodes } from '../api/client';
+import { useCommonCodes } from '../hooks/useCommonCodes';
 import { useAuthStore } from '../store/authStore';
 
 // 2026-07-24 추가 (1차, SIGNUP-01)
@@ -43,37 +41,10 @@ export default function SignupPage() {
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [name, setName] = useState('');
   const [orgCode, setOrgCode] = useState('');
-  const [orgOptions, setOrgOptions] = useState(ORG_CODE_OPTIONS);
+  // 2026-08-12: 화면마다 복사돼 있던 공통코드 조회를 useCommonCodes로 모았다.
+  const { options: orgOptions } = useCommonCodes('ORG');
   const [marketCode, setMarketCode] = useState('');
-  const [marketOptions, setMarketOptions] = useState(MARKET_CODE_OPTIONS);
-
-  // 2026-07-24 추가(게시판): 담당 시장 옵션도 소속기관과 동일한 패턴으로
-  // BE 공통코드 API(MKT 도메인)에서 가져오고, 실패 시 로컬 폴백 사용.
-  useEffect(() => {
-    fetchCommonCodes('MKT')
-      .then((codes) => {
-        if (codes.length > 0) {
-          setMarketOptions(codes.map((c) => ({ code: c.code, name: c.codeName })));
-        }
-      })
-      .catch((err) => {
-        console.error('공통코드(담당 시장) 조회 실패, 로컬 기본값 사용', err);
-      });
-  }, []);
-
-  // 2026-07-24: 소속기관 옵션을 BE 공통코드 API에서 가져오되, 실패하면
-  // constants/orgCode.ts의 값을 그대로 씀(이미 초기값으로 세팅돼 있어 폴백은 자동).
-  useEffect(() => {
-    fetchCommonCodes('ORG')
-      .then((codes) => {
-        if (codes.length > 0) {
-          setOrgOptions(codes.map((c) => ({ code: c.code, name: c.codeName })));
-        }
-      })
-      .catch((err) => {
-        console.error('공통코드(소속기관) 조회 실패, 로컬 기본값 사용', err);
-      });
-  }, []);
+  const { options: marketOptions } = useCommonCodes('MKT');
 
   const [consent, setConsent] = useState<ConsentState>({
     terms: false,
@@ -203,8 +174,14 @@ export default function SignupPage() {
       <ThemeToggle className="absolute right-6 top-6" />
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
-          <p className="mb-1 text-sm text-slate-500">KT Aivle School B2G 빅프로젝트</p>
-          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">관제 시스템 계정 등록</h1>
+          {/* 2026-08-12: 제목이 "관제 시스템 계정 등록"이었는데, 여기로 들어오는 통로
+              (로그인 화면의 버튼, 하단 링크)가 모두 "회원가입"이라 도착한 화면 이름이
+              달랐다. 부르는 이름을 하나로 맞춘다. 크기·여백도 로그인 화면과 통일. */}
+          <p className="mb-1.5 text-sm text-slate-500">KT Aivle School B2G 빅프로젝트</p>
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">회원가입</h1>
+          <p className="mt-2.5 text-sm text-slate-500">
+            가입 신청 후 관리자 승인을 받으면 로그인할 수 있습니다.
+          </p>
         </div>
 
         <form

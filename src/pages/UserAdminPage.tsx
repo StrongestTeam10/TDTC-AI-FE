@@ -6,14 +6,13 @@ import {
   fetchAdminUsers,
   updateUserRole,
   fetchPendingUsers,
-  fetchCommonCodes,
   approveUser,
   rejectUser,
   type UserSummary,
   type PendingUser,
 } from '../api/client';
-import { MARKET_CODE_OPTIONS } from '../constants/marketCode';
-import { ROLE_LABELS, type UserRole } from '../types/auth';
+import { useCommonCodes } from '../hooks/useCommonCodes';
+import { type UserRole } from '../types/auth';
 import { toDisplayErrorMessage } from '../utils/errorMessage';
 
 // 2026-08-05 추가 (회원관리)
@@ -24,9 +23,9 @@ import { toDisplayErrorMessage } from '../utils/errorMessage';
 //  - 화면을 "사용자 관리"(전체 회원, 권한 변경) / "회원 승인"(가입 승인 대기자,
 //    체크박스로 여러 명 선택 후 일괄 승인/거부) 두 탭으로 분리
 //
-// 2026-08-05 (2차): 원래 "회원 승인"을 별도 화면(UserApprovalPage, /admin/approvals)
+// 2026-08-05 (2차): 원래 "회원 승인"을 별도 화면(/admin/approvals)
 // 으로 나눠뒀었는데, 재재님이 "회원 승인 탭 하나로 통일 + 체크박스로 대상 구분"
-// 요청하셔서 통합함. UserApprovalPage.tsx/RequireAdmin.tsx/관련 라우트·메뉴는 삭제.
+// 요청하셔서 통합함. 관련 화면·가드·라우트·메뉴는 모두 삭제(파일은 2026-08-12 제거).
 // "회원 승인" 탭은 fetchAdminUsers(pendingOnly)/updateUserRole 대신, 전용 API인
 // fetchPendingUsers/approveUser/rejectUser를 씀(승인/거부라는 명확한 의미가 역할
 // 드롭다운보다 이 화면 목적에 더 맞음). marketCode 필터는 BE에 파라미터가 없어서
@@ -67,8 +66,10 @@ export default function UserAdminPage() {
   const [marketCode, setMarketCode] = useState(ALL_VALUE);
   const [tab, setTab] = useState<ViewTab>('manage');
 
-  // 회원가입 화면과 동일하게 공통코드(MKT)에서 받아오고, 실패하면 로컬 폴백을 그대로 씀
-  const [marketOptions, setMarketOptions] = useState(MARKET_CODE_OPTIONS);
+  // 2026-08-12: 화면마다 복사돼 있던 공통코드 조회를 useCommonCodes로 모았다.
+  // 권한(ROL)도 types/auth.ts의 하드코딩 표가 아니라 공통코드에서 받아온다.
+  const { options: marketOptions, labelOf: marketLabelOf } = useCommonCodes('MKT');
+  const { labelOf: roleLabel } = useCommonCodes('ROL');
 
   // 사용자 관리 탭
   const [users, setUsers] = useState<UserSummary[]>([]);
@@ -87,23 +88,7 @@ export default function UserAdminPage() {
   const [processingIds, setProcessingIds] = useState<Set<number>>(new Set());
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
-  useEffect(() => {
-    fetchCommonCodes('MKT')
-      .then((codes) => {
-        if (codes.length > 0) {
-          setMarketOptions(codes.map((c) => ({ code: c.code, name: c.codeName })));
-        }
-      })
-      .catch((err) => {
-        console.error('공통코드(담당 시장) 조회 실패, 로컬 기본값 사용', err);
-      });
-  }, []);
-
-  const marketName = useCallback(
-    (code: string | null | undefined) =>
-      marketOptions.find((m) => m.code === code)?.name ?? code ?? '-',
-    [marketOptions]
-  );
+  const marketName = marketLabelOf;
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -458,7 +443,7 @@ export default function UserAdminPage() {
                         >
                           {ROLE_OPTIONS.map((r) => (
                             <option key={r} value={r}>
-                              {ROLE_LABELS[r]}
+                              {roleLabel(r)}
                             </option>
                           ))}
                           {!ROLE_OPTIONS.includes(draft.rulesCode as UserRole) && (

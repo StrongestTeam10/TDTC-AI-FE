@@ -84,6 +84,9 @@ const DIRECTION_OPTIONS = [
 
 const PAGE_SIZE = 10;
 
+/** "전체"를 뜻하는 필터 내부값. 실제 코드값과 겹치지 않게 'all'을 쓴다. */
+const ALL_FILTER = 'all';
+
 function facilityTypeLabel(value: string): string {
   return ALL_FACILITY_TYPE_LABELS[value] ?? value;
 }
@@ -158,6 +161,10 @@ export default function FacilityManagePage() {
   // 타이핑마다 즉시 필터링하면 원치 않는다는 피드백에 따라 분리함.
   const [stallSearchInput, setStallSearchInput] = useState('');
   const [stallSearch, setStallSearch] = useState('');
+  // 2026-08-12 추가: 상점 목록 업종/상태 필터. 검색어와 달리 고르는 즉시 반영된다
+  // (드롭다운은 고르는 행위 자체가 확정이라, 따로 "적용"을 누르게 하면 번거롭다).
+  const [stallTypeFilter, setStallTypeFilter] = useState<string>(ALL_FILTER);
+  const [stallActiveFilter, setStallActiveFilter] = useState<'all' | 'active' | 'inactive'>(ALL_FILTER);
   // "선택 구역으로 이동" 버튼: 값이 바뀌면 지도가 소속 구역에 다시 맞춰진다.
   const [refitToken, setRefitToken] = useState(0);
 
@@ -498,17 +505,39 @@ export default function FacilityManagePage() {
     return [];
   }, [facilities, targetKind]);
 
-  // 하단 목록용: 상점 대상이면 이름 검색어로 거른다.
+  // 하단 목록용: 상점 대상이면 이름 검색어 + 업종/상태 필터로 거른다.
+  //
+  // 2026-08-12 추가 (UIUX 피드백 "2. 필터링 추가"): 등록 건수가 87개까지 늘면서
+  // 이름을 모르는 채로 "화장실만" 또는 "폐쇄된 출입구만" 찾는 일이 생겼는데, 그때
+  // 쓸 수 있는 것이 이름 검색뿐이라 페이지를 넘겨가며 눈으로 훑어야 했다.
+  // 서버가 아니라 여기서 거르는 이유: 지도가 어차피 전량을 필요로 해서 이미 다
+  // 받아둔 상태다(visibleFacilities). 목록만 잘라 보여주면 된다.
   const listFacilities = useMemo(() => {
-    if (targetKind !== 'STALL' || !stallSearch.trim()) return visibleFacilities;
+    if (targetKind !== 'STALL') return visibleFacilities;
     const q = stallSearch.trim().toLowerCase();
-    return visibleFacilities.filter((f) => f.name.toLowerCase().includes(q));
-  }, [visibleFacilities, targetKind, stallSearch]);
+    return visibleFacilities.filter((f) => {
+      if (q && !f.name.toLowerCase().includes(q)) return false;
+      if (stallTypeFilter !== ALL_FILTER && f.facilityType !== stallTypeFilter) return false;
+      if (stallActiveFilter !== ALL_FILTER && f.isActive !== (stallActiveFilter === 'active')) return false;
+      return true;
+    });
+  }, [visibleFacilities, targetKind, stallSearch, stallTypeFilter, stallActiveFilter]);
 
-  // 검색어가 바뀌면 첫 페이지로 되돌린다.
+  // 검색어나 필터가 바뀌면 첫 페이지로 되돌린다. 3페이지를 보던 중에 조건을 좁히면
+  // 결과가 1페이지뿐이라 빈 화면이 남는다.
   useEffect(() => {
     setFacilityPage(0);
-  }, [stallSearch, targetKind]);
+  }, [stallSearch, stallTypeFilter, stallActiveFilter, targetKind]);
+
+  const hasStallFilter =
+    stallSearch.trim().length > 0 || stallTypeFilter !== ALL_FILTER || stallActiveFilter !== ALL_FILTER;
+
+  const resetStallFilters = () => {
+    setStallSearchInput('');
+    setStallSearch('');
+    setStallTypeFilter(ALL_FILTER);
+    setStallActiveFilter(ALL_FILTER);
+  };
 
   // 시설 목록은 클라이언트 페이징(지도는 전량을 쓰고, 표만 잘라 보여줌).
   const facilityTotalPages = Math.max(1, Math.ceil(listFacilities.length / PAGE_SIZE));
@@ -618,8 +647,16 @@ export default function FacilityManagePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* 2026-08-12 추가 (UIUX 피드백): 제목만 있고 이 화면이 무엇을 하는 곳인지
+          설명이 없었다(시나리오 이력에는 있는데 여기와 게시판에는 없다는 지적).
+          등록 대상에 따라 하는 일이 달라서 문구도 대상별로 바꾼다. */}
+      <div>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">시장 구조 등록</h1>
+        <p className="mt-1 text-sm text-slate-500">
+          {isCctvZoneTarget
+            ? '시뮬레이션 구역 안에 CCTV가 실제로 비추는 범위를 꼭짓점으로 등록합니다. 관제 대시보드의 분석 대상 구역이 됩니다.'
+            : '지도를 클릭해 상점·출입구 위치를 등록하고 외관 사진을 관리합니다. 등록한 위치는 시뮬레이션의 건물·통행 계산에 쓰입니다.'}
+        </p>
       </div>
 
       {isAdmin && markets.length > 0 && (
@@ -686,7 +723,12 @@ export default function FacilityManagePage() {
           )}
 
           {selectedMarket && (
+            // 2026-08-12 (UIUX 피드백 "더 확대가 안돼 아쉬어요"): 확대 배율 자체는 이미
+            // 카카오 로드맵의 상한(레벨 1, 축척 20m)까지 열려 있어서 더 당길 수가 없다
+            // (FacilityLocationPicker의 setMinLevel(1) 참고 - API가 그 아래를 지원하지 않음).
+            // 같은 배율에서 더 넓게 보이도록 지도 높이를 420 -> 560으로 키웠다.
             <FacilityLocationPicker
+              height={560}
               centerLat={selectedMarket.latitude}
               centerLng={selectedMarket.longitude}
               markers={mapMarkers}
@@ -1007,12 +1049,20 @@ export default function FacilityManagePage() {
               ? `${cctvPageData?.totalElements ?? 0}개`
               : `${visibleFacilities.length}개`}
           </span>
+          {/* "수정" 버튼을 없애고 행 클릭으로 바꾼 뒤로는, 누를 수 있다는 사실이
+              생김새만으로는 드러나지 않는다(커서 모양은 올려봐야 안다). 한 줄로 적어둔다. */}
+          {!isCctvZoneTarget && (
+            <span className="font-normal text-xs text-slate-500">
+              — 행을 클릭하면 수정할 수 있어요
+            </span>
+          )}
         </h2>
 
-        {/* 상점 목록 이름 검색(상점 대상에서만). 타이핑마다 바로 거르지 않고
-            검색 버튼(또는 Enter)을 눌러야 목록에 반영된다. */}
+        {/* 상점 목록 이름 검색 + 업종/상태 필터(상점 대상에서만).
+            검색어는 검색 버튼(또는 Enter)을 눌러야 반영되고, 드롭다운은 고르는 즉시
+            반영된다 - 고르는 행위 자체가 확정이라 한 번 더 누르게 할 이유가 없다. */}
         {targetKind === 'STALL' && visibleFacilities.length > 0 && (
-          <div className="mb-3 flex items-center gap-2">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
             <input
               value={stallSearchInput}
               onChange={(e) => setStallSearchInput(e.target.value)}
@@ -1029,18 +1079,50 @@ export default function FacilityManagePage() {
             >
               검색
             </button>
-            {stallSearch && (
-              <button
-                type="button"
-                onClick={() => {
-                  setStallSearchInput('');
-                  setStallSearch('');
-                }}
-                className="shrink-0 text-xs text-slate-500 hover:text-slate-900 dark:hover:text-slate-300"
-              >
-                지우기
-              </button>
-            )}
+
+            <select
+              aria-label="업종 필터"
+              value={stallTypeFilter}
+              onChange={(e) => setStallTypeFilter(e.target.value)}
+              className="shrink-0 rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2 py-1.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+            >
+              <option value={ALL_FILTER}>업종 전체</option>
+              {/* 목록에는 출입구(GATE)도 섞여 있다 - 대상 선택기에서 빠졌을 뿐
+                  이미 등록된 행은 그대로 남아 있어서, 필터 선택지에도 넣어야 고를 수 있다. */}
+              {Object.entries(ALL_FACILITY_TYPE_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              aria-label="영업 상태 필터"
+              value={stallActiveFilter}
+              onChange={(e) => setStallActiveFilter(e.target.value as 'all' | 'active' | 'inactive')}
+              className="shrink-0 rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2 py-1.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+            >
+              <option value={ALL_FILTER}>상태 전체</option>
+              <option value="active">영업중</option>
+              <option value="inactive">미영업</option>
+            </select>
+
+            {/* 조건이 세 개라 0건이 나왔을 때 어느 것 때문인지 알기 어렵다. 한 번에
+                모두 푸는 버튼을 두되, 지울 것이 없으면 잠가서 줄이 흔들리지 않게 한다. */}
+            <button
+              type="button"
+              onClick={resetStallFilters}
+              disabled={!hasStallFilter}
+              className="shrink-0 rounded border border-slate-300 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+            >
+              필터 초기화
+            </button>
+
+            <span className="ml-auto shrink-0 text-xs text-slate-500">
+              {hasStallFilter
+                ? `${listFacilities.length}건 / 전체 ${visibleFacilities.length}건`
+                : `전체 ${visibleFacilities.length}건`}
+            </span>
           </div>
         )}
 
@@ -1126,8 +1208,24 @@ export default function FacilityManagePage() {
             아직 등록된 {targetKind === 'GATE' ? '출입구' : '상점'}이(가) 없어요. 지도를 클릭해서 등록해보세요.
           </p>
         ) : listFacilities.length === 0 ? (
+          // 조건이 세 개로 늘면서 "검색어와 일치하는 상점이 없어요"만으로는 어느 조건
+          // 때문인지 알 수 없다. 켜져 있는 조건을 그대로 나열하고 푸는 버튼을 같이 둔다.
           <p className="py-8 text-center text-sm text-slate-500">
-            "{stallSearch}"와(과) 일치하는 상점이 없어요.
+            {[
+              stallSearch.trim() && `이름 "${stallSearch.trim()}"`,
+              stallTypeFilter !== ALL_FILTER && `업종 ${facilityTypeLabel(stallTypeFilter)}`,
+              stallActiveFilter !== ALL_FILTER && `상태 ${stallActiveFilter === 'active' ? '영업중' : '미영업'}`,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+            {' 조건에 맞는 상점이 없어요.'}
+            <button
+              type="button"
+              onClick={resetStallFilters}
+              className="ml-1 underline hover:text-slate-700 dark:hover:text-slate-300"
+            >
+              필터 초기화
+            </button>
           </p>
         ) : (
           <>
@@ -1147,8 +1245,30 @@ export default function FacilityManagePage() {
                   </tr>
                 </thead>
                 <tbody>
+                  {/* 2026-08-12 변경 (UIUX 피드백): "수정" 버튼을 없애고 행 아무 데나
+                      눌러 수정에 들어가게 했다. 이름·좌표를 보고 대상을 고르는 화면인데
+                      정작 누를 수 있는 곳은 줄 끝 작은 글자 하나였다.
+                      행 안의 다른 버튼(사진 관리·삭제)은 stopPropagation으로 막는다 -
+                      막지 않으면 삭제를 누를 때 수정까지 함께 열린다. */}
                   {pagedFacilities.map((f) => (
-                    <tr key={f.facilityId} className="border-t border-slate-200 dark:border-slate-800">
+                    <tr
+                      key={f.facilityId}
+                      onClick={() => startEditFacility(f)}
+                      onKeyDown={(e) => {
+                        // 표의 행이라 버튼처럼 키보드로 눌리지 않는다. 마우스로만
+                        // 되는 조작이 되지 않도록 Enter/Space를 직접 받는다.
+                        if (e.key !== 'Enter' && e.key !== ' ') return;
+                        e.preventDefault();
+                        startEditFacility(f);
+                      }}
+                      tabIndex={0}
+                      aria-label={`${f.name} 수정`}
+                      className={`cursor-pointer border-t border-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 dark:border-slate-800 ${
+                        editingId === f.facilityId
+                          ? 'bg-blue-500/10'
+                          : 'hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                      }`}
+                    >
                       <td className="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{f.name}</td>
                       {targetKind === 'STALL' && (
                         <td className="px-3 py-2 text-slate-600 dark:text-slate-400">
@@ -1184,7 +1304,10 @@ export default function FacilityManagePage() {
                       <td className="px-3 py-2">
                         <button
                           type="button"
-                          onClick={() => openPhotoPanel(f)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openPhotoPanel(f);
+                          }}
                           className="text-blue-600 dark:text-blue-400 hover:underline"
                         >
                           {f.photoCount}장 관리
@@ -1193,14 +1316,10 @@ export default function FacilityManagePage() {
                       <td className="whitespace-nowrap px-3 py-2 text-right">
                         <button
                           type="button"
-                          onClick={() => startEditFacility(f)}
-                          className="mr-2 text-slate-600 dark:text-slate-400 hover:underline"
-                        >
-                          수정
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteFacility(f)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteFacility(f);
+                          }}
                           className="text-red-600 dark:text-red-400 hover:underline"
                         >
                           삭제

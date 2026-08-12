@@ -3,10 +3,9 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Spinner from '../components/ui/Spinner';
 import ErrorBanner from '../components/ui/ErrorBanner';
 import TabButton from '../components/ui/TabButton';
-import { fetchCommonCodes, fetchPosts } from '../api/client';
+import { fetchPosts } from '../api/client';
 import { useAuthStore } from '../store/authStore';
-import { CATEGORY_CODE_OPTIONS } from '../constants/categoryCode';
-import { MARKET_CODE_OPTIONS } from '../constants/marketCode';
+import { useCommonCodes } from '../hooks/useCommonCodes';
 import type { PostListResponse, PostSummary } from '../types/board';
 import { toDisplayErrorMessage } from '../utils/errorMessage';
 
@@ -16,6 +15,13 @@ import { toDisplayErrorMessage } from '../utils/errorMessage';
 // UI 상태라 쿼리 파라미터를 아예 안 보내는 방식으로 표현함.
 //
 // 공지(is_notice=true)는 시장/카테고리 무관 항상 상단 고정 노출, 일반 글은 필터+페이징 적용.
+//
+// 2026-08-12 변경 (UIUX 피드백 반영)
+// 고정 공지가 필터와 무관하게 항상 나오는 것이 "필터가 안 먹는다"로 읽혔다. 자유게시판
+// 탭에 공지가 있고, 해운대시장 탭인데 망원시장 공지가 뜨고, 공지사항 탭인데 자유게시판
+// 카테고리 글이 보이는 식이다. 동작은 의도한 대로 두기로 했으므로(항상 고정), 고정 글
+// 줄에 배경색을 깔아 "이 줄들은 필터 밖에 있다"를 눈으로 구분되게 하고, 화면 상단에
+// 그 규칙을 한 줄로 적어둔다.
 // 시장 필터는 관리자에게만 노출 - 일반 사용자는 목록 API가 이미 본인 담당 시장으로
 // 걸러서 내려주므로 탭 자체가 필요 없음(설계서의 "관리자 시장 탭 결정" 반영).
 const PAGE_SIZE = 10;
@@ -30,15 +36,6 @@ function formatDate(iso: string) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function categoryLabel(options: { code: string; name: string }[], code: string) {
-  return options.find((o) => o.code === code)?.name ?? code;
-}
-
-function marketLabel(options: { code: string; name: string }[], code: string | null) {
-  if (!code) return '전체'; // 공지 등 marketCode가 없는 글은 시장 무관이라는 의미로 "전체" 표시
-  return options.find((o) => o.code === code)?.name ?? code;
-}
-
 export default function BoardListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -51,35 +48,15 @@ export default function BoardListPage() {
   const marketParam = searchParams.get('market') ?? ALL_VALUE;
 
   const [keywordInput, setKeywordInput] = useState(keywordParam);
-  const [categoryOptions, setCategoryOptions] = useState(CATEGORY_CODE_OPTIONS);
-  const [marketOptions, setMarketOptions] = useState(MARKET_CODE_OPTIONS);
+  // 2026-08-12: 화면마다 복사돼 있던 공통코드 조회(+StrictMode 이중 호출 가드)를
+  // useCommonCodes로 모았다. 도메인별 캐시가 훅 안에 있어 요청은 앱 전체에서 한 번이다.
+  const { options: categoryOptions, labelOf: categoryLabel } = useCommonCodes('BCT');
+  const { options: marketOptions, labelOf: marketLabelOf } = useCommonCodes('MKT');
+  // 공지 등 marketCode가 없는 글은 시장 무관이라는 의미로 "전체"로 표시한다.
+  const marketLabel = (code: string | null) => (code ? marketLabelOf(code) : '전체');
   const [data, setData] = useState<PostListResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-
-  // 2026-07-26 버그 수정: React 18/19 StrictMode(main.tsx)가 개발 모드에서 마운트 시
-  // useEffect를 두 번 실행하면서, 공통코드(BCT/MKT) 조회와 목록 조회(load) 쿼리 세트가
-  // 통째로 2번씩 나가던 문제. BoardDetailPage(조회수 중복 증가 수정 시)에 적용했던 것과
-  // 동일한 ref 가드 패턴을 여기에도 적용해서 중복 호출을 막음.
-  const commonCodesLoadedRef = useRef(false);
-  useEffect(() => {
-    if (commonCodesLoadedRef.current) return;
-    commonCodesLoadedRef.current = true;
-
-    fetchCommonCodes('BCT')
-      .then((codes) => {
-        if (codes.length > 0) setCategoryOptions(codes.map((c) => ({ code: c.code, name: c.codeName })));
-      })
-      .catch((err) => console.error('공통코드(카테고리) 조회 실패, 로컬 기본값 사용', err));
-
-    // 2026-07-25 변경: 시장 탭(관리자 전용) 노출 여부와 무관하게, 목록 테이블의
-    // "시장" 컬럼 라벨 표시를 위해 모든 사용자에게 시장 옵션을 로드함
-    fetchCommonCodes('MKT')
-      .then((codes) => {
-        if (codes.length > 0) setMarketOptions(codes.map((c) => ({ code: c.code, name: c.codeName })));
-      })
-      .catch((err) => console.error('공통코드(시장) 조회 실패, 로컬 기본값 사용', err));
-  }, []);
 
   const load = useCallback(() => {
     setIsLoading(true);
@@ -122,12 +99,19 @@ export default function BoardListPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">게시판</h1>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">게시판</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {isAdmin
+              ? '전체 시장의 공지와 게시글입니다. 상단에 색이 깔린 고정 공지는 카테고리·시장 필터와 관계없이 항상 노출됩니다.'
+              : '담당 시장의 공지와 게시글입니다. 상단에 색이 깔린 고정 공지는 카테고리 필터와 관계없이 항상 노출됩니다.'}
+          </p>
+        </div>
         <button
           type="button"
           onClick={() => navigate('/board/write')}
-          className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+          className="shrink-0 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
         >
           글쓰기
         </button>
@@ -201,7 +185,7 @@ export default function BoardListPage() {
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
               {data.pinned.map((post) => (
-                <BoardRow key={post.postId} post={post} categoryOptions={categoryOptions} marketOptions={marketOptions} />
+                <BoardRow key={post.postId} post={post} pinned categoryLabel={categoryLabel} marketLabel={marketLabel} />
               ))}
               {data.page.content.length === 0 && data.pinned.length === 0 && (
                 <tr>
@@ -211,7 +195,7 @@ export default function BoardListPage() {
                 </tr>
               )}
               {data.page.content.map((post) => (
-                <BoardRow key={post.postId} post={post} categoryOptions={categoryOptions} marketOptions={marketOptions} />
+                <BoardRow key={post.postId} post={post} categoryLabel={categoryLabel} marketLabel={marketLabel} />
               ))}
             </tbody>
           </table>
@@ -242,15 +226,25 @@ export default function BoardListPage() {
 
 function BoardRow({
   post,
-  categoryOptions,
-  marketOptions,
+  pinned = false,
+  categoryLabel,
+  marketLabel,
 }: {
   post: PostSummary;
-  categoryOptions: { code: string; name: string }[];
-  marketOptions: { code: string; name: string }[];
+  /** 필터 밖에서 항상 맨 위에 붙는 고정 공지인지. 줄 배경색으로 구분한다. */
+  pinned?: boolean;
+  // 공통코드 조회는 부모(useCommonCodes)가 한 번만 하고, 여기서는 변환 함수만 받는다.
+  categoryLabel: (code: string) => string;
+  marketLabel: (code: string | null) => string;
 }) {
   return (
-    <tr className="text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-900/60">
+    <tr
+      className={
+        pinned
+          ? 'bg-amber-50 text-slate-800 hover:bg-amber-100 dark:bg-amber-500/5 dark:text-slate-200 dark:hover:bg-amber-500/10'
+          : 'text-slate-800 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900/60'
+      }
+    >
       <td className="whitespace-nowrap px-3 py-3">
         {post.notice && (
           <span className="inline-block whitespace-nowrap rounded bg-amber-500/20 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
@@ -259,10 +253,10 @@ function BoardRow({
         )}
       </td>
       <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-500 dark:text-slate-400">
-        {marketLabel(marketOptions, post.marketCode)}
+        {marketLabel(post.marketCode)}
       </td>
       <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-500 dark:text-slate-400">
-        {categoryLabel(categoryOptions, post.categoryCode)}
+        {categoryLabel(post.categoryCode)}
       </td>
       <td className="px-4 py-3">
         <Link to={`/board/${post.postId}`} className="hover:text-blue-600 dark:hover:text-blue-400 hover:underline">

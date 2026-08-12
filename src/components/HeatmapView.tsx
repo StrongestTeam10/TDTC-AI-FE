@@ -121,7 +121,11 @@ interface Viewport {
   panY: number;
 }
 
-const MIN_ZOOM = 0.5;
+// 2026-08-12 (UIUX 피드백 p01 "일정 크기 이하로 축소 X"): 하한이 0.5여서 끝까지
+// 축소하면 시장이 화면 한가운데 손톱만 하게 남고, 구역·에이전트가 서로 겹쳐 아무것도
+// 읽히지 않았다. 되돌리려면 초기화를 눌러야 해서 실수로 한 번 굴리면 번거로웠다.
+// 시장 전체가 화면에 들어오는 배율이 1이므로, 그보다 조금만 더 넓게 보는 선에서 막는다.
+const MIN_ZOOM = 0.85;
 const MAX_ZOOM = 8;
 const ZOOM_STEP = 1.25;
 
@@ -711,7 +715,11 @@ export default function HeatmapView({
         </div>
       )}
 
-      <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded bg-white/80 px-1 py-1 dark:bg-slate-900/70">
+      {/* 2026-08-12 (UIUX 피드백 p02 ② "⊞⊟초기화 버튼/범례 표기되도록"):
+          bg-white/80은 지도 위 폴리곤이 밝은 색일 때 버튼 테두리가 배경에 묻혀
+          있는지 없는지 알기 어려웠다. 불투명도를 올리고 그림자·테두리를 줘서
+          지도 위에 떠 있는 조작 도구라는 것이 분명해지게 한다. */}
+      <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded border border-slate-300 bg-white/95 px-1 py-1 shadow-sm dark:border-slate-700 dark:bg-slate-900/90">
         <button
           type="button"
           onClick={() => zoomBy(ZOOM_STEP)}
@@ -738,7 +746,8 @@ export default function HeatmapView({
         </button>
       </div>
 
-      <div className="absolute bottom-2 right-2 flex items-center gap-3 rounded bg-white/80 px-2 py-1 text-[10px] text-slate-600 dark:bg-slate-900/70 dark:text-slate-400">
+      {/* 위험도 범례. 점 색이 무엇을 뜻하는지 알려주는 유일한 곳이라 항상 보여야 한다. */}
+      <div className="absolute bottom-2 right-2 flex items-center gap-3 rounded border border-slate-300 bg-white/95 px-2 py-1 text-[10px] text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900/90 dark:text-slate-400">
         {[
           { label: '안전', color: AGENT_DANGER_BLUE },
           { label: '주의', color: AGENT_DANGER_YELLOW },

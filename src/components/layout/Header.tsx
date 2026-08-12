@@ -1,7 +1,7 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
-import { ROLE_LABELS } from '../../types/auth';
-import { canAccessControlSystem } from '../../auth/permissions';
+import { useCommonCodes } from '../../hooks/useCommonCodes';
+import { canAccessControlSystem, canManageFacilities } from '../../auth/permissions';
 import ThemeToggle from '../ui/ThemeToggle';
 
 // 2026-07-24 추가
@@ -28,12 +28,17 @@ export default function Header() {
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
   // 2026-08-04 추가: 상점 위치 등록 탭은 관리자(ROL01) 또는 상인회(ORGMA)에게만 노출
-  const canManageFacilities = user?.rulesCode === 'ROL01' || user?.orgCode === 'ORGMA';
+  // 2026-08-12: 같은 조건이 RequireFacilityManager·homePathFor에도 필요해져
+  // auth/permissions.ts의 canManageFacilities로 옮기고 여기서는 불러 쓴다.
+  const showFacilitiesMenu = canManageFacilities(user);
   // 2026-08-06 추가: 관제 대시보드·시뮬레이션 비교·시나리오 이력은 관리자(ROL01)와
   // 관제요원(ROL02)만. BE도 /api/dashboard/** 와 /api/simulation/** 을 이 두 권한으로
   // 제한하므로, 조회자(ROL03, 상인회)에게 메뉴를 남겨두면 눌러도 403만 보게 된다.
   // 상인회에게 열려 있는 것은 게시판과 상점 위치 등록이다.
   const canAccessControl = canAccessControlSystem(user);
+  // 2026-08-12: 권한 이름을 types/auth.ts의 하드코딩 표(ROLE_LABELS)에서 읽고 있었다.
+  // comcode01m ROL 도메인이 유일한 출처가 되도록 공통코드에서 받아온다.
+  const { labelOf: roleLabel } = useCommonCodes('ROL');
 
   const handleLogout = () => {
     logout();
@@ -80,7 +85,7 @@ export default function Header() {
           )}
           {/* 2026-08-11: "상점 위치 등록" → "시장 구조 등록"으로 개명(상점/출입구뿐 아니라
               CCTV 구역·시장 오브젝트까지 등록하는 화면이 됨). 경로(/facilities)는 유지. */}
-          {canManageFacilities && (
+          {showFacilitiesMenu && (
             <NavLink to="/facilities" className={navClass}>
               시장 구조 등록
             </NavLink>
@@ -102,7 +107,7 @@ export default function Header() {
           {user ? (
             <>
               <span>
-                {user.name} <span className="text-slate-400 dark:text-slate-600">· {ROLE_LABELS[user.rulesCode]}</span>
+                {user.name} <span className="text-slate-400 dark:text-slate-600">· {roleLabel(user.rulesCode)}</span>
               </span>
               <button
                 type="button"

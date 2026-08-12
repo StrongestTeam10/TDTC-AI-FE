@@ -1,8 +1,6 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ORG_CODE_OPTIONS } from '../constants/orgCode';
-import { MARKET_CODE_OPTIONS } from '../constants/marketCode';
-import { fetchCommonCodes } from '../api/client';
+import { useCommonCodes } from '../hooks/useCommonCodes';
 import { useAuthStore } from '../store/authStore';
 import ThemeToggle from '../components/ui/ThemeToggle';
 
@@ -23,27 +21,13 @@ export default function ForgotPasswordPage() {
   const [loginId, setLoginId] = useState('');
   const [name, setName] = useState('');
   const [orgCode, setOrgCode] = useState('');
-  const [orgOptions, setOrgOptions] = useState(ORG_CODE_OPTIONS);
+  // 2026-08-12: 화면마다 복사돼 있던 공통코드 조회를 useCommonCodes로 모았다.
+  const { options: orgOptions } = useCommonCodes('ORG');
   const [marketCode, setMarketCode] = useState('');
-  const [marketOptions, setMarketOptions] = useState(MARKET_CODE_OPTIONS);
+  const { options: marketOptions } = useCommonCodes('MKT');
 
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // SignupPage와 동일한 패턴: BE 공통코드 API에서 가져오고, 실패 시 로컬 상수로 폴백
-  useEffect(() => {
-    fetchCommonCodes('ORG')
-      .then((codes) => {
-        if (codes.length > 0) setOrgOptions(codes.map((c) => ({ code: c.code, name: c.codeName })));
-      })
-      .catch((err) => console.error('공통코드(소속기관) 조회 실패, 로컬 기본값 사용', err));
-
-    fetchCommonCodes('MKT')
-      .then((codes) => {
-        if (codes.length > 0) setMarketOptions(codes.map((c) => ({ code: c.code, name: c.codeName })));
-      })
-      .catch((err) => console.error('공통코드(담당 시장) 조회 실패, 로컬 기본값 사용', err));
-  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();

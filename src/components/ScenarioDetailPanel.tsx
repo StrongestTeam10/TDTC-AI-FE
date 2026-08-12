@@ -13,6 +13,11 @@ import { toDisplayErrorMessage } from '../utils/errorMessage';
 //
 // 지도는 넣지 않았다. 어느 구역에 무엇을 뒀는지는 글로도 충분히 전달되고, 지도를 그리려면
 // HeatmapView와 구역 폴리곤까지 끌어와야 해서 목록 화면에 얹기에는 무겁다.
+//
+// 2026-08-12 변경 (UIUX 피드백 반영): 내용은 좋은데 글자가 너무 작다는 지적이 있어
+// 본문·절 제목을 text-xs -> text-sm으로 올리고 줄 간격을 함께 넓혔다. 이 패널은
+// 보고서를 만들 대상을 고르기 전에 "어느 실행인지" 확인하려고 여는 곳이라, 표의
+// 보조 정보보다 읽기 쉬워야 한다.
 
 const OBJECT_TYPE_LABELS: Record<string, string> = {
   food_truck: '푸드트럭',
@@ -71,13 +76,13 @@ function groupByLabel<T>(items: T[], labelOf: (item: T) => string): { label: str
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
       <div>
-        <div className="mb-1 text-xs font-semibold text-slate-500 dark:text-slate-400">{title}</div>
+        <div className="mb-1.5 text-sm font-semibold text-slate-600 dark:text-slate-300">{title}</div>
         {children}
       </div>
   );
 }
 
-const emptyText = <span className="text-xs text-slate-400 dark:text-slate-600">없음</span>;
+const emptyText = <span className="text-sm text-slate-400 dark:text-slate-600">없음</span>;
 
 /**
  * 한 번 받아온 실행 설정을 담아둔다. 접었다 다시 펴도 요청하지 않는다.
@@ -135,14 +140,14 @@ export default function ScenarioDetailPanel({ scenarioId }: { scenarioId: number
 
   if (isLoading) return <Spinner label="실행 설정을 불러오는 중..." className="py-4" />;
   if (error) {
-    return <div role="alert" className="py-3 text-xs text-red-600 dark:text-red-400">{error}</div>;
+    return <div role="alert" className="py-3 text-sm text-red-600 dark:text-red-400">{error}</div>;
   }
   if (!detail) return null;
 
   return (
       <div className="space-y-3 py-3">
         {/* 실행 조건은 값 두 개뿐이라 절 하나를 통째로 쓰면 자리가 아깝다. */}
-        <div className="text-xs text-slate-500 dark:text-slate-400">
+        <div className="text-sm text-slate-500 dark:text-slate-400">
           유입 인원{' '}
           <span className="font-medium text-slate-700 dark:text-slate-200">
             {detail.agentCount ?? '-'}명
@@ -159,7 +164,7 @@ export default function ScenarioDetailPanel({ scenarioId }: { scenarioId: number
         <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2 xl:grid-cols-3">
           <Section title={`이벤트 ${detail.events.length}건`}>
             {detail.events.length === 0 ? emptyText : (
-                <ul className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                <ul className="space-y-1.5 text-sm text-slate-600 dark:text-slate-300">
                   {detail.events.map((e, i) => (
                       <li key={i}>
                         <span className="font-medium text-slate-800 dark:text-slate-100">
@@ -184,7 +189,7 @@ export default function ScenarioDetailPanel({ scenarioId }: { scenarioId: number
 
           <Section title={`배치 오브젝트 ${detail.objects.length}개`}>
             {detail.objects.length === 0 ? emptyText : (
-                <ul className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                <ul className="space-y-1.5 text-sm text-slate-600 dark:text-slate-300">
                   {groupByLabel(detail.objects, (o) =>
                       `${OBJECT_TYPE_LABELS[o.objectType] ?? o.objectType} · `
                       + `${zoneLabel(o.zoneName, o.zoneId)}${intensityLabel(o.intensity)}`,
@@ -204,7 +209,7 @@ export default function ScenarioDetailPanel({ scenarioId }: { scenarioId: number
 
           <Section title={`통로 정책 ${detail.corridorPolicies.length}건 · 닫은 게이트 ${detail.closedGates.length}곳`}>
             {detail.corridorPolicies.length === 0 && detail.closedGates.length === 0 ? emptyText : (
-                <ul className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                <ul className="space-y-1.5 text-sm text-slate-600 dark:text-slate-300">
                   {groupByLabel(detail.corridorPolicies, (c) =>
                       `${zoneLabel(c.fromZoneName, c.fromZoneId)} → ${zoneLabel(c.toZoneName, c.toZoneId)}`
                       + ` · ${CORRIDOR_ACTION_LABELS[c.action] ?? c.action}`,

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import HeatmapView from '../components/HeatmapView';
 import ScenarioForm from '../components/ScenarioForm';
+import EventSettingsPanel from '../components/EventSettingsPanel';
 import PolicyAnalysisPanel from '../components/PolicyAnalysisPanel';
 import type { ObjectRemovalResult } from '../components/PolicyAnalysisPanel';
 import RiskTrendChart from '../components/RiskTrendChart';
@@ -9,6 +10,7 @@ import ZoneRiskSmallMultiples from '../components/ZoneRiskSmallMultiples';
 import Spinner from '../components/ui/Spinner';
 import ErrorBanner from '../components/ui/ErrorBanner';
 import TabButton from '../components/ui/TabButton';
+import InfoTooltip from '../components/ui/InfoTooltip';
 import { fetchMarkets, fetchZones, fetchCorridors, fetchGates, fetchBuildings, fetchMarketObjects, runPredictSimulation, runScenarioSimulation } from '../api/client';
 import { useSimulationStore } from '../store/simulationStore';
 import { useAuthStore } from '../store/authStore';
@@ -109,6 +111,116 @@ function buildingContains(polygonCoordinates: string, lon: number, lat: number):
 const BASE_INTERVAL_MS = 500;
 const STEP_DURATION_SECONDS = 10;
 
+// 2026-08-12 추가 (UIUX 피드백)
+// 숫자 입력을 끝까지 지울 수 있게 하려고 상태를 number 대신 number | null로 둔다.
+// 예전에는 value={steps}에 number를 그대로 물려서, 마지막 한 글자를 지우면
+// Number('')가 0이 되어 화면에 "0"이 다시 박혔다. 지워지지 않는 입력처럼 보인다.
+// null은 "비어 있음"이고, 실행할 때만 0으로 읽는다.
+type NumericInput = number | null;
+
+/** 비어 있으면 0으로 읽는다("다 지우면 0으로"). */
+function readNumber(value: NumericInput): number {
+  return value ?? 0;
+}
+
+/** 입력창에 표시할 값. null이면 빈 문자열이라 실제로 아무것도 남지 않는다. */
+function displayNumber(value: NumericInput): string {
+  return value === null ? '' : String(value);
+}
+
+function parseNumberInput(raw: string): NumericInput {
+  if (raw === '') return null;
+  const parsed = Number(raw);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+/**
+ * 좌측 설정을 Step 1·2·3으로 나눈 아코디언 한 칸.
+ *
+ * 왜 아코디언인가: 예전에는 설정 전체가 h-[650px] 안에 세로로 쌓여 있어서, 무엇부터
+ * 해야 하는지 순서가 드러나지 않고 스크롤을 내려야 뒤쪽 항목이 있는 줄 알 수 있었다.
+ * 한 번에 한 단계만 펼치면 (1) 순서가 화면에 그대로 보이고 (2) 각 단계가 짧아져
+ * 패널 안쪽 스크롤 자체가 필요 없어진다.
+ *
+ * 접힌 단계에도 summary를 남겨서, 접어둔 단계에 무엇을 설정했는지 다시 펼치지 않고
+ * 확인할 수 있게 했다.
+ */
+function StepSection({
+  step,
+  title,
+  summary,
+  info,
+  isOpen,
+  onToggle,
+  children,
+}: {
+  step: number;
+  title: string;
+  summary: string;
+  /** 제목 옆 ⓘ 안에 접어 넣을 설명. 없으면 아이콘도 나오지 않는다. */
+  info?: React.ReactNode;
+  isOpen: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="border-b border-slate-200 last:border-b-0 dark:border-slate-800">
+      {/* 2026-08-12 (2차): ⓘ를 제목 바로 옆에 두라는 요청.
+          토글 버튼 안에 넣으면 button 안에 button이 되어 마크업이 깨지고, 설명을
+          열려고 누른 클릭이 단계 접기까지 같이 실행된다. 그렇다고 버튼 바깥 형제로
+          두면 줄 맨 끝(화살표 뒤)으로 밀린다.
+          그래서 머리글 줄 전체를 덮는 투명 버튼을 아래에 깔고, 그 위에 내용을 얹되
+          내용에는 pointer-events-none을 줘서 클릭이 버튼으로 통과하게 했다.
+          ⓘ만 pointer-events-auto로 되살려 자기 클릭(과 말풍선 안 클릭)을 직접 받는다.
+
+          ⚠️ 이 relative 컨테이너는 머리글 줄만 감싼다. 펼쳐진 내용까지 감싸면
+          absolute inset-0 버튼이 그 위를 덮어(위치 지정 요소가 일반 흐름 위에 그려진다)
+          Step 2의 입력을 누를 때마다 단계가 접힌다. */}
+      <div className="group relative">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={isOpen}
+          aria-label={`${title} ${isOpen ? '접기' : '펼치기'}`}
+          className="absolute inset-0 h-full w-full"
+        />
+        <div className="pointer-events-none relative flex items-center gap-3 px-4 py-3 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/60">
+        <span
+          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+            isOpen
+              ? 'bg-blue-600 text-white'
+              : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+          }`}
+        >
+          {step}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5 text-sm font-medium text-slate-800 dark:text-slate-200">
+            <span className="truncate">{title}</span>
+            {info && (
+              <span className="pointer-events-auto">
+                <InfoTooltip label={`${title} 설명`}>{info}</InfoTooltip>
+              </span>
+            )}
+          </span>
+          {/* 접었을 때만 요약을 보여준다. 펼친 상태에서는 실제 입력이 바로 아래 있어서
+              같은 내용을 두 번 읽게 된다. */}
+          {!isOpen && summary && (
+            <span className="mt-0.5 block truncate text-xs text-slate-500">{summary}</span>
+          )}
+        </span>
+          {/* 닫힘 ◀ / 열림 ▼. 화살표가 줄 오른쪽 끝에 있어서, 닫힌 상태에서 왼쪽을
+              가리키면 "이쪽 내용을 펼친다"로 읽힌다. */}
+          <span aria-hidden className="shrink-0 text-xs text-slate-400">
+            {isOpen ? '▼' : '◀'}
+          </span>
+        </div>
+      </div>
+      {isOpen && <div className="space-y-3 px-4 pb-4">{children}</div>}
+    </div>
+  );
+}
+
 // 2026-08-06 추가 (시장 선택 · 보고서 생성)
 //
 // 시장 선택: 지금까지 markets[0]을 그대로 쓰고 있어서, 관리자(ROL01)는 시장이 여러
@@ -166,8 +278,16 @@ export default function SimulationComparePage() {
   const RECOVERY_STEPS = 12; // 진압 후 복구(위험도 감쇠) 기간(자동)
   const [corridorPolicies, setCorridorPolicies] = useState<CorridorPolicy[]>([]);
 
-  const [steps, setSteps] = useState(30);
-  const [agentCount, setAgentCount] = useState(100);
+  const [steps, setSteps] = useState<NumericInput>(30);
+  const [agentCount, setAgentCount] = useState<NumericInput>(100);
+  // 지금 펼쳐둔 단계. 한 번에 하나만 연다 - 여러 개를 열면 다시 스크롤이 생긴다.
+  // null은 "전부 접힘". 2026-08-12: 펼쳐진 단계를 다시 누르면 닫히도록 바꿨다.
+  // 예전에는 누르면 항상 열기만 해서, 이미 열린 단계의 머리글은 눌러도 아무 반응이
+  // 없었다(접는 방법이 다른 단계를 여는 것뿐이었다).
+  const [openStep, setOpenStep] = useState<1 | 2 | 3 | null>(1);
+
+  /** 열린 단계를 누르면 닫고, 닫힌 단계를 누르면 그것만 연다(항상 최대 한 개). */
+  const toggleStep = (step: 1 | 2 | 3) => setOpenStep((current) => (current === step ? null : step));
   /**
    * 'llm': LLM 분석 완료 후 자동 세팅 상태. ScenarioForm이 잠김.
    * 'manual': 기본 상태. ScenarioForm을 사용자가 직접 조작 가능.
@@ -211,7 +331,7 @@ export default function SimulationComparePage() {
 
   // 2026-08-06: 시장 목록 로드와 구역/통로/게이트/건물 로드를 분리했다. 관리자가 시장을
   // 전환하면 뒤쪽만 다시 불러야 하는데, 하나로 묶여 있으면 시장 목록까지 매번 다시
-  // 읽는다(useSimulationData가 대시보드에서 같은 이유로 분리한 것과 같은 구조).
+  // 읽는다.
   const loadLayout = (marketId: number) => {
     setLayoutLoading(true);
     setLayoutError(null);
@@ -340,6 +460,16 @@ export default function SimulationComparePage() {
       return;
     }
 
+    // 스텝 수는 비워둘 수 있게 됐지만(입력을 끝까지 지울 수 있도록) 0스텝짜리 실행은
+    // 계산할 것이 없다. 요청을 보내 SIM이 400으로 거절하게 두는 대신 여기서 멈추고,
+    // 어느 칸을 채워야 하는지 알려준다.
+    const runSteps = readNumber(steps);
+    if (runSteps < 1) {
+      setRunError('예측 스텝 수를 1 이상으로 입력해주세요.');
+      setOpenStep(3);
+      return;
+    }
+
     setSubmittedEvents(events);
     setPlacementType(null);
     setPredicting(true);
@@ -348,9 +478,14 @@ export default function SimulationComparePage() {
     clearReportError();
 
     const marketId = selectedMarketId;
-    // 개입 후(scenario) SIM은 agentCount >= 1만 허용한다. 입력칸을 min=1로 막아뒀지만
-    // 직접 0/빈값을 타이핑한 경우까지 방어해 양쪽 파이프라인이 같은 유효값을 받게 한다.
-    const safeAgentCount = Math.max(1, Math.floor(agentCount) || 1);
+    // 개입 후(scenario) SIM은 agentCount >= 1만 허용한다(SIM ScenarioRequest의
+    // Field(..., ge=1)). 입력칸을 min=1로 막아뒀지만 직접 0/빈값을 타이핑한 경우까지
+    // 방어해 양쪽 파이프라인이 같은 유효값을 받게 한다.
+    //
+    // 2026-08-12 머지 정리: 유입 인원을 끝까지 지울 수 있게 하면서 상태가
+    // number | null이 됐다(비어 있으면 null). readNumber로 0을 만든 뒤 여기서 1로
+    // 올린다 - 화면에서는 비울 수 있고, 실행되는 값은 항상 SIM이 받는 범위 안이다.
+    const safeAgentCount = Math.max(1, Math.floor(readNumber(agentCount)) || 1);
     // 실행 시점에 발생/진압 스텝으로 연소기간(burnSteps)을 재계산해 SIM에 보낸다.
     // (발생·진압을 나중에 수정해도 항상 일관되게 반영되도록)
     const simEvents: EventTrigger[] = events.map((ev) => {
@@ -364,7 +499,7 @@ export default function SimulationComparePage() {
     });
     const predictReq: PredictRequest = {
       marketId,
-      steps,
+      steps: runSteps,
       totalInflow: safeAgentCount,
       events: simEvents,
       closedGateIds: Array.from(beforeClosedGateIds),
@@ -374,7 +509,7 @@ export default function SimulationComparePage() {
     };
     const scenarioReq: ScenarioRequest = {
       marketId,
-      steps,
+      steps: runSteps,
       agentCount: safeAgentCount,
       objects,
       events: simEvents,
@@ -468,20 +603,114 @@ export default function SimulationComparePage() {
       }
       // 발생/진압 스텝은 그대로 저장(연소기간 burnSteps는 실행 시 재계산).
       // 이렇게 해야 나중에 목록에서 발생·진압을 수정해도 진압 시점이 안 어긋난다.
-      setEvents((prev) => [
-        ...prev,
-        {
-          eventType: placementType as EventTrigger['eventType'],
-          zoneId,
-          intensity: nextIntensity,
-          latitude: fireLat,
-          longitude: fireLon,
-          triggerStep: nextTriggerStep,
-          extinguishStep: nextExtinguishStep,
-          recoverySteps: RECOVERY_STEPS,
-        },
-      ]);
+      //
+      // 2026-08-12(2차): 화재는 한 건만 등록한다. 예전에는 배치 모드가 켜져 있는 동안
+      // 지도를 누를 때마다 계속 쌓여서, 실수로 여러 번 누르면 같은 자리에 여러 건이
+      // 겹쳐 등록되고도 목록을 펼치기 전에는 알 수 없었다. 이미 있으면 새로 넣지 않고,
+      // 하나를 놓는 즉시 배치 모드를 끈다.
+      setEvents((prev) =>
+        prev.length > 0
+          ? prev
+          : [
+              {
+                eventType: placementType as EventTrigger['eventType'],
+                zoneId,
+                intensity: nextIntensity,
+                latitude: fireLat,
+                longitude: fireLon,
+                triggerStep: nextTriggerStep,
+                extinguishStep: nextExtinguishStep,
+                recoverySteps: RECOVERY_STEPS,
+              },
+            ],
+      );
+      setPlacementType(null);
     }
+  };
+
+  /**
+   * 2026-08-12(3차) 추가: 화재를 무작위 위치·무작위 값으로 한 건 등록한다.
+   *
+   * 손으로 찍는 방식(지도 클릭)은 그대로 두고, "어디든 한 번 터뜨려 보고 싶다"는
+   * 경우를 위한 지름길이다. 위치를 고르는 것 자체가 실험 대상이 아닐 때
+   * 지도를 확대해 건물을 찾는 수고를 없앤다.
+   *
+   * 위치: 건물 폴리곤 중 하나를 골라 그 중심으로 잡는다. 수동 배치도 결국 가장
+   * 가까운 건물 중심으로 스냅되므로(handlePlaceObject) 결과 형태가 같다.
+   * 구역: 건물 중심이 어느 시뮬레이션 구역 폴리곤 안에 있는지로 역산한다. 지도
+   * 클릭 때는 HeatmapView가 zoneId를 넘겨주지만 여기서는 그 경로를 안 거친다.
+   */
+  const handleAutoPlaceFire = () => {
+    if (events.length > 0) return; // 화재는 한 건만
+    if (buildings.length === 0 || zones.length === 0) {
+      setRunError('건물·구역 정보를 아직 불러오지 못해 자동 등록할 수 없습니다.');
+      return;
+    }
+
+    // 건물 폴리곤 위에만 놓으면 된다(수동 배치와 같은 규칙). 그 건물이 시뮬레이션
+    // 구역 안에 있어야 한다는 제약은 두지 않는다 - 건물 상당수가 구역 폴리곤 밖에
+    // 걸쳐 있어 후보가 하나도 안 남았다.
+    const centers = buildings
+        .map((building) => buildingCentroid(building.polygonCoordinates))
+        .filter((center): center is { lat: number; lon: number } => center !== null);
+
+    if (centers.length === 0) {
+      setRunError('건물 좌표를 읽지 못해 화재를 자동 등록할 수 없습니다.');
+      return;
+    }
+
+    const center = centers[Math.floor(Math.random() * centers.length)];
+
+    // zoneId는 반드시 실제 구역이어야 한다. SIM apply_event_triggers가
+    // "zoneId not in layout.zones"면 그 화재를 통째로 건너뛰어, 등록은 됐는데
+    // 아무 일도 안 일어나는 상태가 된다.
+    // 건물이 어느 구역에도 안 들어가면 중심이 가장 가까운 구역에 붙인다
+    // (수동 배치도 클릭한 구역을 zoneId로 쓰고 좌표만 건물로 스냅하므로 성격이 같다).
+    const containing = zones.find((z) => buildingContains(z.polygonCoordinates, center.lon, center.lat));
+    let zoneId = containing?.zoneId;
+    if (zoneId === undefined) {
+      let best = Infinity;
+      for (const zone of zones) {
+        const zoneCenter = buildingCentroid(zone.polygonCoordinates);
+        if (!zoneCenter) continue;
+        const distance = (zoneCenter.lat - center.lat) ** 2 + (zoneCenter.lon - center.lon) ** 2;
+        if (distance < best) {
+          best = distance;
+          zoneId = zone.zoneId;
+        }
+      }
+    }
+    if (zoneId === undefined) {
+      setRunError('구역 좌표를 읽지 못해 화재를 자동 등록할 수 없습니다.');
+      return;
+    }
+
+    const picked = { center, zoneId };
+
+
+    // 발생 스텝은 전체 구간의 앞쪽 60% 안에서 고른다. 끝에 붙으면 대피가 시작되기도
+    // 전에 시뮬레이션이 끝나 개입 효과가 드러나지 않는다.
+    const totalSteps = Math.max(2, readNumber(steps));
+    const trigger = 1 + Math.floor(Math.random() * Math.max(1, Math.floor(totalSteps * 0.6)));
+    // 진압은 발생 이후 ~ 마지막 스텝 사이. 최소 1스텝은 타도록 보장한다.
+    const extinguish = Math.min(totalSteps, trigger + 1 + Math.floor(Math.random() * 10));
+    // 강도는 0.3~1.0. 너무 낮으면 위험도가 거의 안 올라 "터뜨린 보람"이 없다.
+    const intensity = Math.round((0.3 + Math.random() * 0.7) * 10) / 10;
+
+    setRunError(null);
+    setPlacementType(null);
+    setEvents([
+      {
+        eventType: 'fire',
+        zoneId: picked.zoneId,
+        intensity,
+        latitude: picked.center.lat,
+        longitude: picked.center.lon,
+        triggerStep: trigger,
+        extinguishStep: extinguish,
+        recoverySteps: RECOVERY_STEPS,
+      },
+    ]);
   };
 
   const beforePlacementType = isEventPlacementType(placementType) ? placementType : null;
@@ -560,28 +789,10 @@ export default function SimulationComparePage() {
           </p>
         </div>
 
-        {/* 실행한 시나리오로 정책 보고서(DOCX)를 만든다. 제목과 질문을 직접 지정하거나
-            다시 만들려면 시나리오 이력 화면을 쓴다. */}
-        <div className="flex flex-col items-end gap-1">
-          <button
-            type="button"
-            onClick={handleGenerateReport}
-            disabled={!canGenerateReport}
-            className="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isGeneratingReport ? '보고서 생성 중...' : '보고서 생성'}
-          </button>
-          {reportHint && (
-            <span className="whitespace-nowrap text-right text-xs text-slate-500">{reportHint}</span>
-          )}
-          {/* 지금 화면에 보이는 실행의 보고서일 때만 알린다. 초기화하거나 시장을 바꾸면
-              다른 실행이 되므로 이 안내도 사라져야 한다. */}
-          {lastReport && !isGeneratingReport && lastReport.scenarioId === reportScenarioId && (
-            <span className="whitespace-nowrap text-xs text-emerald-600 dark:text-emerald-400">
-              보고서를 내려받았습니다 · 시나리오 이력에서 다시 받을 수 있습니다
-            </span>
-          )}
-        </div>
+        {/* 2026-08-12 (UIUX 피드백 p02 "결과 다 보고 생성하도록 맨 밑으로 내리기"):
+            보고서 생성 버튼이 화면 맨 위 오른쪽에 있었다. 보고서는 실행 결과를 다 보고
+            나서 만드는 것인데, 결과보다 위에 있으니 결과를 보기도 전에 눈에 먼저 들어왔다.
+            결과 블록(구역별 위험도 추이)까지 다 지나간 화면 맨 아래로 옮겼다. */}
       </div>
 
       {/* 관리자 전용 시장 전환 탭. 관제요원은 담당 시장 1개만 내려와 고를 것이 없다.
@@ -613,67 +824,65 @@ export default function SimulationComparePage() {
       {isLayoutLoading ? (
         <Spinner label="레이아웃 정보를 불러오는 중..." />
       ) : (
+        /* 2026-08-12 (UIUX 피드백 p02 ① "시뮬레이션 설정보다 시뮬 화면이 위로 가게"):
+           화면이 좁아 세로로 쌓일 때 설정 패널이 먼저 오고 지도가 그 아래로 밀렸다.
+           이 화면의 주인공은 Before/After 지도라 그게 먼저 보여야 한다. order로 좁은
+           화면에서만 순서를 뒤집는다(넓은 화면은 좌: 설정, 우: 지도 그대로). */
         <div className="flex flex-col xl:flex-row gap-6">
-          <div className="w-full xl:w-[350px] space-y-4 shrink-0">
+          <div className="order-2 w-full shrink-0 space-y-4 xl:order-1 xl:w-[350px]">
             {runError && <ErrorBanner message={runError} />}
 
+            {/* 2026-08-12 재구성 (UIUX 피드백 p01)
+                "순서대로 Step 1, 2, 3으로 진행하는 건 어떤지? 스크롤 빼게"
+
+                예전 구조는 설정 전체가 h-[650px] 안쪽 스크롤에 들어가 있었다. 화면에
+                한 번에 보이는 건 유입 인원까지라, 그 아래 오브젝트 배치·통로 정책이
+                있다는 것을 스크롤을 내려봐야 알 수 있었고 무엇을 먼저 정해야 하는지도
+                드러나지 않았다.
+
+                손글씨에 적힌 순서를 그대로 단계로 만든다:
+                  Step 1 정책 LLM 자동세팅 VS 수동 세팅
+                  Step 2 오브젝트 배치·통로 정책 (Policy 모드 시 잠금)
+                  Step 3 유입 인원 / 스텝 수
+                한 번에 한 단계만 펼치므로 각 단계가 짧고, 안쪽 스크롤(h-[650px] +
+                custom-scrollbar)을 통째로 없앨 수 있었다. */}
             <div className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
+              {/* 2026-08-12: 항상 펼쳐져 있던 설명 문단을 제목 옆 ⓘ 안으로 접었다.
+                  설정 칸보다 안내 문구가 길어 정작 무엇을 입력하는 화면인지 묻혔다. */}
               <div className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 flex justify-between items-center">
-                <span>시뮬레이션 설정</span>
+                <span className="flex items-center gap-1.5">
+                  시뮬레이션 설정
+                  <InfoTooltip label="시뮬레이션 설정 설명">
+                    현재 실측 상태(센서 관측값)를 출발점으로, 같은 스텝 수·유입 인원 조건에서
+                    Before(정책 개입 없음)와 After(아래 정책 개입 반영)를 동시에 실행해서
+                    비교합니다.
+                  </InfoTooltip>
+                </span>
                 <span className="text-xs px-2 py-1 bg-white dark:bg-slate-950 rounded text-slate-500 dark:text-slate-400">
                   {predictResult && scenarioResult ? '완료' : '대기'}
                 </span>
               </div>
-              <div className="p-4 border-t border-slate-300 dark:border-slate-700 h-[650px] overflow-y-auto custom-scrollbar space-y-4">
-                <div className="text-xs text-slate-500">
-                  현재 실측 상태(센서 관측값)를 출발점으로, 같은 스텝 수·유입 인원 조건에서
-                  Before(정책 개입 없음)와 After(아래 정책 개입 반영)를 동시에 실행해서 비교합니다.
-                </div>
 
-                <div>
-                  <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">예측 스텝 수</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={1000}
-                    value={steps}
-                    onChange={(e) => setSteps(Number(e.target.value))}
-                    className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-slate-800 dark:text-slate-200"
-                    disabled={isPredicting || isScenarioRunning}
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">
-                    총 유입 인원 (전체 스텝에 무작위로 분산)
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={100000}
-                    value={agentCount}
-                    onChange={(e) => setAgentCount(Number(e.target.value))}
-                    className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-slate-800 dark:text-slate-200"
-                    disabled={isPredicting || isScenarioRunning}
-                  />
-                  <p className="mt-1 text-xs text-slate-500">
-                    스텝마다 인원수가 들쭉날쭉하게 무작위로 유입되고, 전체 합계가 이 값에
-                    맞춰집니다. 최소 1명 이상이어야 합니다(개입 후 시나리오가 0명을 허용하지 않음).
-                  </p>
-                </div>
-
-                <div className="border-t border-slate-300 dark:border-slate-700 pt-3">
-                  <h3 className="mb-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                    정책 개입 · 이벤트
-                    <span className="block font-normal text-slate-500 normal-case mt-1">
-                      현행(오브젝트/통로정책/게이트)은 개입 전·후에 자동 반영되고,
-                      개입 후에서만 삭제·추가할 수 있습니다. 화재는 실행 시 찍는 위치가
-                      개입 전·후 양쪽에 동시 반영됩니다.
-                    </span>
-                  </h3>
+              <div className="border-t border-slate-300 dark:border-slate-700">
+                <StepSection
+                  step={1}
+                  title="정책 입력 방식"
+                  summary={scenarioMode === 'llm' ? 'LLM 자동 세팅 적용됨' : '수동 설정'}
+                  info={
+                    <>
+                      공문을 넣으면 LLM이 개입 내용을 읽어 Step 2를 자동으로 채웁니다.
+                      직접 정하려면 이 단계를 건너뛰고 Step 2로 넘어가세요.
+                    </>
+                  }
+                  isOpen={openStep === 1}
+                  onToggle={() => toggleStep(1)}
+                >
                   <PolicyAnalysisPanel
                     isLlmMode={scenarioMode === 'llm'}
                     objectRemovalResults={objectRemovalResults}
+                    // 요약을 "Zone 1 ↔ Zone 3" / "2, 5번" 대신 구역·게이트 이름으로 쓰기 위해.
+                    zones={zones}
+                    gates={gates}
                     onSwitchToManual={() => setScenarioMode('manual')}
                     onReset={() => {
                       setCorridorPolicies([]);
@@ -716,17 +925,137 @@ export default function SimulationComparePage() {
                         setAgentCount(result.agentCount);
                       }
                       setScenarioMode('llm');
+                      // 분석이 끝나면 자동으로 다음 단계를 펼친다. 결과가 어느 항목으로
+                      // 들어갔는지 바로 보이지 않으면 "적용된 게 맞나" 확인할 방법이 없다.
+                      setOpenStep(2);
                     }}
                   />
+                </StepSection>
 
-                  <div className="mt-4">
-                    <ScenarioForm
-                      isRunning={isPredicting || isScenarioRunning}
-                      isLlmMode={scenarioMode === 'llm'}
-                      steps={steps}
-                      zones={zones}
+                <StepSection
+                  step={2}
+                  title="개입 설정"
+                  summary={
+                    [
+                      objects.length > 0 && `오브젝트 ${objects.length}`,
+                      events.length > 0 && `이벤트 ${events.length}`,
+                      corridorPolicies.length > 0 && `통로 정책 ${corridorPolicies.length}`,
+                      afterClosedGateIds.size > 0 && `폐쇄 게이트 ${afterClosedGateIds.size}`,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ') || '설정된 개입 없음'
+                  }
+                  info={
+                    <>
+                      시장 구조 등록에 올라간 <b>현행 오브젝트·통로 정책</b>은 개입 전·후
+                      양쪽에 똑같이 깔립니다. 그 위에서 <b>개입 후(After)에만</b> 추가하거나
+                      지울 수 있고, 그 차이가 곧 개입의 효과입니다.
+                      <br />
+                      <br />
+                      이벤트(화재)는 개입 전·후 양쪽 지도 어디에서 찍든 같은 위치에
+                      동시 반영됩니다.
+                      <br />
+                      <br />
+                      {/* p01 "게이트 폐쇄 부분 명시?" - 게이트는 이 패널이 아니라 지도에서
+                          직접 눌러 여닫는데, 그 사실이 화면 어디에도 적혀 있지 않았다.
+                          폼 안에 없는 조작이라 폼만 보면 존재 자체를 알 수 없다. */}
+                      🚪 <b>게이트 폐쇄</b>는 지도 위의 출입구 아이콘을 직접 눌러서 여닫습니다.
+                      왼쪽(Before) 지도와 오른쪽(After) 지도의 게이트를 따로 조절할 수 있어요.
+                    </>
+                  }
+                  isOpen={openStep === 2}
+                  onToggle={() => toggleStep(2)}
+                >
+                  <ScenarioForm
+                    isRunning={isPredicting || isScenarioRunning}
+                    isLlmMode={scenarioMode === 'llm'}
+                    zones={zones}
                     objects={objects}
                     onRemoveObject={(idx) => setObjects((prev) => prev.filter((_, i) => i !== idx))}
+                    placementType={placementType}
+                    onSelectPlacementType={setPlacementType}
+                    onSwitchToManual={() => setScenarioMode('manual')}
+                    corridors={corridorPolicies}
+                    onAddCorridor={handleAddCorridor}
+                    onRemoveCorridor={handleRemoveCorridor}
+                  />
+                </StepSection>
+
+                <StepSection
+                  step={3}
+                  title="실행 조건"
+                  summary={`유입 ${displayNumber(agentCount) || '0'}명 · ${displayNumber(steps) || '0'}스텝`}
+                  info={
+                    <>
+                      Before와 After가 같은 조건에서 돌아야 비교가 되므로, 이 두 값은 양쪽에
+                      똑같이 적용됩니다.
+                    </>
+                  }
+                  isOpen={openStep === 3}
+                  onToggle={() => toggleStep(3)}
+                >
+                  <div>
+                    <label
+                      htmlFor="agent-count"
+                      className="mb-1 flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300"
+                    >
+                      총 유입 인원
+                      <InfoTooltip label="총 유입 인원 설명">
+                        스텝마다 인원수가 들쭉날쭉하게 무작위로 유입되고, 전체 합계가 이 값에
+                        맞춰집니다. 0으로 두면 신규 유입 없이 현재 인원의 자연스러운 이동만
+                        봅니다.
+                      </InfoTooltip>
+                    </label>
+                    {/* min=1: SIM ScenarioRequest.agentCount가 Field(..., ge=1)이라 0은
+                        422로 거절된다. 입력 단계에서 막고, 그래도 비워두면 실행 시
+                        safeAgentCount가 1로 올린다. */}
+                    <input
+                      id="agent-count"
+                      type="number"
+                      min={1}
+                      max={100000}
+                      value={displayNumber(agentCount)}
+                      onChange={(e) => setAgentCount(parseNumberInput(e.target.value))}
+                      placeholder="100"
+                      className="no-spinner w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-slate-800 dark:text-slate-200"
+                      disabled={isPredicting || isScenarioRunning}
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="steps"
+                      className="mb-1 flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300"
+                    >
+                      예측 스텝 수
+                      <InfoTooltip label="예측 스텝 수 설명">
+                        1스텝은 약 {STEP_DURATION_SECONDS}초입니다. 30스텝이면 약{' '}
+                        {30 * STEP_DURATION_SECONDS}초 뒤까지를 내다봅니다.
+                      </InfoTooltip>
+                    </label>
+                    <input
+                      id="steps"
+                      type="number"
+                      min={1}
+                      max={1000}
+                      value={displayNumber(steps)}
+                      onChange={(e) => setSteps(parseNumberInput(e.target.value))}
+                      placeholder="30"
+                      className="no-spinner w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-slate-800 dark:text-slate-200"
+                      disabled={isPredicting || isScenarioRunning}
+                    />
+                  </div>
+
+                  {/* 2026-08-12(2차): 화재 이벤트를 개입 후 지도 오버레이에서 이 자리로
+                      옮겼다. 지도 위에 띄우니 지도를 가리고 시뮬레이션 화면과 겉돌았다.
+                      실행 조건 맨 아래에 두는 이유: 유입 인원·스텝 수와 마찬가지로
+                      "이번 실행에서 무슨 일이 일어나는가"를 정하는 값이라 같은 단계에
+                      있는 것이 맞고, 개입(Step 2)이 아니라 양쪽에 공통으로 걸리는
+                      조건이라 Step 2에 두면 After 전용으로 오해된다. */}
+                  <EventSettingsPanel
+                    isRunning={isPredicting || isScenarioRunning}
+                    steps={readNumber(steps)}
+                    zones={zones}
                     events={events}
                     onRemoveEvent={(idx) => setEvents((prev) => prev.filter((_, i) => i !== idx))}
                     onUpdateEventTriggerStep={(idx, val) =>
@@ -737,24 +1066,28 @@ export default function SimulationComparePage() {
                     }
                     placementType={placementType}
                     onSelectPlacementType={setPlacementType}
+                    onAutoPlace={handleAutoPlaceFire}
+                    canAutoPlace={buildings.length > 0 && zones.length > 0}
                     nextIntensity={nextIntensity}
                     onNextIntensityChange={setNextIntensity}
                     nextTriggerStep={nextTriggerStep}
                     onNextTriggerStepChange={setNextTriggerStep}
                     nextExtinguishStep={nextExtinguishStep}
                     onNextExtinguishStepChange={setNextExtinguishStep}
-                    corridors={corridorPolicies}
-                    onAddCorridor={handleAddCorridor}
-                      onRemoveCorridor={handleRemoveCorridor}
-                    />
-                  </div>
-                </div>
+                  />
+                </StepSection>
+              </div>
 
+              {/* 실행/초기화는 어느 단계에 있든 눌러야 하므로 아코디언 밖에 둔다.
+                  p03 "버튼 색상/디자인 개선 필요": 주황 단색이 위험/경고로 읽혀서
+                  (이 화면에서 주황은 Before 계열 색이기도 하다) 실행 버튼을 앱의 기본
+                  강조색인 파랑으로 바꾸고, 초기화는 테두리만 있는 보조 버튼으로 낮췄다. */}
+              <div className="flex gap-2 border-t border-slate-300 p-4 dark:border-slate-700">
                 <button
                   type="button"
                   onClick={handleRunSimulation}
                   disabled={isPredicting || isScenarioRunning}
-                  className="w-full rounded bg-orange-600 py-2 text-sm font-semibold text-white hover:bg-orange-500 disabled:opacity-50"
+                  className="flex-1 rounded-md bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-slate-900"
                 >
                   {isPredicting || isScenarioRunning ? '시뮬레이션 실행 중...' : '시뮬레이션 실행'}
                 </button>
@@ -763,7 +1096,7 @@ export default function SimulationComparePage() {
                   type="button"
                   onClick={handleReset}
                   disabled={isPredicting || isScenarioRunning}
-                  className="w-full rounded border border-slate-300 dark:border-slate-600 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
+                  className="shrink-0 rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
                 >
                   초기화
                 </button>
@@ -771,9 +1104,14 @@ export default function SimulationComparePage() {
             </div>
           </div>
 
-          <div className="flex-1 flex flex-col gap-6 overflow-hidden">
-            <div className="flex flex-col md:flex-row gap-4 h-[450px]">
-              <div className="flex-1 flex flex-col min-w-0">
+          <div className="order-1 flex flex-1 flex-col gap-6 overflow-hidden xl:order-2">
+            {/* 2026-08-12 (UIUX 피드백 p02 "반응형 확인하기"): h-[450px]를 모든 폭에
+                걸었더니, 좁은 화면에서 두 지도가 세로로 쌓이면서 450px을 반씩 나눠
+                각 지도가 220px도 안 됐다. 그 높이에서는 좌하단 확대/초기화 버튼과
+                우하단 범례가 상단 정보 배지와 겹쳐 서로를 가렸다.
+                쌓일 때는 지도마다 높이를 따로 주고, 가로로 놓일 때만 450px을 공유한다. */}
+            <div className="flex flex-col gap-4 md:h-[450px] md:flex-row">
+              <div className="flex h-[380px] min-w-0 flex-1 flex-col md:h-auto">
                 <div className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">개입 전 (Before)</div>
                 <div className="flex-1 relative rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900">
                   <HeatmapView
@@ -798,7 +1136,7 @@ export default function SimulationComparePage() {
                 </div>
               </div>
 
-              <div className="flex-1 flex flex-col min-w-0">
+              <div className="flex h-[380px] min-w-0 flex-1 flex-col md:h-auto">
                 <div className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex justify-between items-center">
                   <span>개입 후 (After)</span>
                 </div>
@@ -823,11 +1161,21 @@ export default function SimulationComparePage() {
                     viewZoom={mapViewport?.zoom}
                     onViewportChange={setMapViewport}
                   />
+
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 rounded bg-white dark:bg-slate-900 px-4 py-3 text-xs text-slate-600 dark:text-slate-300 shadow-sm border border-slate-300 dark:border-slate-700">
+            {/* 2026-08-12 재배치: 재생 컨트롤(왼쪽)과 보고서 생성(오른쪽)을 한 줄에
+                2분할로 둔다. 보고서 버튼이 화면 맨 아래에 있어서, 결과를 다 보고 나면
+                다시 끝까지 스크롤해야 닿았다. 재생 바는 결과를 볼 때 계속 쓰는 줄이라
+                여기 붙여두면 재생을 멈춘 그 자리에서 바로 누를 수 있다.
+                2026-08-12(3차): 2분할 -> 3:1 -> 5:1. 보고서 쪽은 버튼 하나가 전부라
+                자리를 더 줄이고, 그만큼 재생 슬라이더를 길게 뒀다(스텝을 정확히
+                찍으려면 슬라이더가 길수록 좋다). 6칸 중 재생 5칸 / 보고서 1칸.
+                좁은 화면(lg 미만)에서는 세로로 쌓여 각자 한 줄을 쓴다. */}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-6">
+            <div className="flex items-center gap-3 rounded bg-white dark:bg-slate-900 px-4 py-3 text-xs text-slate-600 dark:text-slate-300 shadow-sm border border-slate-300 dark:border-slate-700 lg:col-span-5">
               <button
                 onClick={() => {
                   if (!isPlaying && maxFrames > 0 && playIndex >= maxFrames - 1) {
@@ -874,6 +1222,39 @@ export default function SimulationComparePage() {
                   </option>
                 ))}
               </select>
+            </div>
+
+              {/* 실행한 시나리오로 정책 보고서(DOCX)를 만든다. 제목과 질문을 직접
+                  지정하거나 다시 만들려면 시나리오 이력 화면을 쓴다. */}
+              {/* 2026-08-12(4차): ⓘ 아이콘도 빼고 버튼 하나만 남겼다. 1/6 폭에서는
+                  아이콘이 버튼 폭을 더 줄여서, 설명을 버튼 자체의 마우스 오버(title)로
+                  옮겼다. title은 키보드 포커스에서도 뜨고 별도 레이아웃을 차지하지 않는다. */}
+              <div className="flex flex-col items-center justify-center gap-2 rounded border border-slate-300 bg-white px-3 py-3 shadow-sm dark:border-slate-700 dark:bg-slate-900 lg:col-span-1">
+                <button
+                  type="button"
+                  onClick={handleGenerateReport}
+                  disabled={!canGenerateReport}
+                  title={[
+                    '방금 실행한 개입 후(After) 시나리오로 정책 보고서(DOCX)를 만듭니다.',
+                    '개입 전은 비교 기준이라, 서버가 같은 시장의 최신 현행안 결과를 찾아 함께 씁니다.',
+                    '',
+                    '자료 검색과 문서 작성까지 1~3분 걸리고, 끝나면 자동으로 내려받습니다.',
+                    '제목이나 질문을 직접 정하거나 다시 만들려면 시나리오 이력 화면을 쓰세요.',
+                    '',
+                    `현재 상태: ${reportHint}`,
+                  ].join('\n')}
+                  className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isGeneratingReport ? '생성 중...' : '보고서 생성'}
+                </button>
+                {/* 지금 화면에 보이는 실행의 보고서일 때만 알린다. 초기화하거나 시장을
+                    바꾸면 다른 실행이 되므로 이 안내도 사라져야 한다. */}
+                {lastReport && !isGeneratingReport && lastReport.scenarioId === reportScenarioId && (
+                  <p className="w-full text-center text-[11px] leading-snug text-emerald-600 dark:text-emerald-400">
+                    내려받았습니다
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* 개입 전/후 요약 KPI — 어떤 개입에서도 항상 반응하는 3개 지표 */}
@@ -936,7 +1317,13 @@ export default function SimulationComparePage() {
               </div>
 
               <div className="md:col-span-2">
-                <RiskTrendChart beforeTrend={predictResult?.riskTrend} afterTrend={scenarioResult?.riskTrend} />
+                {/* submittedEvents(실행에 실제로 반영된 이벤트)를 넘긴다. 편집 중인
+                    events를 넘기면 아직 돌리지 않은 화재의 세로선이 지난 결과 위에 뜬다. */}
+                <RiskTrendChart
+                  beforeTrend={predictResult?.riskTrend}
+                  afterTrend={scenarioResult?.riskTrend}
+                  events={submittedEvents}
+                />
               </div>
             </div>
 

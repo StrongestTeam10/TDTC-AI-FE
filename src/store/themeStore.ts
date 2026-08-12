@@ -12,11 +12,12 @@ import { persist } from 'zustand/middleware';
 // @custom-variant dark, index.css 참고). index.html의 인라인 스크립트가 React 마운트
 // 전에 이미 한 번 적용해두므로, 여기서는 그 상태와 store 값을 동기화(onRehydrateStorage)
 // 하고 이후 변경사항만 반영하면 됨.
+//
+// 2026-08-12: ThemeToggle이 순환 버튼에서 세 값을 직접 고르는 세그먼티드 컨트롤로
+// 바뀌면서 cycleMode를 쓰는 곳이 없어져 제거함(setMode 하나면 충분).
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 type ResolvedTheme = 'light' | 'dark';
-
-const MODE_ORDER: ThemeMode[] = ['system', 'light', 'dark'];
 
 function getSystemTheme(): ResolvedTheme {
   if (typeof window === 'undefined') return 'dark';
@@ -36,12 +37,11 @@ interface ThemeStore {
   mode: ThemeMode;
   resolvedTheme: ResolvedTheme;
   setMode: (mode: ThemeMode) => void;
-  cycleMode: () => void;
 }
 
 export const useThemeStore = create<ThemeStore>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       mode: 'system',
       resolvedTheme: getSystemTheme(),
 
@@ -49,11 +49,6 @@ export const useThemeStore = create<ThemeStore>()(
         const resolved = resolveTheme(mode);
         applyThemeClass(resolved);
         set({ mode, resolvedTheme: resolved });
-      },
-
-      cycleMode: () => {
-        const next = MODE_ORDER[(MODE_ORDER.indexOf(get().mode) + 1) % MODE_ORDER.length];
-        get().setMode(next);
       },
     }),
     {

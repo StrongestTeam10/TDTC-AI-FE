@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
-import { useLocation, useNavigate, type Location } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { homePathFor } from '../auth/permissions';
 import ThemeToggle from '../components/ui/ThemeToggle';
 
 // 2026-07-24 추가 (1차)
@@ -19,6 +20,11 @@ import ThemeToggle from '../components/ui/ThemeToggle';
 // 2026-08-04 변경: 하단의 "계정이 없으신가요? 회원가입" 링크를 "비밀번호를
 // 잊으셨나요? 비밀번호 찾기"로 교체하고, 회원가입은 화면 우측 상단에 눈에 띄는
 // 버튼으로 분리해서 더 명시적으로 노출함.
+//
+// 2026-08-12 변경 (UIUX 피드백 반영): 카드가 화면 대비 너무 작다는 의견이 있어
+// max-w-sm(384px) -> max-w-md(448px)로 넓히고, 카드 안의 여백·제목·입력 높이를
+// 함께 키웠다. 폭만 넓히면 내용은 그대로라 여백만 늘어난 것처럼 보인다.
+// 안내 문구도 "관제 시스템 로그인이 필요합니다."에서 바꿨다(문구는 확정 아님).
 export default function LoginPage() {
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
@@ -26,11 +32,15 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const login = useAuthStore((s) => s.login);
   const navigate = useNavigate();
-  const location = useLocation();
-  // 2026-07-24 변경: 기본 랜딩 위치를 "/"(공개 랜딩페이지)가 아니라 "/dashboard"(관제
-  // 대시보드)로 변경. RequireAuth를 거쳐 온 경우엔 원래 가려던 경로(from)로 이동함.
-  const from = (location.state as { from?: Location } | null)?.from?.pathname ?? '/dashboard';
 
+  // 2026-07-24: RequireAuth를 거쳐 온 경우 원래 가려던 경로(location.state.from)로
+  // 되돌려 보냈었다.
+  //
+  // 2026-08-12 변경: 그 복귀를 없애고 항상 권한별 기본 화면(homePathFor)으로 보낸다.
+  // 로그아웃 직전에 보던 화면이 새 계정의 권한 밖일 수 있어서(예: 관리자로 보던
+  // 시뮬레이션 비교 화면에서 로그아웃한 뒤 상인회 계정으로 로그인) 가드가 곧바로
+  // 되돌려 보내는 왕복이 생겼다. 랜딩의 시작 버튼과 목적지를 하나로 맞춰,
+  // 어디로 들어오든 자기 권한에 맞는 화면에 도착하게 한다.
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
@@ -38,7 +48,9 @@ export default function LoginPage() {
     const result = await login(loginId, password);
     setIsSubmitting(false);
     if (result.ok) {
-      navigate(from, { replace: true });
+      // login()이 방금 스토어에 채운 사용자로 목적지를 정한다. 위에서 구독 중인
+      // user 값은 이 렌더에서는 아직 갱신 전이라 쓸 수 없다.
+      navigate(homePathFor(useAuthStore.getState().user), { replace: true });
     } else {
       setError(result.message);
     }
@@ -50,16 +62,18 @@ export default function LoginPage() {
         <ThemeToggle />
       </div>
 
-      <div className="w-full max-w-sm">
-        <div className="mb-6 text-center">
-          <p className="mb-1 text-sm text-slate-500">KT Aivle School B2G 빅프로젝트</p>
-          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">시켜줘 네 장터매니저</h1>
-          <p className="mt-2 text-sm text-slate-500">관제 시스템 로그인이 필요합니다.</p>
+      <div className="w-full max-w-md">
+        <div className="mb-8 text-center">
+          <p className="mb-1.5 text-sm text-slate-500">KT Aivle School B2G 빅프로젝트</p>
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">시켜줘 네 장터매니저</h1>
+          <p className="mt-2.5 text-sm text-slate-500">
+            등록된 계정으로 로그인해 주세요.
+          </p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="flex flex-col gap-4 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6"
+          className="flex flex-col gap-5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8"
         >
           <div>
             <label htmlFor="loginId" className="mb-1 block text-sm text-slate-500 dark:text-slate-400">
@@ -70,7 +84,7 @@ export default function LoginPage() {
               value={loginId}
               onChange={(e) => setLoginId(e.target.value)}
               autoComplete="username"
-              className="w-full rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="w-full rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2.5 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
             />
           </div>
           <div>
@@ -83,7 +97,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
-              className="w-full rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="w-full rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2.5 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
             />
           </div>
 
@@ -96,7 +110,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded bg-blue-600 py-2 font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded bg-blue-600 py-2.5 font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting ? '로그인 중...' : '로그인'}
           </button>
@@ -104,7 +118,7 @@ export default function LoginPage() {
           <button
               type="button"
               onClick={() => navigate('/signup')}
-              className="rounded border border-slate-300 dark:border-slate-700 px-4 py-2 text-sm font-medium text-slate-800 dark:text-slate-200 hover:border-blue-600 hover:text-blue-600 dark:hover:text-blue-400"
+              className="rounded border border-slate-300 dark:border-slate-700 px-4 py-2.5 text-sm font-medium text-slate-800 dark:text-slate-200 hover:border-blue-600 hover:text-blue-600 dark:hover:text-blue-400"
           >
             회원가입
           </button>

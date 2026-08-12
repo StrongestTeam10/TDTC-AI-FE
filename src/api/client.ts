@@ -462,6 +462,14 @@ export interface PostWritePayload {
   content: string;
   notice: boolean;
   categoryCode: string;
+  /**
+   * 2026-08-12 추가: 글이 올라갈 시장.
+   *
+   * 관리자(ROL01)만 지정할 수 있고, 빈 문자열은 "전체"(모든 시장에 노출)를 뜻한다.
+   * 그 외 권한이 보내면 BE가 무시하고 작성자의 담당 시장을 쓴다 - 화면 값을 믿지
+   * 않는다(BE PostService). 생략하면 예전처럼 작성자 담당 시장으로 정해진다.
+   */
+  marketCode?: string;
   files: File[];
 }
 
@@ -474,6 +482,11 @@ export async function createPost(
   formData.append('content', payload.content);
   formData.append('notice', String(payload.notice));
   formData.append('categoryCode', payload.categoryCode);
+  // undefined면 아예 보내지 않는다(관리자가 아닌 경우). 빈 문자열은 "전체"라는 뜻이라
+  // 보내야 하므로 undefined와 구분한다.
+  if (payload.marketCode !== undefined) {
+    formData.append('marketCode', payload.marketCode);
+  }
   payload.files.forEach((file) => formData.append('files', file));
 
   const { data } = await apiClient.post<{ postId: number }>('/posts', formData, {
@@ -490,6 +503,8 @@ export interface PostUpdatePayload {
   content: string;
   notice?: boolean; // 관리자가 아니면 이 값을 보내도 BE에서 거부되므로, 관리자 화면에서만 채워서 보낼 것
   categoryCode: string;
+  /** 2026-08-12 추가. 규칙은 PostWritePayload.marketCode와 같다(관리자만, ''=전체). */
+  marketCode?: string;
   deleteAttachmentIds: number[];
   files: File[];
 }
@@ -506,6 +521,9 @@ export async function updatePost(
     formData.append('notice', String(payload.notice));
   }
   formData.append('categoryCode', payload.categoryCode);
+  if (payload.marketCode !== undefined) {
+    formData.append('marketCode', payload.marketCode);
+  }
   payload.deleteAttachmentIds.forEach((id) => formData.append('deleteAttachmentIds', String(id)));
   payload.files.forEach((file) => formData.append('files', file));
 
@@ -794,8 +812,7 @@ export async function updateUserRole(
 
 // ===== 회원가입 관리자 승인 (2026-08-04 추가) =====
 // BE UserApprovalController(/api/admin/users/pending, /approve, /reject)와 대응.
-// UserAdminPage(/admin/users)의 "회원 승인" 탭과 별도로, 승인 대기자만 보여주는
-// 전용 화면(UserApprovalPage, /admin/approvals)에서 사용.
+// UserAdminPage(/admin/users)의 "회원 승인" 탭에서 사용.
 export interface PendingUser {
   userId: number;
   loginId: string;
