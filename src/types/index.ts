@@ -137,6 +137,9 @@ export interface Gate {
   latitude: number;
   longitude: number;
   weight: number;
+  // 2026-08-12 추가: 현행 개폐 상태(열림=true / 닫힘=false). 시장 구조 등록에서
+  // 저장한 값. 개입 전(Before)의 닫힌 게이트를 자동 반영하는 데 쓴다.
+  isActive: boolean;
 }
 
 // 2026-07-25 추가: 화재/음향 이상 이벤트. SIM EventTrigger / BE EventTriggerDto와 1:1 매칭.
@@ -200,6 +203,10 @@ export interface PredictRequest {
   events?: EventTrigger[];
   // 2026-08-XX 추가: 게이트 개폐를 개입 전/후 독립적으로 조절(개입 전도 닫힌 게이트 반영).
   closedGateIds?: number[];
+  // 2026-08-12 추가: 현행 오브젝트/통로정책(시장 구조 등록). 개입 전(Before)도
+  // 현행을 그대로 반영해야 개입 후와의 차이가 순수 개입분이 된다. BE PredictRequestDto와 1:1.
+  objects?: PlacedObject[];
+  corridorPolicies?: CorridorPolicy[];
   seed?: number;
 }
 
