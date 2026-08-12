@@ -9,6 +9,8 @@ interface CctvMetricCardsProps {
   stoppageLabel: string;
   /** 지표가 AI 서버 실측인지, 인원수로부터 추정한 값인지 */
   isEstimated: boolean;
+  /** 세로 정렬 여부 (팝업용) */
+  layout?: 'horizontal' | 'vertical';
 }
 
 export default function CctvMetricCards({
@@ -16,13 +18,14 @@ export default function CctvMetricCards({
   occupancyRate,
   stoppageLabel,
   isEstimated,
+  layout = 'horizontal',
 }: CctvMetricCardsProps) {
   // 원본은 하위 문구가 항상 "BEV 3D 역투영 기준"으로 고정이라, 실측인지 추정인지
   // 구분이 안 됐다. AI 서버가 안 붙어 있을 때 추정값을 실측처럼 읽는 걸 막는다.
   const sourceSuffix = isEstimated ? ' (추정)' : '';
 
   return (
-      <div className={styles.metricsCardGrid}>
+      <div className={layout === 'vertical' ? styles.metricsCardGridVertical : styles.metricsCardGrid}>
         <div className={styles.metricCard}>
           <div className={styles.metricCardHeader}>
             <span className={styles.metricCardTitle}>👥 실시간 인원수</span>

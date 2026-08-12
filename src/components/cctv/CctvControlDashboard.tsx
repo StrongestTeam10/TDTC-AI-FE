@@ -2,11 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './CctvDashboard.module.css';
 import CctvAlertLogModal from './CctvAlertLogModal';
 import CctvEmergencyOverlay from './CctvEmergencyOverlay';
-import CctvHeaderBar from './CctvHeaderBar';
 import CctvMetricCards from './CctvMetricCards';
+import CctvZoneGallery from './CctvZoneGallery';
+import CctvZonePopupModal from './CctvZonePopupModal';
 import CctvRiskChartCard from './CctvRiskChartCard';
-import CctvSideDrawers from './CctvSideDrawers';
-import type { OpenDrawer } from './CctvSideDrawers';
 import CctvVideoPanel from './CctvVideoPanel';
 import CctvWeatherCard from './CctvWeatherCard';
 import ErrorBanner from '../ui/ErrorBanner';
@@ -45,10 +44,11 @@ const FRAME_UPDATE_THROTTLE_MS = 180;
 export default function CctvControlDashboard() {
   // ----- 관제 파라미터 & 기상 시나리오 -----
   const [params, setParams] = useState<ControlParams>(DEFAULT_CONTROL_PARAMS);
+  const [selectedZoneId, setSelectedZoneId] = useState<number | null>(null);
+  const [expandedZoneId, setExpandedZoneId] = useState<number | null>(null);
   const [weatherMode, setWeatherMode] = useState<WeatherMode>('PREDICTIVE_RAIN');
 
   // ----- 패널 열림 상태 -----
-  const [openDrawer, setOpenDrawer] = useState<OpenDrawer>(null);
   const [isAlertModalOpen, setAlertModalOpen] = useState(false);
 
   // ----- 영상 재생 상태 -----
@@ -276,11 +276,7 @@ export default function CctvControlDashboard() {
     setCurrentFrame(Math.max(1, Math.floor((video.currentTime / video.duration) * totalFrames)));
   }, [totalFrames]);
 
-  // ----- 드로어 제어 -----
-  const handleToggleDrawer = useCallback((drawer: Exclude<OpenDrawer, null>) => {
-    setOpenDrawer((prev) => (prev === drawer ? null : drawer));
-  }, []);
-
+  // ----- 비디오 패널 / 알람 로그 제어 -----
   const handleOpenAlertLog = useCallback(() => {
     setAlertModalOpen(true);
     loadAlerts();
@@ -290,24 +286,6 @@ export default function CctvControlDashboard() {
 
   return (
       <div className={styles.dashboardRoot}>
-        <CctvHeaderBar
-            cri={cri}
-            status={statusResult.status}
-            statusLabel={statusResult.label}
-            alertCount={alerts.length}
-            onOpenAlertLog={handleOpenAlertLog}
-        />
-
-        <CctvSideDrawers
-            openDrawer={openDrawer}
-            onToggle={handleToggleDrawer}
-            onClose={() => setOpenDrawer(null)}
-            params={params}
-            onParamsChange={setParams}
-            weatherMode={weatherMode}
-            onWeatherModeChange={setWeatherMode}
-        />
-
         <main className={styles.mainWrapper}>
           {uploadError && (
               <div style={{ marginBottom: 16 }}>
@@ -315,68 +293,118 @@ export default function CctvControlDashboard() {
               </div>
           )}
 
-          <div className={styles.gridContainer}>
-            <section className={styles.gridLeftCol}>
-              <CctvVideoPanel
-                  videoRef={videoRef}
-                  videoSrc={videoSrc}
-                  fileLabel={fileLabel}
-                  isPlaying={isPlaying}
-                  currentFrame={currentFrame}
-                  totalFrames={totalFrames}
-                  frameTimeLabel={frameTimeLabel}
-                  analysis={stream.analysis}
-                  wsStatus={stream.status}
-                  isDispatchAlarmActive={emergency.isDispatchAlarmActive}
-                  weatherBadgeText={WEATHER_SCENARIOS[weatherMode].badgeText}
-                  onSelectVideo={handleSelectVideo}
-                  onTogglePlay={handleTogglePlay}
-                  onSeekFrame={handleSeekFrame}
-                  onLoadedMetadata={handleLoadedMetadata}
-                  onTimeUpdate={handleTimeUpdate}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-strong)' }}>임시 영상 테스트:</span>
+              <input 
+                type="file" 
+                accept="video/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setLocalVideoUrl(URL.createObjectURL(file));
+                    setPlaying(true);
+                  }
+                }}
+                style={{ fontSize: '0.8rem', width: '150px' }}
               />
+              <button 
+                onClick={() => setLocalVideoUrl(null)}
+                style={{ padding: '4px 8px', fontSize: '0.8rem', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}
+              >
+                초기화
+              </button>
+            </div>
+          </div>
 
-              {/* [Method A] 알림 해제 후 15초~30초 사이에 나타나는 수동 조작 버튼 */}
-              {emergency.countdownSec > 0 && emergency.countdownSec <= 15 && !emergency.isBlocking && !actionTaken && (
-                <div style={{ display: 'flex', gap: '12px', padding: '16px', backgroundColor: 'rgba(255,0,0,0.1)', borderRadius: '8px', border: '1px solid rgba(255,0,0,0.3)', marginBottom: '16px' }}>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ margin: '0 0 8px 0', color: '#ff4444', fontWeight: 'bold' }}>
-                      ⚠️ 위험 상황 확인 완료. 수동 조작을 선택해 주세요.
-                    </p>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button 
-                        onClick={() => {
-                          setActionTaken(true);
-                          emergency.resetTimer();
-                        }}
-                        style={{ flex: 1, padding: '12px', backgroundColor: '#334155', color: 'white', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', border: 'none' }}
-                      >
-                        ✅ 오경보 (별일 없음)
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setActionTaken(true);
-                          triggerCctvAlert('MANUAL_REPORT').catch(err => console.error(err));
-                        }}
-                        style={{ flex: 1, padding: '12px', backgroundColor: '#ef4444', color: 'white', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', border: 'none' }}
-                      >
-                        🚨 현장 출동 / 확인 (영상 및 PDF 생성)
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+          <CctvZoneGallery
+            activeZoneId={selectedZoneId}
+            onSelectZone={setSelectedZoneId}
+            onExpandZone={setExpandedZoneId}
+            videoRef={videoRef}
+            videoSrc={videoSrc}
+            isPlaying={isPlaying}
+            currentFrame={currentFrame}
+            totalFrames={totalFrames}
+            onLoadedMetadata={handleLoadedMetadata}
+            onTimeUpdate={handleTimeUpdate}
+          />
 
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '24px 0 32px 0', minHeight: '32px' }}>
+            <div style={{ fontWeight: '800', fontSize: '1.75rem', color: 'var(--text-main)' }}>
+              {selectedZoneId === null ? '종합대시보드' : selectedZoneId === 1 ? '남측 구역' : selectedZoneId === 2 ? '중앙 구역' : '북측 구역'}
+            </div>
+          </div>
+
+          <div className={styles.inlineDashboardGrid}>
+            <div className={styles.verticalMetricsWrapper} style={{ position: 'relative' }}>
+              <div className={`${styles.aiStatusBadgeInline} ${styles[stream.status]}`} style={{ position: 'absolute', left: 0, top: '-40px' }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }} />
+                AI 서버 {stream.status === 'open' ? '연결됨 (실시간 데이터)' : stream.status === 'connecting' ? '연결 중...' : '미연결 (폴백 데이터)'}
+              </div>
               <CctvMetricCards
                   pedestrianCount={metrics.pedestrianCount}
                   occupancyRate={metrics.occupancyRate}
                   stoppageLabel={formatStoppage(metrics.stagnationSec)}
                   isEstimated={metrics.isEstimated}
+                  layout="vertical"
               />
-            </section>
+            </div>
 
-            <section className={styles.gridRightCol}>
-              <CctvWeatherCard mode={weatherMode} onChange={setWeatherMode} />
+            <div className={styles.inlineLogBox}>
+              <div className={styles.inlineLogTitle}>🔔 미해결 알람 및 관제 로그</div>
+              <div className={styles.inlineLogContent}>
+                {alerts.length === 0 ? (
+                  <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                    현재 해결되지 않은 긴급 알람이 없습니다.
+                  </div>
+                ) : (
+                  alerts
+                    .filter(a => !selectedZoneId || a.zoneId === selectedZoneId)
+                    .map((alert) => (
+                    <div key={alert.id} className={styles.inlineLogItem}>
+                      <div className={styles.inlineLogTime}>
+                        {new Date(alert.detectedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        {` [구역 ${alert.zoneId}]`}
+                      </div>
+                      <div className={styles.inlineLogDesc} style={{ color: alert.status === 'RESOLVED' ? '#10b981' : '#ef4444' }}>
+                        {alert.alertType} ({alert.status})
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            
+            <div className={styles.inlineLogBox}>
+              <div className={styles.inlineLogTitle}>🎥 녹화 영상</div>
+              <div className={styles.inlineLogContent}>
+                {alerts.length === 0 ? (
+                  <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                    녹화된 영상이 없습니다.
+                  </div>
+                ) : (
+                  alerts
+                    .filter(a => !selectedZoneId || a.zoneId === selectedZoneId)
+                    .map((alert) => (
+                    <div key={`video-${alert.id}`} className={styles.inlineVideoItem}>
+                      <div>
+                        <div className={styles.inlineLogTime}>
+                          {new Date(alert.detectedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          {` [구역 ${alert.zoneId}]`}
+                        </div>
+                        <div className={styles.inlineLogDesc}>1분 정기 영상</div>
+                      </div>
+                      <button className={styles.btnInlineDownload} onClick={() => alert("비디오 다운로드는 백엔드 연결 후 활성화됩니다.")}>
+                        ⬇️ 받기
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className={styles.inlineLogBox} style={{ padding: 0, background: 'transparent', border: 'none', boxShadow: 'none' }}>
               <CctvRiskChartCard
                   cri={cri}
                   status={statusResult.status}
@@ -384,23 +412,40 @@ export default function CctvControlDashboard() {
                   barColor={statusResult.barColor}
                   history={history}
               />
-            </section>
+            </div>
           </div>
         </main>
 
-        <CctvAlertLogModal
-            isOpen={isAlertModalOpen}
-            alerts={alerts}
-            isLoading={isAlertLoading}
-            loadError={alertError}
-            onClose={() => setAlertModalOpen(false)}
-        />
+        {expandedZoneId && (
+          <CctvZonePopupModal
+            zoneId={expandedZoneId}
+            onClose={() => setExpandedZoneId(null)}
+            videoRef={videoRef}
+            videoSrc={videoSrc}
+            metrics={metrics}
+            cri={cri}
+            statusResult={statusResult}
+            history={history}
+            showEmergencyActions={statusResult.status === 'danger' && emergency.countdownSec > 0 && emergency.countdownSec <= 15 && !emergency.isBlocking && !actionTaken}
+            onResolveEmergency={(type) => {
+              setActionTaken(true);
+              emergency.resetTimer();
+              if (type === 'dispatch') {
+                alert('현장 출동 지시가 접수되었습니다.');
+              }
+            }}
+          />
+        )}
 
         <CctvEmergencyOverlay
             isVisible={emergency.isBlocking}
             countdownSec={emergency.countdownSec}
             isAutoDispatched={emergency.isAutoDispatched}
-            onConfirm={emergency.confirm}
+            onConfirm={() => {
+              emergency.confirm();
+              const targetZone = selectedZoneId || 1;
+              setExpandedZoneId(targetZone);
+            }}
         />
       </div>
   );
