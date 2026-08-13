@@ -53,34 +53,51 @@ export function useEmergencyTimer(
   const ignoreUntilRef = useRef<number>(0);
 
   useEffect(() => {
-    // 무시 기간 중이거나 위험 상태가 아니면 타이머 초기화
-    if (status !== 'danger' || Date.now() < ignoreUntilRef.current) {
+    // 위험 상태가 아니면 타이머 초기화
+    if (status !== 'danger') {
+      console.log('Timer reset because status is not danger');
       dangerStartRef.current = null;
       setElapsedSec(0);
       setConfirmed(false);
       return;
     }
 
+    console.log('Timer starting. isConfirmed:', isConfirmed, 'elapsedSec:', elapsedSec);
+
     if (dangerStartRef.current === null) {
       dangerStartRef.current = Date.now();
     }
 
     const timerId = window.setInterval(() => {
-      // 10초 무시 기간이 풀리기 전에는 시간을 올리지 않음
+      // 15초 무시 기간이 풀리기 전에는 시간을 올리지 않음
       if (Date.now() < ignoreUntilRef.current) {
         dangerStartRef.current = null;
         setElapsedSec(0);
         return;
       }
       
-      if (dangerStartRef.current === null) {
-        dangerStartRef.current = Date.now();
+      // 관리자가 알림을 해제(isConfirmed)했다면 타이머를 멈춘다
+      if (isConfirmed) {
+        // 타이머 정지 (dangerStartRef를 갱신해 두어야 나중에 다시 흐를 때 점프하지 않음)
+        if (dangerStartRef.current !== null) {
+          dangerStartRef.current = Date.now() - elapsedSec * 1000;
+        }
+        return;
       }
-      setElapsedSec((Date.now() - dangerStartRef.current) / 1000);
+      
+      if (dangerStartRef.current === null) {
+        dangerStartRef.current = Date.now() - elapsedSec * 1000;
+        console.log('dangerStartRef initialized to', dangerStartRef.current);
+      }
+      const newElapsed = (Date.now() - dangerStartRef.current) / 1000;
+      if (Math.floor(newElapsed) > Math.floor(elapsedSec)) {
+        console.log('Timer ticking:', newElapsed);
+      }
+      setElapsedSec(newElapsed);
     }, TICK_INTERVAL_MS);
 
     return () => window.clearInterval(timerId);
-  }, [status]);
+  }, [status, isConfirmed, elapsedSec]);
 
   const confirm = useCallback(() => setConfirmed(true), []);
   
@@ -92,7 +109,8 @@ export function useEmergencyTimer(
   }, []);
 
   const isDanger = status === 'danger';
-  const isAutoDispatched = isDanger && elapsedSec >= AUTO_DISPATCH_AFTER_SEC && !isConfirmed;
+  // 사용자가 알림창(overlay)을 껐다면(isConfirmed) 자동 신고 타이머가 멈추므로 isAutoDispatched는 발동하지 않음.
+  const isAutoDispatched = isDanger && !isConfirmed && elapsedSec >= AUTO_DISPATCH_AFTER_SEC;
 
   return {
     isDispatchAlarmActive: isDanger && elapsedSec >= alarmDelaySec,

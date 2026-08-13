@@ -57,11 +57,13 @@ export interface CctvUploadResponse {
  * 필드명 'cctv_video'는 서버 시그니처(cctv_video: UploadFile = File(...))와
  * 반드시 일치해야 한다.
  */
-export async function uploadCctvVideo(file: File): Promise<CctvUploadResponse> {
+export async function uploadCctvVideo(file: File, zoneId: number = 1): Promise<CctvUploadResponse> {
   const formData = new FormData();
-  formData.append('cctv_video', file);
+  formData.append('file', file); // python 쪽에선 매개변수명이 file 임
+  formData.append('zone_id', zoneId.toString());
 
-  const { data } = await cctvApiClient.post<CctvUploadResponse>('/api/v1/cctv/upload', formData, {
+  // Python 서버의 실제 업로드/트리거 엔드포인트
+  const { data } = await cctvApiClient.post<CctvUploadResponse>('/api/analyze/trigger', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return data;
@@ -86,6 +88,7 @@ export async function fetchCctvResultVideoUrl(filename: string): Promise<string>
 
 export interface CctvAlertTriggerRequest {
   alertType: 'MANUAL_REPORT' | 'AUTO_REPORT';
+  zoneId: number;
 }
 
 /**
@@ -95,8 +98,9 @@ export interface CctvAlertTriggerRequest {
  * Python은 이 신호를 받으면 자바 백엔드의 `/api/ai/alerts/trigger`를 호출하고,
  * 35초 영상과 PDF를 생성한 뒤 S3에 올리고 백엔드 Webhook을 찌릅니다.
  */
-export async function triggerCctvAlert(alertType: 'MANUAL_REPORT' | 'AUTO_REPORT'): Promise<void> {
-  await cctvApiClient.post('/api/v1/cctv/trigger', { alertType });
+export async function triggerCctvAlert(alertType: 'MANUAL_REPORT' | 'AUTO_REPORT', zoneId: number = 1): Promise<void> {
+  // Python 서버의 실제 알람 트리거 엔드포인트
+  await cctvApiClient.post('/api/alerts/trigger', { alert_type: alertType, zone_id: zoneId });
 }
 
 /** 서버가 프레임별 지표를 담아 내려주는 데이터셋 JSON의 원본 형태(snake_case). */

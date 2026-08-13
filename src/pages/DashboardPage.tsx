@@ -31,10 +31,7 @@ export default function DashboardPage() {
             <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
               전통시장 실시간 위험도 관제
             </h1>
-            <span className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              실시간 CCTV AI 관제 연동 중
-            </span>
+
           </div>
         </div>
 

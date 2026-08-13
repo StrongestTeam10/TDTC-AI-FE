@@ -22,11 +22,11 @@
        투명도(rgba의 alpha)는 그대로 둔 채 면 색만 밝은 쪽으로 바뀐다.
        영상 위 오버레이·비상 알람처럼 "항상 어두워야 하는" 부분은 일부러 변수를
        쓰지 않고 하드코딩 값을 남겨뒀다. */
-    --surface-deep-rgb: 15, 23, 42;    /* 헤더 요약바·드로어 등 큰 면 */
-    --surface-raised-rgb: 30, 41, 59;  /* 떠 있는 버튼 */
-    --surface-sunken-rgb: 9, 13, 22;   /* 카드 안쪽으로 파인 박스 */
-    --surface-modal-rgb: 17, 25, 40;   /* 모달 카드 */
-    --tint-rgb: 255, 255, 255;         /* 면 위에 얹는 반투명 틴트/테두리 */
+    --surface-deep-rgb: 15, 23, 42;
+    --surface-raised-rgb: 30, 41, 59;
+    --surface-sunken-rgb: 9, 13, 22;
+    --surface-modal-rgb: 17, 25, 40;
+    --tint-rgb: 255, 255, 255;
     --shadow-rgb: 0, 0, 0;
 
     --color-safe: #10b981;
@@ -620,6 +620,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
+    white-space: nowrap;
     border-bottom: 1px solid var(--border-color);
     padding-bottom: 12px;
     color: var(--text-strong);
@@ -1890,3 +1892,437 @@
 .drawer-toggle-btn.video-btn { top: 45%; border-color: rgba(59, 130, 246, 0.3); }
 .drawer-toggle-btn.video-btn:hover { background: rgba(59, 130, 246, 0.85); border-color: var(--color-accent); }
 
+
+/* ==========================================================================
+   [신규 추가] 4단 인라인 하단 대시보드 및 5분할 영상 갤러리
+   ========================================================================== */
+
+/* 5분할 영상 갤러리 */
+.gallery-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    margin-bottom: 24px;
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid var(--border-color);
+}
+
+/* 갤러리 스크롤바 커스텀 */
+.gallery-wrapper::-webkit-scrollbar {
+    height: 10px; /* 가로 스크롤 두께 */
+    width: 10px; /* 세로 스크롤 대비 */
+}
+.gallery-wrapper::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.5); /* 스크롤바 배경 */
+    border-radius: 6px;
+}
+.gallery-wrapper::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.35); /* 주변 테마와 어울리는 부드러운 회색/반투명 화이트 */
+    border-radius: 6px;
+    border: 2px solid rgba(15, 23, 42, 0.5); /* 약간의 여백 효과 */
+}
+.gallery-wrapper::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5); /* 마우스 오버 시 조금 더 밝게 */
+}
+
+.gallery-scroll-container {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 16px;
+    width: 100%;
+}
+
+.gallery-item {
+    flex: 0 0 calc(25% - 12px);
+    position: relative;
+    aspect-ratio: 5 / 4;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #000;
+    border: 2px solid transparent;
+    transition: all 0.25s ease;
+    cursor: pointer;
+}
+
+.gallery-item:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.gallery-item.active-zone {
+    border-color: #10b981;
+    box-shadow: 0 0 16px rgba(16, 185, 129, 0.4);
+}
+
+.zone-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    z-index: 10;
+}
+
+.video-layers {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.gallery-video-blur-bg,
+.gallery-video-main {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.gallery-video-blur-bg {
+    object-fit: cover;
+    filter: blur(20px);
+    opacity: 0.6;
+}
+
+.gallery-video-main {
+    object-fit: contain;
+}
+
+/* 4단 인라인 레이아웃 (Metrics, Alerts, Videos, Chart) */
+.inline-dashboard-grid {
+    display: grid;
+    grid-template-columns: 240px 1fr 1fr minmax(300px, 1.2fr);
+    gap: 20px;
+    align-items: stretch;
+}
+
+.inline-log-box {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    height: 400px;
+}
+
+.inline-log-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-strong);
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 12px;
+}
+
+.inline-log-content {
+    flex-grow: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-right: 8px;
+}
+
+.inline-log-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.inline-log-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+.inline-log-item {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.inline-log-time {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.inline-log-desc {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.inline-video-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.btn-inline-download {
+    background: rgba(59, 130, 246, 0.1);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-inline-download:hover {
+    background: var(--color-accent);
+    color: #fff;
+}
+
+/* 중앙 거대 타이틀 */
+.dashboard-huge-title-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 10px 0 24px 0;
+    position: relative;
+}
+
+.dashboard-huge-title {
+    font-size: 2rem;
+    font-weight: 900;
+    letter-spacing: -1px;
+    text-shadow: 0 4px 20px rgba(255, 255, 255, 0.1);
+}
+
+/* 세로 배치용 지표 카드 래퍼 */
+.vertical-metrics-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* AI 스트림 상태 뱃지 (인라인용) */
+.ai-status-badge-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    position: absolute;
+    left: 0;
+}
+
+.ai-status-badge-inline.open { color: #10b981; border-color: rgba(16, 185, 129, 0.3); }
+.ai-status-badge-inline.connecting { color: #f59e0b; border-color: rgba(245, 158, 11, 0.3); }
+.ai-status-badge-inline.closed { color: #ef4444; border-color: rgba(239, 68, 68, 0.3); }
+
+.metrics-card-grid-vertical {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+    gap: 16px;
+}
+
+.metrics-card-grid-vertical > * {
+    flex: 1;
+    justify-content: center;
+}
+
+
+/* ==========================================================================
+   [신규 추가] 레이어 팝업 (Layer Popup Modal)
+   ========================================================================== */
+.layer-popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(8px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    animation: fadeIn 0.25s ease-out;
+}
+
+.layer-popup-content {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    width: 100%;
+    max-width: 1400px;
+    height: 85vh;
+    display: flex;
+    overflow: hidden;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    animation: scaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+}
+
+.layer-popup-video-side {
+    flex: 2;
+    background: #000;
+    position: relative;
+    overflow: hidden;
+    border-right: 1px solid var(--border-color);
+}
+
+.layer-popup-video-blur {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    filter: blur(25px);
+    opacity: 0.5;
+    transform: scale(1.1);
+}
+
+.layer-popup-video-main {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    z-index: 10;
+}
+
+.layer-popup-info-side {
+    flex: 1;
+    min-width: 550px;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.layer-popup-info-side .card-title {
+    font-size: 0.9rem;
+}
+
+.layer-popup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.layer-popup-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--text-strong);
+}
+
+.layer-popup-close-btn {
+    background: rgba(15, 23, 42, 0.05);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.layer-popup-close-btn:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+.btn-expand-zone {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 20;
+    transition: all 0.2s ease;
+    opacity: 0;
+}
+
+.gallery-item:hover .btn-expand-zone {
+    opacity: 1;
+}
+
+.btn-expand-zone:hover {
+    background: var(--color-accent);
+    transform: scale(1.1);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+@keyframes scaleDown {
+    from { transform: scale(1); opacity: 1; }
+    to { transform: scale(0.95); opacity: 0; }
+}
+
+.layer-popup-overlay.closing {
+    animation: fadeOut 0.25s ease-in forwards;
+}
+
+.layer-popup-overlay.closing .layer-popup-content {
+    animation: scaleDown 0.25s ease-in forwards;
+}
+
+.layer-popup-info-side .metrics-card-grid-vertical {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.layer-popup-info-side .metric-card {
+    padding: 8px 16px;
+    gap: 4px;
+}
+
+.layer-popup-info-side .metric-card-value {
+    font-size: 1.3rem;
+}
+
+.layer-popup-info-side .metric-card-title {
+    font-size: 0.75rem;
+}

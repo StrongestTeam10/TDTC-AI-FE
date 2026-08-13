@@ -30,8 +30,8 @@ const PING_INTERVAL_MS = 25_000;
 export interface CctvStreamState {
   /** 연결 상태(우상단 배지 표시용) */
   status: CctvConnectionStatus;
-  /** 지금까지 수신한 프레임별 지표. 비어 있으면 화면이 정적 폴백 데이터를 쓴다. */
-  frameData: CctvFrameDataMap;
+  /** 구역별로 수신한 프레임별 지표 (zoneId -> frameId -> metrics) */
+  multiZoneFrameData: Record<number, CctvFrameDataMap>;
   /** AI 분석 진행 오버레이 상태 */
   analysis: CctvAnalysisProgress;
   /** 분석 완료 후 교체할 결과 영상의 파일명. 아직 없으면 null. */
@@ -54,7 +54,7 @@ const IDLE_ANALYSIS: CctvAnalysisProgress = {
 
 export function useCctvStream(): CctvStreamState {
   const [status, setStatus] = useState<CctvConnectionStatus>('connecting');
-  const [frameData, setFrameData] = useState<CctvFrameDataMap>({});
+  const [multiZoneFrameData, setMultiZoneFrameData] = useState<Record<number, CctvFrameDataMap>>({ 1: {}, 2: {}, 3: {} });
   const [analysis, setAnalysis] = useState<CctvAnalysisProgress>(IDLE_ANALYSIS);
   const [completedFilename, setCompletedFilename] = useState<string | null>(null);
   const [liveFrameId, setLiveFrameId] = useState<number | null>(null);
@@ -107,7 +107,10 @@ export function useCctvStream(): CctvStreamState {
         // 분석이 끝나면 전체 데이터셋을 한 번에 받아둔다. 이래야 타임라인을 뒤로
         // 드래그해도 이미 지나간 프레임의 지표가 남아 있다.
         fetchCctvDataset(message.filename)
-            .then((dataset) => setFrameData(dataset))
+            .then((dataset) => {
+              const zoneId = (message as any).zone_id || 1;
+              setMultiZoneFrameData(prev => ({ ...prev, [zoneId]: dataset }));
+            })
             .catch((err) => console.error('[CCTV] 분석 데이터셋 로드 실패', err));
 
         // 100%를 잠깐 보여준 뒤 오버레이를 닫는다.
@@ -115,15 +118,20 @@ export function useCctvStream(): CctvStreamState {
         break;
       }
 
-      case 'CCTV_AI_STREAM':
+      case 'CCTV_AI_STREAM': {
         // 스트림이 오기 시작했는데 오버레이가 아직 떠 있으면 닫는다.
         setAnalysis((prev) => (prev.isAnalyzing ? IDLE_ANALYSIS : prev));
         setLiveFrameId(message.frame_id);
-        setFrameData((prev) => ({
+        const zoneId = (message as any).zone_id || 1;
+        setMultiZoneFrameData((prev) => ({
           ...prev,
-          [message.frame_id]: toFrameMetrics(message),
+          [zoneId]: {
+            ...(prev[zoneId] || {}),
+            [message.frame_id]: toFrameMetrics(message),
+          }
         }));
         break;
+      }
 
       case 'pong':
         break;
@@ -201,14 +209,14 @@ export function useCctvStream(): CctvStreamState {
   const endAnalysis = useCallback(() => setAnalysis(IDLE_ANALYSIS), []);
 
   const resetFrameData = useCallback(() => {
-    setFrameData({});
+    setMultiZoneFrameData({ 1: {}, 2: {}, 3: {} });
     setLiveFrameId(null);
     setCompletedFilename(null);
   }, []);
 
   return {
     status,
-    frameData,
+    multiZoneFrameData,
     analysis,
     completedFilename,
     liveFrameId,

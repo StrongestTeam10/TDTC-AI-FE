@@ -888,14 +888,18 @@ export async function fetchCoordinatesForFrame(
 }
 
 /** CCTV 영상 클립 목록. s3ClipUrl은 BE가 만들어준 1시간짜리 presigned URL이다. */
-export async function fetchVideoClips(): Promise<VideoClip[]> {
-  const { data } = await apiClient.get<VideoClip[]>('/v1/video-clips');
+export async function fetchVideoClips(zoneId?: number): Promise<VideoClip[]> {
+  const { data } = await apiClient.get<VideoClip[]>('/v1/video-clips', {
+    params: zoneId ? { zoneId } : undefined
+  });
   return data;
 }
 
 /** CCTV 긴급 상황 PDF 명세서 목록. s3PdfUrl은 BE가 만들어준 1시간짜리 presigned URL이다. */
-export async function fetchPostReports(): Promise<any[]> {
-  const { data } = await apiClient.get<any[]>('/v1/post-reports');
+export async function fetchPostReports(zoneId?: number): Promise<any[]> {
+  const { data } = await apiClient.get<any[]>('/v1/post-reports', {
+    params: zoneId ? { zoneId } : undefined
+  });
   return data;
 }
 
