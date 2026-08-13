@@ -1,4 +1,5 @@
-import React, { RefObject, useState } from 'react';
+import React, { useState } from 'react';
+import type { RefObject } from 'react';
 import styles from './CctvDashboard.module.css';
 
 export interface Zone {
@@ -20,24 +21,25 @@ interface Props {
   activeZoneId: number | null;
   onSelectZone: (zoneId: number | null) => void;
   onExpandZone: (zoneId: number) => void;
-  videoRef: RefObject<HTMLVideoElement>;
+  // useRef<HTMLVideoElement>(null) 의 타입은 RefObject<HTMLVideoElement | null> 이다.
+  // (React 19 타입 정의 기준) null 을 빼면 호출부에서 대입이 막힌다.
+  videoRef: RefObject<HTMLVideoElement | null>;
   videoSrc: string | null;
-  isPlaying: boolean;
   onLoadedMetadata: () => void;
   onTimeUpdate: () => void;
-  onTogglePlay: () => void;
 }
 
+// 2026-08-13: isPlaying / onTogglePlay 를 Props에서 뺐다. 46bfabf 에서 갤러리 영상이
+// autoPlay 로 바뀌면서 재생/일시정지 버튼이 사라져 둘 다 쓰이지 않는데, 선언만 남아
+// 있어서 빌드가 깨졌다(TS6133). 재생 컨트롤을 다시 붙일 때 같이 되살리면 된다.
 export default function CctvZoneGallery({
   activeZoneId,
   onSelectZone,
   onExpandZone,
   videoRef,
   videoSrc,
-  isPlaying,
   onLoadedMetadata,
-  onTimeUpdate,
-  onTogglePlay
+  onTimeUpdate
 }: Props) {
   const ITEMS_PER_PAGE = 4;
   const [page, setPage] = useState(0);

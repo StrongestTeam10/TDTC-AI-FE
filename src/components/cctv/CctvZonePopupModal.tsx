@@ -1,4 +1,5 @@
-import React, { RefObject } from 'react';
+import React from 'react';
+import type { RefObject } from 'react';
 import styles from './CctvDashboard.module.css';
 import CctvMetricCards from './CctvMetricCards';
 import CctvRiskChartCard from './CctvRiskChartCard';
@@ -6,7 +7,9 @@ import CctvRiskChartCard from './CctvRiskChartCard';
 interface Props {
   zoneId: number;
   onClose: () => void;
-  videoRef: RefObject<HTMLVideoElement>;
+  // useRef<HTMLVideoElement>(null) 의 타입은 RefObject<HTMLVideoElement | null> 이다.
+  // (React 19 타입 정의 기준) null 을 빼면 호출부에서 대입이 막힌다.
+  videoRef: RefObject<HTMLVideoElement | null>;
   videoSrc: string | null;
   metrics: any;
   cri: number;

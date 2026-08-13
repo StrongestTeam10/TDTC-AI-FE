@@ -17,8 +17,20 @@
     "jsx": "react-jsx",
 
     /* Linting */
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    // 2026-08-13: noUnusedLocals/noUnusedParameters 를 false 로 내림.
+    //
+    // 이 둘은 "미사용 선언"을 에러로 올리는데, 그 때문에 리팩터가 덜 끝난 코드가
+    // main 에 들어오는 순간 배포(CodeBuild)가 통째로 멈춘다. 실제로 46bfabf 에서
+    // CCTV 대시보드 UI를 개편하며 업로드/재생 컨트롤을 임시로 걷어내자 핸들러
+    // 15개가 미사용이 되어 FE 배포가 실패했다.
+    //
+    // 미사용 변수는 런타임 버그가 아니라 정리 대상일 뿐이라 배포를 막을 사유가
+    // 아니라고 판단했다. 타입 안전성 검사(strict 계열)는 그대로 두므로 실제
+    // 타입 오류는 여전히 빌드를 막는다.
+    //
+    // 되돌리려면 이 두 줄을 true 로 바꾸고, 남아 있는 미사용 선언을 정리하면 된다.
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },

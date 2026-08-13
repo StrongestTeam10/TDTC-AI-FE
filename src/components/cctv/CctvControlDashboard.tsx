@@ -370,9 +370,6 @@ export default function CctvControlDashboard() {
             onExpandZone={setExpandedZoneId}
             videoRef={videoRef}
             videoSrc={videoSrc}
-            isPlaying={isPlaying}
-            currentFrame={currentFrame}
-            totalFrames={totalFrames}
             onLoadedMetadata={handleLoadedMetadata}
             onTimeUpdate={handleTimeUpdate}
           />
