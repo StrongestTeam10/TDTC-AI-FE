@@ -125,7 +125,7 @@ interface Viewport {
 // 축소하면 시장이 화면 한가운데 손톱만 하게 남고, 구역·에이전트가 서로 겹쳐 아무것도
 // 읽히지 않았다. 되돌리려면 초기화를 눌러야 해서 실수로 한 번 굴리면 번거로웠다.
 // 시장 전체가 화면에 들어오는 배율이 1이므로, 그보다 조금만 더 넓게 보는 선에서 막는다.
-const MIN_ZOOM = 0.85;
+const MIN_ZOOM = 1;
 const MAX_ZOOM = 8;
 const ZOOM_STEP = 1.25;
 
@@ -195,6 +195,9 @@ export default function HeatmapView({
   const [viewport, setViewport] = useState<Viewport>({ zoom: 1, panX: 0, panY: 0 });
   const [hoveredAgent, setHoveredAgent] = useState<{ agent: AgentState; x: number; y: number } | null>(null);
 
+  // 70도 고정 회전
+  const MAP_ROTATION_DEG = 70;
+
   // 2026-07-27: width를 고정 픽셀로 강제하던 것을 제거하고, width prop을 명시적으로
   // 넘기지 않으면(예: 대시보드에서 그리드 셀을 꽉 채우고 싶은 경우) 컨테이너의 실제
   // 렌더링 너비를 ResizeObserver로 관찰해서 그 값을 내부 좌표 계산(viewBox/투영)에
@@ -224,6 +227,28 @@ export default function HeatmapView({
   // 마우스 휠 확대/축소. React의 합성 onWheel은 기본적으로 passive라 preventDefault가
   // 안 먹혀서(경고 발생) 네이티브 리스너를 직접 붙인다. 커서 위치를 기준으로 확대해서
   // 커서 아래 지점이 화면에서 안 움직이게 한다 (구글맵과 동일한 조작감).
+
+  const constrainPan = (panX: number, panY: number, zoom: number) => {
+    const vbW = internalWidth / zoom;
+    const vbH = internalHeight / zoom;
+    const margin = 0.15; // 화면 밖으로 나갈 수 있는 최대 여백 (15%)
+
+    const minXBound = -vbW * margin;
+    const maxXBound = internalWidth - vbW * (1 - margin);
+    const minYBound = -vbH * margin;
+    const maxYBound = internalHeight - vbH * (1 - margin);
+
+    const minPanX = Math.min(minXBound, maxXBound);
+    const maxPanX = Math.max(minXBound, maxXBound);
+    const minPanY = Math.min(minYBound, maxYBound);
+    const maxPanY = Math.max(minYBound, maxYBound);
+
+    return {
+      panX: Math.max(minPanX, Math.min(maxPanX, panX)),
+      panY: Math.max(minPanY, Math.min(maxPanY, panY)),
+    };
+  };
+
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -245,11 +270,11 @@ export default function HeatmapView({
         const newVbH = internalHeight / nextZoom;
         const anchorX = v.panX + oldVbW * ratioX;
         const anchorY = v.panY + oldVbH * ratioY;
-        return {
-          zoom: nextZoom,
-          panX: anchorX - newVbW * ratioX,
-          panY: anchorY - newVbH * ratioY,
-        };
+
+        const nextPanX = anchorX - newVbW * ratioX;
+        const nextPanY = anchorY - newVbH * ratioY;
+
+        return { zoom: nextZoom, ...constrainPan(nextPanX, nextPanY, nextZoom) };
       });
     };
 
@@ -273,11 +298,11 @@ export default function HeatmapView({
       pointerMovedRef.current = true;
     }
     dragRef.current = { x: e.clientX, y: e.clientY };
-    setViewport((v) => ({
-      ...v,
-      panX: v.panX - dx / v.zoom,
-      panY: v.panY - dy / v.zoom,
-    }));
+    setViewport((v) => {
+      const nextPanX = v.panX - dx / v.zoom;
+      const nextPanY = v.panY - dy / v.zoom;
+      return { ...v, ...constrainPan(nextPanX, nextPanY, v.zoom) };
+    });
   };
 
   const handlePointerUp = () => {
@@ -291,7 +316,11 @@ export default function HeatmapView({
       const newVbW = internalWidth / nextZoom, newVbH = internalHeight / nextZoom;
       const centerX = v.panX + oldVbW / 2;
       const centerY = v.panY + oldVbH / 2;
-      return { zoom: nextZoom, panX: centerX - newVbW / 2, panY: centerY - newVbH / 2 };
+
+      const nextPanX = centerX - newVbW / 2;
+      const nextPanY = centerY - newVbH / 2;
+
+      return { zoom: nextZoom, ...constrainPan(nextPanX, nextPanY, nextZoom) };
     });
   };
 
@@ -323,10 +352,39 @@ export default function HeatmapView({
 
     if (allLons.length === 0) return null;
 
-    const minLon = Math.min(...allLons);
-    const maxLon = Math.max(...allLons);
-    const minLat = Math.min(...allLats);
-    const maxLat = Math.max(...allLats);
+    const origMinLon = Math.min(...allLons);
+    const origMaxLon = Math.max(...allLons);
+    const origMinLat = Math.min(...allLats);
+    const origMaxLat = Math.max(...allLats);
+
+    const cx = (origMinLon + origMaxLon) / 2;
+    const cy = (origMinLat + origMaxLat) / 2;
+
+    const rotate = (lon: number, lat: number, deg: number = MAP_ROTATION_DEG): LonLat => {
+      if (deg === 0) return [lon, lat];
+      const rad = (deg * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      const dx = lon - cx;
+      const dy = lat - cy;
+      return [
+        cx + dx * cos - dy * sin,
+        cy + dx * sin + dy * cos
+      ];
+    };
+
+    const rotatedLons: number[] = [];
+    const rotatedLats: number[] = [];
+    for (let i = 0; i < allLons.length; i++) {
+      const [rlon, rlat] = rotate(allLons[i], allLats[i]);
+      rotatedLons.push(rlon);
+      rotatedLats.push(rlat);
+    }
+
+    const minLon = Math.min(...rotatedLons);
+    const maxLon = Math.max(...rotatedLons);
+    const minLat = Math.min(...rotatedLats);
+    const maxLat = Math.max(...rotatedLats);
 
     const lonSpan = maxLon - minLon || 0.0001;
     const latSpan = maxLat - minLat || 0.0001;
@@ -335,17 +393,26 @@ export default function HeatmapView({
       (internalHeight - PADDING * 2) / latSpan
     );
 
-    const project = ([lon, lat]: LonLat): [number, number] => [
-      PADDING + (lon - minLon) * scale,
-      PADDING + (maxLat - lat) * scale,
-    ];
+    const actualWidth = lonSpan * scale;
+    const actualHeight = latSpan * scale;
+    const offsetX = (internalWidth - actualWidth) / 2;
+    const offsetY = (internalHeight - actualHeight) / 2;
 
-    const unproject = (x: number, y: number): LonLat => [
-      minLon + (x - PADDING) / scale,
-      maxLat - (y - PADDING) / scale,
-    ];
+    const project = ([lon, lat]: LonLat): [number, number] => {
+      const [rlon, rlat] = rotate(lon, lat);
+      return [
+        offsetX + (rlon - minLon) * scale,
+        offsetY + (maxLat - rlat) * scale,
+      ];
+    };
 
-    return { zonePolygons, buildingLonLat, minLon, maxLat, scale, project, unproject };
+    const unproject = (x: number, y: number): LonLat => {
+      const rlon = minLon + (x - offsetX) / scale;
+      const rlat = maxLat - (y - offsetY) / scale;
+      return rotate(rlon, rlat, -MAP_ROTATION_DEG);
+    };
+
+    return { zonePolygons, buildingLonLat, minLon, maxLat, scale, offsetX, offsetY, project, unproject };
   }, [zones, buildings, internalWidth, internalHeight]);
 
   const layout = useMemo(() => {
@@ -425,9 +492,9 @@ export default function HeatmapView({
       const lonLat: LonLat | undefined = hasCoords
         ? [focusEvent.longitude as number, focusEvent.latitude as number]
         : zonePolygons.find(({ zone }) => zone.zoneId === focusEvent.zoneId)?.points.reduce(
-            (acc, [lon, lat], _i, arr) => [acc[0] + lon / arr.length, acc[1] + lat / arr.length],
-            [0, 0] as LonLat
-          );
+          (acc, [lon, lat], _i, arr) => [acc[0] + lon / arr.length, acc[1] + lat / arr.length],
+          [0, 0] as LonLat
+        );
       if (lonLat) {
         const [x, y] = project(lonLat);
         renderedFocusEvent = { x, y, eventType: focusEvent.eventType };
@@ -453,11 +520,9 @@ export default function HeatmapView({
 
   useEffect(() => {
     if (viewCenter === undefined || viewZoom === undefined || !bounds) return;
-    const { minLon, maxLat, scale } = bounds;
     const vbW = internalWidth / viewZoom;
     const vbH = internalHeight / viewZoom;
-    const centerLocalX = PADDING + (viewCenter.lon - minLon) * scale;
-    const centerLocalY = PADDING + (maxLat - viewCenter.lat) * scale;
+    const [centerLocalX, centerLocalY] = bounds.project([viewCenter.lon, viewCenter.lat]);
     const nextPanX = centerLocalX - vbW / 2;
     const nextPanY = centerLocalY - vbH / 2;
 
@@ -479,13 +544,11 @@ export default function HeatmapView({
       isApplyingExternalRef.current = false;
       return;
     }
-    const { minLon, maxLat, scale } = bounds;
     const vbW = internalWidth / viewport.zoom;
     const vbH = internalHeight / viewport.zoom;
     const centerLocalX = viewport.panX + vbW / 2;
     const centerLocalY = viewport.panY + vbH / 2;
-    const lon = minLon + (centerLocalX - PADDING) / scale;
-    const lat = maxLat - (centerLocalY - PADDING) / scale;
+    const [lon, lat] = bounds.unproject(centerLocalX, centerLocalY);
     onViewportChange({ lon, lat, zoom: viewport.zoom });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewport, bounds, internalWidth, internalHeight]);
@@ -539,7 +602,7 @@ export default function HeatmapView({
       <div
         ref={containerRef}
         className="relative flex items-center justify-center rounded-lg border border-slate-300 bg-slate-50 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900"
-        style={{ width, minHeight: height }}
+        style={{ width, height: height || '100%', minHeight: height }}
       >
         구역 데이터를 불러오는 중입니다...
       </div>
@@ -553,7 +616,7 @@ export default function HeatmapView({
     <div
       ref={containerRef}
       className="relative overflow-hidden rounded-lg border border-slate-300 bg-slate-50 touch-none select-none dark:border-slate-700 dark:bg-slate-900"
-      style={{ width, minHeight: height, cursor: placementType ? 'crosshair' : 'grab' }}
+      style={{ width, height: height || '100%', minHeight: height, cursor: placementType ? 'crosshair' : 'grab' }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -562,9 +625,8 @@ export default function HeatmapView({
       <svg
         ref={svgRef}
         viewBox={`${viewport.panX} ${viewport.panY} ${vbWidth} ${vbHeight}`}
-        width="100%"
-        height={height}
-        className="block"
+        className="block w-full h-full"
+        style={{ minHeight: height }}
         onClick={handleSvgClick}
       >
         {layout.renderedZones.map((z) => (
@@ -719,7 +781,7 @@ export default function HeatmapView({
           bg-white/80은 지도 위 폴리곤이 밝은 색일 때 버튼 테두리가 배경에 묻혀
           있는지 없는지 알기 어려웠다. 불투명도를 올리고 그림자·테두리를 줘서
           지도 위에 떠 있는 조작 도구라는 것이 분명해지게 한다. */}
-      <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded border border-slate-300 bg-white/95 px-1 py-1 shadow-sm dark:border-slate-700 dark:bg-slate-900/90">
+      <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded border border-slate-300 bg-white/95 px-1 py-1 shadow-sm dark:border-slate-700 dark:bg-slate-900/90 z-10">
         <button
           type="button"
           onClick={() => zoomBy(ZOOM_STEP)}
@@ -747,7 +809,7 @@ export default function HeatmapView({
       </div>
 
       {/* 위험도 범례. 점 색이 무엇을 뜻하는지 알려주는 유일한 곳이라 항상 보여야 한다. */}
-      <div className="absolute bottom-2 right-2 flex items-center gap-3 rounded border border-slate-300 bg-white/95 px-2 py-1 text-[10px] text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900/90 dark:text-slate-400">
+      <div className="absolute bottom-2 right-2 flex items-center gap-3 rounded border border-slate-300 bg-white/95 px-2 py-1 text-[10px] text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900/90 dark:text-slate-400 z-10">
         {[
           { label: '안전', color: AGENT_DANGER_BLUE },
           { label: '주의', color: AGENT_DANGER_YELLOW },
