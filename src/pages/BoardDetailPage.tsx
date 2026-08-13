@@ -3,8 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import Spinner from '../components/ui/Spinner';
 import ErrorBanner from '../components/ui/ErrorBanner';
-import { deletePost, downloadAttachment, fetchCommonCodes, fetchPostDetail, togglePostLike } from '../api/client';
-import { CATEGORY_CODE_OPTIONS } from '../constants/categoryCode';
+import { deletePost, downloadAttachment, fetchPostDetail, togglePostLike } from '../api/client';
+import { useCommonCodes } from '../hooks/useCommonCodes';
 import type { PostDetail } from '../types/board';
 import { toDisplayErrorMessage } from '../utils/errorMessage';
 
@@ -24,28 +24,17 @@ function formatFileSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
-function categoryLabel(options: { code: string; name: string }[], code: string) {
-  return options.find((o) => o.code === code)?.name ?? code;
-}
-
 export default function BoardDetailPage() {
   const { postId } = useParams<{ postId: string }>();
   const navigate = useNavigate();
 
   const [post, setPost] = useState<PostDetail | null>(null);
-  const [categoryOptions, setCategoryOptions] = useState(CATEGORY_CODE_OPTIONS);
+  // 2026-08-12: 화면마다 복사돼 있던 공통코드 조회를 useCommonCodes로 모았다.
+  const { labelOf: categoryLabel } = useCommonCodes('BCT');
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [actionError, setActionError] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
-
-  useEffect(() => {
-    fetchCommonCodes('BCT')
-        .then((codes) => {
-          if (codes.length > 0) setCategoryOptions(codes.map((c) => ({ code: c.code, name: c.codeName })));
-        })
-        .catch((err) => console.error('공통코드(카테고리) 조회 실패, 로컬 기본값 사용', err));
-  }, []);
 
   const load = useCallback(() => {
     if (!postId) return;
@@ -118,14 +107,12 @@ export default function BoardDetailPage() {
       <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
+            {/* 2026-08-12: "공지" 배지를 뺐다. 바로 옆 카테고리 배지가 이미
+                "공지사항"이라 같은 말이 두 번 나왔다. 상세는 글 하나만 보는 화면이라
+                목록처럼 "이 줄이 고정 공지"임을 구분해 줄 이유도 없다. */}
             <div className="mb-2 flex items-center gap-2">
-              {post.notice && (
-                <span className="inline-block rounded bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
-                  공지
-                </span>
-              )}
               <span className="inline-block rounded bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-medium text-slate-700 dark:text-slate-300">
-                {categoryLabel(categoryOptions, post.categoryCode)}
+                {categoryLabel(post.categoryCode)}
               </span>
             </div>
             <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{post.title}</h1>

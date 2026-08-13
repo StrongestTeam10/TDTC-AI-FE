@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { analyzePolicy } from '../api/client';
 import Spinner from './ui/Spinner';
 import type { PolicyAnalysisResult } from '../api/client';
+import type { Gate, Zone } from '../types';
 
 /**
  * LLM objectsToRemove 항목 하나에 대한 제거 결과.
@@ -31,6 +32,15 @@ interface PolicyAnalysisPanelProps {
    * 미전달 시 모두 'compliant'로 폴백.
    */
   objectRemovalResults?: ObjectRemovalResult[];
+  /**
+   * 2026-08-12 추가 (UIUX 피드백 p01)
+   * LLM이 돌려주는 것은 zoneId/facilityId 같은 번호뿐이라, 요약이 "Zone 1 ↔ Zone 3",
+   * "게이트 폐쇄: 2, 5번"처럼 사람이 못 읽는 형태로 나왔다("북/중앙/남측으로 명시" 지적).
+   * 화면에 이미 있는 구역·게이트 목록을 넘겨받아 번호를 이름으로 바꿔 보여준다.
+   * 없거나 못 찾은 번호는 예전처럼 번호 그대로 둔다(지워진 구역을 가리키는 옛 결과 대비).
+   */
+  zones?: Zone[];
+  gates?: Gate[];
 }
 
 const ACTION_LABEL: Record<string, string> = {
@@ -45,7 +55,13 @@ export default function PolicyAnalysisPanel({
   onReset,
   isLlmMode = false,
   objectRemovalResults,
+  zones = [],
+  gates = [],
 }: PolicyAnalysisPanelProps) {
+  const zoneLabel = (zoneId: number) =>
+    zones.find((z) => z.zoneId === zoneId)?.zoneName ?? `구역 ${zoneId}`;
+  const gateLabel = (facilityId: number) =>
+    gates.find((g) => g.facilityId === facilityId)?.name ?? `${facilityId}번`;
   const [policyText, setPolicyText] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -144,7 +160,7 @@ export default function PolicyAnalysisPanel({
                   <div key={i} className="flex items-start gap-2 text-xs">
                     <span
                       className={`mt-0.5 shrink-0 ${
-                        item.status === 'removed' ? 'text-blue-400' : 'text-emerald-400'
+                        item.status === 'removed' ? 'text-emerald-400' : 'text-slate-500'
                       }`}
                     >
                       ✓
@@ -153,11 +169,11 @@ export default function PolicyAnalysisPanel({
                       {OBJ_LABEL[item.objectType] ?? item.objectType}{' '}
                       <span className="text-slate-500">({item.zoneName})</span>
                       {item.status === 'removed' ? (
-                        <span className="ml-1.5 inline-block px-1.5 py-0.5 rounded text-[10px] bg-blue-900/50 text-blue-300 font-medium">
+                        <span className="ml-1.5 inline-block px-1.5 py-0.5 rounded text-[10px] bg-emerald-900/50 text-emerald-300 font-medium">
                           철거 완료
                         </span>
                       ) : (
-                        <span className="ml-1.5 inline-block px-1.5 py-0.5 rounded text-[10px] bg-emerald-900/50 text-emerald-400 font-medium">
+                        <span className="ml-1.5 inline-block px-1.5 py-0.5 rounded text-[10px] bg-slate-700/60 text-slate-300 font-medium">
                           현장 준수 처리
                         </span>
                       )}
@@ -174,7 +190,7 @@ export default function PolicyAnalysisPanel({
               <span className="text-blue-400 mt-0.5 shrink-0">→</span>
               <span>
                 통로 정책:{' '}
-                <span className="text-blue-300">Zone {c.fromZoneId} ↔ Zone {c.toZoneId}</span>
+                <span className="text-blue-300">{zoneLabel(c.fromZoneId)} ↔ {zoneLabel(c.toZoneId)}</span>
                 {' '}
                 <span className="text-slate-400">{ACTION_LABEL[c.action] ?? c.action}</span>
                 {c.action === 'one_way' && c.allowedDirection && (
@@ -192,7 +208,7 @@ export default function PolicyAnalysisPanel({
               <span className="text-orange-400 mt-0.5 shrink-0">✗</span>
               <span>
                 게이트 폐쇄:{' '}
-                <span className="text-orange-300">{closedGateIds.join(', ')}번</span>
+                <span className="text-orange-300">{closedGateIds.map(gateLabel).join(', ')}</span>
               </span>
             </div>
           )}
@@ -212,7 +228,7 @@ export default function PolicyAnalysisPanel({
         <p className="text-[11px] text-slate-500 leading-relaxed">
           아래 시나리오 설정이 잠겨 있습니다.
           직접 조작하려면{' '}
-          <span className="text-amber-400 font-medium">"수동으로 편집"</span>을 누르세요.
+          <span className="font-medium text-slate-200">"수동으로 편집"</span>을 누르세요.
         </p>
 
         {/* 액션 버튼 */}
@@ -225,7 +241,7 @@ export default function PolicyAnalysisPanel({
           </button>
           <button
             onClick={() => onSwitchToManual?.()}
-            className="flex-1 py-1.5 text-xs border border-amber-700 text-amber-400 rounded hover:bg-amber-900/30 transition-colors font-medium"
+            className="flex-1 rounded border border-slate-500 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:border-slate-300 hover:bg-slate-700/40"
           >
             수동으로 편집
           </button>

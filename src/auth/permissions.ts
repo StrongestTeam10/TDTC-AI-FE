@@ -42,15 +42,37 @@ export function canSwitchMarket(user: AuthUser | null): boolean {
 }
 
 /**
+ * 시장 구조 등록(상점·CCTV 구역·시장 오브젝트)을 다룰 수 있는지.
+ *
+ * 관리자(ROL01)이거나 상인회(ORGMA)다. Header와 RequireFacilityManager가 각각
+ * 같은 조건을 인라인으로 갖고 있던 것을 여기로 모았다.
+ */
+export function canManageFacilities(user: AuthUser | null): boolean {
+  return user?.rulesCode === 'ROL01' || user?.orgCode === 'ORGMA';
+}
+
+/**
  * 이 사용자를 되돌려 보낼 기본 화면.
  *
  * 권한 가드가 거부할 때 어디로 보낼지 정한다. 지금까지 모든 가드가 /dashboard로
  * 보냈는데, 대시보드까지 ROL01·ROL02 전용이 되면서 조회자는 갈 수 없는 곳으로
  * 밀려나게 됐다(대시보드 가드가 다시 거부해 되돌리는 왕복이 생긴다).
  *
- * 조회자에게는 게시판을 준다. 로그인한 사용자가 권한과 무관하게 항상 쓸 수 있는
- * 화면이 게시판뿐이다.
+ * 2026-08-12 변경: 관제 권한자의 기본 화면을 /dashboard에서 /compare(시뮬레이션
+ * 비교)로 바꿨다. 로그인 직후와 랜딩의 시작 버튼이 모두 이 함수를 쓰므로, 관리자·
+ * 지자체(관제요원)는 시뮬레이션 비교로, 상인회는 시장 구조 등록으로 들어간다.
+ *
+ * ⚠️ 반드시 "그 사용자가 실제로 들어갈 수 있는" 경로만 돌려줘야 한다. 세 가드
+ * (RequireAuth·RequireControlAccess·RequireFacilityManager)가 모두 거부 시 이
+ * 함수로 되돌려 보내기 때문에, 갈 수 없는 경로를 주면 거부와 이동이 무한히
+ * 반복된다. 그래서 권한이 넓은 쪽부터 차례로 검사한다.
+ *   1) 관제 권한(ROL01·ROL02)  -> 시뮬레이션 비교
+ *   2) 시장 구조 등록 권한(ROL01·상인회) -> 시장 구조 등록
+ *   3) 그 외(예: 상인회가 아닌 조회자) -> 게시판. 로그인만 하면 권한과 무관하게
+ *      항상 쓸 수 있는 화면이 게시판뿐이다.
  */
 export function homePathFor(user: AuthUser | null): string {
-  return canAccessControlSystem(user) ? '/dashboard' : '/board';
+  if (canAccessControlSystem(user)) return '/compare';
+  if (canManageFacilities(user)) return '/facilities';
+  return '/board';
 }
