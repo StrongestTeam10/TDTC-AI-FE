@@ -23,10 +23,6 @@ interface Props {
   onExpandZone: (zoneId: number) => void;
   // useRef<HTMLVideoElement>(null) 의 타입은 RefObject<HTMLVideoElement | null> 이다.
   // (React 19 타입 정의 기준) null 을 빼면 호출부에서 대입이 막힌다.
-  videoRef: RefObject<HTMLVideoElement | null>;
-  videoSrc: string | null;
-  onLoadedMetadata: () => void;
-  onTimeUpdate: () => void;
 }
 
 // 2026-08-13: isPlaying / onTogglePlay 를 Props에서 뺐다. 46bfabf 에서 갤러리 영상이
@@ -36,10 +32,6 @@ export default function CctvZoneGallery({
   activeZoneId,
   onSelectZone,
   onExpandZone,
-  videoRef,
-  videoSrc,
-  onLoadedMetadata,
-  onTimeUpdate
 }: Props) {
   const ITEMS_PER_PAGE = 4;
   const [page, setPage] = useState(0);
@@ -91,35 +83,27 @@ export default function CctvZoneGallery({
                 </div>
                 
                 <div className={styles.videoLayers}>
-                  {shouldRenderVideo && videoSrc ? (
+                  {shouldRenderVideo ? (
                     <>
-                      <video
+                      <img
                         className={styles.galleryVideoBlurBg}
-                        src={videoSrc}
-                        muted
-                        loop={false}
-                        playsInline
-                        autoPlay
+                        src={`http://localhost:8088/api/v1/cctv/stream?zone_id=${zone.id}`}
+                        alt={`Zone ${zone.id} Blur Background`}
                       />
-                      <video
-                        ref={videoRef}
+                      <img
                         className={styles.galleryVideoMain}
-                        src={videoSrc}
-                        muted
-                        loop={false}
-                        playsInline
-                        autoPlay
+                        src={`http://localhost:8088/api/v1/cctv/stream?zone_id=${zone.id}`}
+                        alt={`Zone ${zone.id} Live Stream`}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (isActive) {
-                            onSelectZone(null); // click again to return to comprehensive
+                            onSelectZone(null);
                           } else {
                             onSelectZone(zone.id);
                           }
                         }}
-                        onLoadedMetadata={onLoadedMetadata}
-                        onTimeUpdate={onTimeUpdate}
                       />
+
                       <button 
                         className={styles.btnExpandZone}
                         onClick={(e) => {

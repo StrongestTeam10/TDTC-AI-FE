@@ -5,10 +5,9 @@ import CctvMetricCards from './CctvMetricCards';
 import CctvZoneGallery from './CctvZoneGallery';
 import CctvZonePopupModal from './CctvZonePopupModal';
 import CctvRiskChartCard from './CctvRiskChartCard';
-import CctvVideoPanel from './CctvVideoPanel';
 import CctvWeatherCard from './CctvWeatherCard';
 import ErrorBanner from '../ui/ErrorBanner';
-import { fetchCctvResultVideoUrl, uploadCctvVideo, triggerCctvAlert } from '../../api/cctvClient';
+import { fetchCctvResultVideoUrl, triggerCctvAlert } from '../../api/cctvClient';
 import { fetchUnresolvedAlerts, fetchVideoClips, fetchPostReports, resolveAlert } from '../../api/client';
 import { WEATHER_SCENARIOS } from '../../constants/weatherScenario';
 import { useCctvStream } from '../../hooks/useCctvStream';
@@ -45,16 +44,6 @@ export default function CctvControlDashboard() {
   const [selectedZoneId, setSelectedZoneId] = useState<number | null>(null);
   const [expandedZoneId, setExpandedZoneId] = useState<number | null>(null);
   const [weatherMode, setWeatherMode] = useState<WeatherMode>('PREDICTIVE_RAIN');
-
-  // ----- 영상 재생 상태 -----
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [currentFrame, setCurrentFrame] = useState(1);
-  const [totalFrames, setTotalFrames] = useState(0);
-  const [isPlaying, setPlaying] = useState(false);
-  const [localVideoUrl, setLocalVideoUrl] = useState<string | null>(null);
-  const [fileLabel, setFileLabel] = useState('CCTV 영상을 업로드해 주세요');
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const lastFrameUpdateRef = useRef(0);
 
   // ----- AI 파이프라인 실시간 스트림 -----
   const stream = useCctvStream();
@@ -110,7 +99,8 @@ export default function CctvControlDashboard() {
 
   const rawZones = useMemo(() => {
     const getZoneData = (zId: number) => {
-      const streamed = stream.multiZoneFrameData[zId]?.[currentFrame];
+      const targetFrame = stream.liveFrameId || 1;
+      const streamed = stream.multiZoneFrameData[zId]?.[targetFrame];
       if (streamed) {
         return {
           pedestrianCount: streamed.pedestrianCount,
@@ -129,7 +119,8 @@ export default function CctvControlDashboard() {
       };
     };
     return [getZoneData(1), getZoneData(2), getZoneData(3)];
-  }, [stream.multiZoneFrameData, currentFrame]);
+  }, [stream.multiZoneFrameData, stream.liveFrameId]);
+
 
   // 구역별 개별 CRI 스코어 및 타이머 산출 (항상 3구역 모두 백그라운드 추적)
   const zone1Cri = useCriScore({ pedestrianCount: rawZones[0].pedestrianCount, incomingCriScore: rawZones[0].criScore, weatherMode, params });
@@ -238,139 +229,12 @@ export default function CctvControlDashboard() {
       }));
   }, [zonesData]);
 
-  // ----- 분석 완료 시 비식별 처리된 결과 영상으로 교체 -----
-  const [resultVideoUrl, setResultVideoUrl] = useState<string | null>(null);
-  useEffect(() => {
-    if (!stream.completedFilename) return;
-
-    // 2026-08-10 변경: 서버 주소를 <video src>에 바로 넣지 않고 blob으로 받아온다.
-    // ngrok 무료 플랜이 브라우저 요청에 안내 페이지를 끼워넣는데, <video>에는
-    // 그걸 우회할 헤더를 붙일 수 없어서 재생이 실패했다.
-    let cancelled = false;
-    let created: string | null = null;
-
-    fetchCctvResultVideoUrl(stream.completedFilename)
-        .then((objectUrl) => {
-          if (cancelled) {
-            URL.revokeObjectURL(objectUrl);
-            return;
-          }
-          created = objectUrl;
-          setResultVideoUrl(objectUrl);
-        })
-        .catch((err) => {
-          // 결과 영상만 실패한 것이므로 업로드한 로컬 영상으로 계속 재생한다.
-          console.error('[CCTV] 결과 영상 로드 실패 (로컬 영상으로 재생)', err);
-          setResultVideoUrl(null);
-        });
-
-    return () => {
-      cancelled = true;
-      if (created) URL.revokeObjectURL(created);
-    };
-  }, [stream.completedFilename]);
-
-  // 업로드한 로컬 파일의 objectURL은 다 쓰고 나면 반드시 해제한다.
-  useEffect(() => {
-    return () => {
-      if (localVideoUrl) URL.revokeObjectURL(localVideoUrl);
-    };
-  }, [localVideoUrl]);
-
-  const videoSrc = resultVideoUrl ?? localVideoUrl;
-
-  // ----- 영상 선택 & AI 서버 업로드 -----
-  const handleSelectVideo = useCallback(
-      async (file: File) => {
-        setUploadError(null);
-
-        // 이전 영상의 잔상(프레임 데이터/차트/결과 영상)을 모두 비운다.
-        resetCri();
-        stream.resetFrameData();
-        setResultVideoUrl(null);
-        setCurrentFrame(1);
-        setTotalFrames(0);
-
-        setLocalVideoUrl((previous) => {
-          if (previous) URL.revokeObjectURL(previous);
-          return URL.createObjectURL(file);
-        });
-        setFileLabel(file.name);
-        setPlaying(true);
-
-        stream.beginAnalysis(`🤖 [AI 모델링 분석 대기 중...] ${file.name}`);
-
-        try {
-          await uploadCctvVideo(file, selectedZoneId || 1);
-          // 이후 진행률/완료/프레임 스트리밍은 WebSocket으로 도착한다.
-        } catch (err) {
-          console.error('[CCTV] AI 서버 업로드 실패', err);
-          stream.endAnalysis();
-          setUploadError(
-              toDisplayErrorMessage(
-                  err,
-                  'CCTV AI 분석 서버에 영상을 보내지 못했습니다. 업로드한 영상은 로컬 재생만 됩니다.'
-              )
-          );
-        }
-      },
-      [resetCri, stream, selectedZoneId]
-  );
-
-  // ----- 재생 컨트롤 -----
-  const handleTogglePlay = useCallback(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    if (video.paused) {
-      video.play().catch(() => {});
-      setPlaying(true);
-    } else {
-      video.pause();
-      setPlaying(false);
-    }
-  }, []);
-
-  const handleSeekFrame = useCallback(
-      (frame: number) => {
-        setCurrentFrame(frame);
-        const video = videoRef.current;
-        if (video?.duration) {
-          video.currentTime = (frame / totalFrames) * video.duration;
-        }
-      },
-      [totalFrames]
-  );
-
-  const handleLoadedMetadata = useCallback(() => {
-    const duration = videoRef.current?.duration;
-    if (!duration || Number.isNaN(duration)) return;
-    setTotalFrames(Math.max(10, Math.floor(duration * FRAMES_PER_SECOND)));
-  }, []);
-
-  const handleTimeUpdate = useCallback(() => {
-    const video = videoRef.current;
-    if (!video?.duration || Number.isNaN(video.duration)) return;
-
-    const now = performance.now();
-    if (now - lastFrameUpdateRef.current < FRAME_UPDATE_THROTTLE_MS) return;
-    lastFrameUpdateRef.current = now;
-
-    setCurrentFrame(Math.max(1, Math.floor((video.currentTime / video.duration) * totalFrames)));
-  }, [totalFrames]);
-
-  const frameTimeLabel = `${(currentFrame / FRAMES_PER_SECOND).toFixed(1)}s`;
-
   const currentZoneName = selectedZoneId === null ? '종합대시보드' : selectedZoneId === 1 ? '남측 구역' : selectedZoneId === 2 ? '중앙 구역' : '북측 구역';
 
   return (
       <div className={styles.dashboardRoot}>
         <main className={styles.mainWrapper}>
-          {uploadError && (
-              <div style={{ marginBottom: 16 }}>
-                <ErrorBanner message={uploadError} onRetry={() => setUploadError(null)} />
-              </div>
-          )}
-
+        
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: '16px' }}>
           </div>
 
@@ -378,11 +242,8 @@ export default function CctvControlDashboard() {
             activeZoneId={selectedZoneId}
             onSelectZone={setSelectedZoneId}
             onExpandZone={setExpandedZoneId}
-            videoRef={videoRef}
-            videoSrc={videoSrc}
-            onLoadedMetadata={handleLoadedMetadata}
-            onTimeUpdate={handleTimeUpdate}
           />
+
 
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '24px 0 32px 0', minHeight: '32px' }}>
             <div style={{ fontWeight: '800', fontSize: '1.75rem', color: 'var(--text-main)' }}>

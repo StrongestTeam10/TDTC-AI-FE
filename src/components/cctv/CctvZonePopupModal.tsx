@@ -9,8 +9,6 @@ interface Props {
   onClose: () => void;
   // useRef<HTMLVideoElement>(null) 의 타입은 RefObject<HTMLVideoElement | null> 이다.
   // (React 19 타입 정의 기준) null 을 빼면 호출부에서 대입이 막힌다.
-  videoRef: RefObject<HTMLVideoElement | null>;
-  videoSrc: string | null;
   metrics: any;
   cri: number;
   statusResult: any;
@@ -22,8 +20,6 @@ interface Props {
 export default function CctvZonePopupModal({
   zoneId,
   onClose,
-  videoRef,
-  videoSrc,
   metrics,
   cri,
   statusResult,
@@ -45,34 +41,24 @@ export default function CctvZonePopupModal({
     <div className={`${styles.layerPopupOverlay} ${isClosing ? styles.closing : ''}`} onClick={handleClose}>
       <div className={styles.layerPopupContent} onClick={(e) => e.stopPropagation()}>
         <div className={styles.layerPopupVideoSide}>
-          {videoSrc ? (
-            <>
-              {/* 블러 배경 처리 */}
-              <video
-                className={styles.layerPopupVideoBlur}
-                src={videoSrc}
-                muted
-                loop={false}
-                playsInline
-                autoPlay
-              />
-              {/* 원본 영상 */}
-              <video
-                ref={videoRef}
-                className={styles.layerPopupVideoMain}
-                src={videoSrc}
-                muted
-                loop={false}
-                playsInline
-                autoPlay
-              />
-              <div style={{ position: 'absolute', top: 16, left: 16, background: 'rgba(0,0,0,0.7)', padding: '6px 12px', borderRadius: 8, color: '#fff', fontWeight: 'bold', zIndex: 20 }}>
-                {zoneName} 구역
-              </div>
-            </>
-          ) : (
-            <div style={{ width: '100%', height: '100%', background: '#111827' }} />
-          )}
+          <>
+            {/* 블러 배경 처리 */}
+            <img
+              className={styles.layerPopupVideoBlur}
+              src={`http://localhost:8088/api/v1/cctv/stream?zone_id=${zoneId}`}
+              alt={`Zone ${zoneId} Blur Background`}
+            />
+            {/* 메인 영상 */}
+            <img
+              className={styles.layerPopupVideoMain}
+              src={`http://localhost:8088/api/v1/cctv/stream?zone_id=${zoneId}`}
+              alt={`Zone ${zoneId} Live Stream`}
+            />
+            <div style={{ position: 'absolute', top: 16, left: 16, background: 'rgba(0,0,0,0.7)', padding: '6px 12px', borderRadius: 8, color: '#fff', fontWeight: 'bold', zIndex: 20 }}>
+              {zoneName} 구역
+            </div>
+          </>
+          
         </div>
         
         <div className={styles.layerPopupInfoSide}>
@@ -106,7 +92,7 @@ export default function CctvZonePopupModal({
                   onClick={() => {
                     onResolveEmergency?.('false_alarm');
                     handleClose();
-                  }}
+                  }}                                                                        
                   style={{ flex: 1, padding: '12px', backgroundColor: '#334155', color: 'white', borderRadius: '8px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
                 >
                   ✅ 오경보 해제
