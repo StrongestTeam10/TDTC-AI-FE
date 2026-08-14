@@ -856,10 +856,14 @@ export async function rejectUser(userId: number): Promise<void> {
 // ⚠️ 아래 API는 모두 인증이 필요하다(SecurityConfig의 anyRequest().authenticated()).
 // 특히 /simulation/** 은 관리자(ROL01)/관제요원(ROL02) 전용이라 상인회(ROL03)는 403을 받는다.
 
-/** 미해결 긴급 알람 목록. 헤더의 알람 카운트 배지와 알람 로그 모달에서 사용. */
+/** 미해결 긴급 알람 목록. 헤더의 알람 카운트 배지 및 알람 로그 모달에서 사용. */
 export async function fetchUnresolvedAlerts(): Promise<EmergencyAlert[]> {
   const { data } = await apiClient.get<EmergencyAlert[]>('/ai/alerts/unresolved');
   return data;
+}
+
+export async function resolveAlert(alertId: number): Promise<void> {
+  await apiClient.patch(`/ai/alerts/${alertId}/resolve`);
 }
 
 /**

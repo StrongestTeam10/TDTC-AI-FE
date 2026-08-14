@@ -9,7 +9,7 @@ import CctvVideoPanel from './CctvVideoPanel';
 import CctvWeatherCard from './CctvWeatherCard';
 import ErrorBanner from '../ui/ErrorBanner';
 import { fetchCctvResultVideoUrl, uploadCctvVideo, triggerCctvAlert } from '../../api/cctvClient';
-import { fetchUnresolvedAlerts, fetchVideoClips, fetchPostReports } from '../../api/client';
+import { fetchUnresolvedAlerts, fetchVideoClips, fetchPostReports, resolveAlert } from '../../api/client';
 import { WEATHER_SCENARIOS } from '../../constants/weatherScenario';
 import { useCctvStream } from '../../hooks/useCctvStream';
 import { useCriScore } from '../../hooks/useCriScore';
@@ -89,6 +89,16 @@ export default function CctvControlDashboard() {
   useEffect(() => {
     loadAlerts();
   }, [loadAlerts]);
+
+  const handleResolveAlert = async (alertId: number) => {
+    try {
+      await resolveAlert(alertId);
+      loadAlerts();
+    } catch (err) {
+      console.error("알람 해결 처리 실패", err);
+      alert("알람 해결 처리에 실패했습니다.");
+    }
+  };
 
   // ----- 현재 프레임의 관제 지표 결정 -----
   // 우선순위: AI 스트림 실측 > 정적 폴백(원본 영상 604프레임) > 0
@@ -421,15 +431,31 @@ export default function CctvControlDashboard() {
 
                       return (
                         <div key={`alert-${alert.alertId}`} className={styles.inlineLogItem} style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div className={styles.inlineLogTime}>
-                              {new Date(alert.alertedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                              {` [구역 ${alert.zoneId}]`}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div className={styles.inlineLogTime}>
+                                  {new Date(alert.alertedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                  {` [구역 ${alert.zoneId}]`}
+                                </div>
+                                <div className={styles.inlineLogDesc} style={{ color: alert.isResolved ? '#10b981' : '#ef4444' }}>
+                                  {alert.alertType} ({alert.isResolved ? 'RESOLVED' : 'UNRESOLVED'})
+                                </div>
+                              </div>
+                              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                {!alert.isResolved && (
+                                  <button
+                                    onClick={() => handleResolveAlert(alert.alertId)}
+                                    style={{
+                                      background: '#3b82f6', color: '#fff', border: 'none',
+                                      borderRadius: '4px', padding: '4px 8px', fontSize: '0.7rem', 
+                                      cursor: 'pointer', whiteSpace: 'nowrap'
+                                    }}
+                                  >
+                                    확인(해결)
+                                  </button>
+                                )}
+                              </div>
                             </div>
-                            <div className={styles.inlineLogDesc} style={{ color: alert.isResolved ? '#10b981' : '#ef4444' }}>
-                              {alert.alertType} ({alert.isResolved ? 'RESOLVED' : 'UNRESOLVED'})
-                            </div>
-                          </div>
                           
                           {(clip || pdf) && (
                             <div style={{ display: 'flex', gap: '8px', marginTop: '8px', justifyContent: 'flex-end' }}>
