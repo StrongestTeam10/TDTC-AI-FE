@@ -8,6 +8,7 @@ import {
   fetchPendingUsers,
   approveUser,
   rejectUser,
+  updateUserDuty,
   type UserSummary,
   type PendingUser,
 } from '../api/client';
@@ -52,6 +53,7 @@ type ViewTab = 'manage' | 'pending';
 interface UserDraft {
   rulesCode: string;
   marketCode: string;
+  isDuty: boolean;
 }
 
 const CELL_SELECT_CLASS =
@@ -121,7 +123,7 @@ export default function UserAdminPage() {
 
   const draftOf = useCallback(
     (user: UserSummary): UserDraft =>
-      drafts[user.userId] ?? { rulesCode: user.rulesCode, marketCode: user.marketCode ?? NO_MARKET_VALUE },
+      drafts[user.userId] ?? { rulesCode: user.rulesCode, marketCode: user.marketCode ?? NO_MARKET_VALUE, isDuty: user.isDuty ?? false },
     [drafts]
   );
 
@@ -129,7 +131,7 @@ export default function UserAdminPage() {
     (user: UserSummary) => {
       const d = drafts[user.userId];
       if (!d) return false;
-      return d.rulesCode !== user.rulesCode || d.marketCode !== (user.marketCode ?? NO_MARKET_VALUE);
+      return d.rulesCode !== user.rulesCode || d.marketCode !== (user.marketCode ?? NO_MARKET_VALUE) || d.isDuty !== (user.isDuty ?? false);
     },
     [drafts]
   );
@@ -193,10 +195,21 @@ export default function UserAdminPage() {
     for (const user of dirtyUsers) {
       const draft = draftOf(user);
       try {
-        const updated = await updateUserRole(user.userId, draft.rulesCode, draft.marketCode);
+        let updated = { ...user };
+        const roleChanged = draft.rulesCode !== user.rulesCode || draft.marketCode !== (user.marketCode ?? NO_MARKET_VALUE);
+        
+        if (roleChanged) {
+          updated = await updateUserRole(user.userId, draft.rulesCode, draft.marketCode);
+        }
+        
+        if (draft.isDuty !== (user.isDuty ?? false)) {
+          const dutyUpdated = await updateUserDuty(user.userId, draft.isDuty);
+          updated = { ...updated, isDuty: dutyUpdated.isDuty };
+        }
         saved.push(updated);
-      } catch (err) {
-        failed.push(`${user.name}(${toDisplayErrorMessage(err, '저장 실패')})`);
+      } catch (err: any) {
+        const errorDetail = err.response?.data ? JSON.stringify(err.response.data) : err.message;
+        failed.push(`${user.name}(저장 실패: ${toDisplayErrorMessage(err, '원인 알 수 없음')}, 상세: ${errorDetail})`);
       }
     }
 
@@ -378,14 +391,16 @@ export default function UserAdminPage() {
                   </th>
                   <th className="px-4 py-2 font-medium">이름</th>
                   <th className="px-4 py-2 font-medium">아이디</th>
+                  <th className="px-4 py-2 font-medium">전화번호</th>
                   <th className="px-4 py-2 font-medium">소속 시장</th>
                   <th className="px-4 py-2 font-medium">권한</th>
+                  <th className="px-4 py-2 font-medium text-center">알림 수신(당직)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                 {users.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                    <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                       표시할 회원이 없습니다.
                     </td>
                   </tr>
@@ -412,6 +427,7 @@ export default function UserAdminPage() {
                       </td>
                       <td className="px-4 py-2">{u.name}</td>
                       <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{u.loginId}</td>
+                      <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{u.phoneNumber || '-'}</td>
                       <td className="px-4 py-2">
                         <select
                           value={draft.marketCode}
@@ -450,6 +466,16 @@ export default function UserAdminPage() {
                             <option value={draft.rulesCode}>{draft.rulesCode}</option>
                           )}
                         </select>
+                      </td>
+                      <td className="px-4 py-2 text-center">
+                        <input
+                          type="checkbox"
+                          checked={draft.isDuty}
+                          disabled={!editable || isSaving}
+                          onChange={(e) => updateDraft(u, { isDuty: e.target.checked })}
+                          aria-label={`${u.name} 알림 수신 여부`}
+                          className="h-4 w-4 rounded border-slate-300 bg-white accent-blue-600 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-900"
+                        />
                       </td>
                     </tr>
                   );
@@ -503,6 +529,7 @@ export default function UserAdminPage() {
                   </th>
                   <th className="px-4 py-2 font-medium">이름</th>
                   <th className="px-4 py-2 font-medium">아이디</th>
+                  <th className="px-4 py-2 font-medium">전화번호</th>
                   <th className="px-4 py-2 font-medium">소속기관</th>
                   <th className="px-4 py-2 font-medium">소속 시장</th>
                   <th className="px-4 py-2 font-medium">신청일</th>
@@ -512,7 +539,7 @@ export default function UserAdminPage() {
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                 {pendingUsers.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                    <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
                       승인 대기 중인 회원이 없습니다.
                     </td>
                   </tr>
@@ -532,6 +559,7 @@ export default function UserAdminPage() {
                       </td>
                       <td className="px-4 py-2">{u.name}</td>
                       <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{u.loginId}</td>
+                      <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{u.phoneNumber || '-'}</td>
                       <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{u.orgCode}</td>
                       <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{marketName(u.marketCode)}</td>
                       <td className="px-4 py-2 text-xs text-slate-500">

@@ -40,6 +40,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [name, setName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [orgCode, setOrgCode] = useState('');
   // 2026-08-12: 화면마다 복사돼 있던 공통코드 조회를 useCommonCodes로 모았다.
   const { options: orgOptions } = useCommonCodes('ORG');
@@ -133,6 +134,7 @@ export default function SignupPage() {
       loginId,
       password,
       name,
+      phoneNumber,
       orgCode,
       marketCode,
       agreeTerms: consent.terms,
@@ -251,6 +253,31 @@ export default function SignupPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 autoComplete="name"
+                className="w-full rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              />
+            </div>
+            <div>
+              <label htmlFor="phoneNumber" className="mb-1 block text-sm text-slate-500 dark:text-slate-400">
+                전화번호 (선택)
+              </label>
+              <input
+                id="phoneNumber"
+                type="tel"
+                value={phoneNumber}
+                onChange={(e) => {
+                  const rawValue = e.target.value.replace(/[^0-9]/g, '');
+                  let formattedValue = '';
+                  if (rawValue.length < 4) {
+                    formattedValue = rawValue;
+                  } else if (rawValue.length < 8) {
+                    formattedValue = `${rawValue.slice(0, 3)}-${rawValue.slice(3)}`;
+                  } else {
+                    formattedValue = `${rawValue.slice(0, 3)}-${rawValue.slice(3, 7)}-${rawValue.slice(7, 11)}`;
+                  }
+                  setPhoneNumber(formattedValue);
+                }}
+                maxLength={13}
+                placeholder="010-0000-0000"
                 className="w-full rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
               />
             </div>
