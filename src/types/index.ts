@@ -164,6 +164,9 @@ export interface EventTrigger {
 // 파이프라인 B: 사용자 지정 시뮬레이션 요청/응답
 export interface ScenarioRequest {
   marketId: number;
+  // 2026-08-12(관측 초기배치): 개입 전(predict)과 동일한 값을 보내면 BE가 같은 프레임을
+  // 골라 관측 초기배치가 개입 전/후 일치한다.
+  capturedAt?: string;
   agentCount: number;
   steps: number;
   objects: PlacedObject[];

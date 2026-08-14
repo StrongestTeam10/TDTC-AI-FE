@@ -279,7 +279,8 @@ export default function SimulationComparePage() {
   const [corridorPolicies, setCorridorPolicies] = useState<CorridorPolicy[]>([]);
 
   const [steps, setSteps] = useState<NumericInput>(30);
-  const [agentCount, setAgentCount] = useState<NumericInput>(100);
+  // 2026-08-14: 기본값 0 — 추가 유입 없이 CCTV로 초기 배치된(관측) 인원만으로 시뮬을 돌린다.
+  const [agentCount, setAgentCount] = useState<NumericInput>(0);
   // 지금 펼쳐둔 단계. 한 번에 하나만 연다 - 여러 개를 열면 다시 스크롤이 생긴다.
   // null은 "전부 접힘". 2026-08-12: 펼쳐진 단계를 다시 누르면 닫히도록 바꿨다.
   // 예전에는 누르면 항상 열기만 해서, 이미 열린 단계의 머리글은 눌러도 아무 반응이
@@ -478,14 +479,11 @@ export default function SimulationComparePage() {
     clearReportError();
 
     const marketId = selectedMarketId;
-    // 개입 후(scenario) SIM은 agentCount >= 1만 허용한다(SIM ScenarioRequest의
-    // Field(..., ge=1)). 입력칸을 min=1로 막아뒀지만 직접 0/빈값을 타이핑한 경우까지
-    // 방어해 양쪽 파이프라인이 같은 유효값을 받게 한다.
-    //
-    // 2026-08-12 머지 정리: 유입 인원을 끝까지 지울 수 있게 하면서 상태가
-    // number | null이 됐다(비어 있으면 null). readNumber로 0을 만든 뒤 여기서 1로
-    // 올린다 - 화면에서는 비울 수 있고, 실행되는 값은 항상 SIM이 받는 범위 안이다.
-    const safeAgentCount = Math.max(1, Math.floor(readNumber(agentCount)) || 1);
+    // 2026-08-14: agentCount는 '추가 유입 인원'으로 0을 허용한다 - 0이면 추가 유입 없이
+    // 관측(CCTV 초기배치) 인원만으로 시뮬을 돌린다. SIM(ge=0)·BE(@Min(0))도 0을 받도록
+    // 맞춰져 있다. 상태가 number | null이라(비어 있으면 null) readNumber로 0을 만들고,
+    // 음수만 방어해 0 이상으로 보낸다.
+    const safeAgentCount = Math.max(0, Math.floor(readNumber(agentCount)) || 0);
     // 실행 시점에 발생/진압 스텝으로 연소기간(burnSteps)을 재계산해 SIM에 보낸다.
     // (발생·진압을 나중에 수정해도 항상 일관되게 반영되도록)
     const simEvents: EventTrigger[] = events.map((ev) => {
@@ -497,8 +495,13 @@ export default function SimulationComparePage() {
         recoverySteps: ev.recoverySteps ?? RECOVERY_STEPS,
       };
     });
+    // 2026-08-12(관측 초기배치): 개입 전/후가 "같은 프레임"의 CCTV 관측을 쓰도록,
+    // 실행 시각 하나를 만들어 양쪽 요청에 동일하게 보낸다. BE가 이 값으로 프레임을
+    // 골라 관측 초기배치를 조립하므로, 같은 값이면 개입 전/후 초기배치가 일치한다.
+    const capturedAt = new Date().toISOString();
     const predictReq: PredictRequest = {
       marketId,
+      capturedAt,
       steps: runSteps,
       totalInflow: safeAgentCount,
       events: simEvents,
@@ -509,6 +512,7 @@ export default function SimulationComparePage() {
     };
     const scenarioReq: ScenarioRequest = {
       marketId,
+      capturedAt,
       steps: runSteps,
       agentCount: safeAgentCount,
       objects,
@@ -999,24 +1003,24 @@ export default function SimulationComparePage() {
                       htmlFor="agent-count"
                       className="mb-1 flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300"
                     >
-                      총 유입 인원
-                      <InfoTooltip label="총 유입 인원 설명">
-                        스텝마다 인원수가 들쭉날쭉하게 무작위로 유입되고, 전체 합계가 이 값에
-                        맞춰집니다. 0으로 두면 신규 유입 없이 현재 인원의 자연스러운 이동만
-                        봅니다.
+                      추가 유입 인원
+                      <InfoTooltip label="추가 유입 인원 설명">
+                        CCTV로 관측된 현재 인원에 더해, 스텝마다 무작위로 새 방문객이
+                        유입됩니다. 이 값은 관측 인원 위에 추가되는 인원으로, 시뮬레이션은
+                        (관측 인원 + 이 값)을 유지합니다. 0으로 두면 추가 유입 없이 관측된
+                        현재 인원의 자연스러운 이동만 봅니다.
                       </InfoTooltip>
                     </label>
-                    {/* min=1: SIM ScenarioRequest.agentCount가 Field(..., ge=1)이라 0은
-                        422로 거절된다. 입력 단계에서 막고, 그래도 비워두면 실행 시
-                        safeAgentCount가 1로 올린다. */}
+                    {/* 2026-08-14: 추가 유입 인원은 0 허용 - 0이면 관측(CCTV 초기배치)
+                        인원만으로 시뮬을 돌린다. SIM(ge=0)·BE(@Min(0)) 검증도 0을 받는다. */}
                     <input
                       id="agent-count"
                       type="number"
-                      min={1}
+                      min={0}
                       max={100000}
                       value={displayNumber(agentCount)}
                       onChange={(e) => setAgentCount(parseNumberInput(e.target.value))}
-                      placeholder="100"
+                      placeholder="0"
                       className="no-spinner w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-slate-800 dark:text-slate-200"
                       disabled={isPredicting || isScenarioRunning}
                     />
