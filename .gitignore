@@ -39,3 +39,19 @@ dist-ssr
 .env.development
 .env.production.local
 .env.development.local
+
+# Impeccable (프론트 디자인 감사 스킬)
+#
+# 2026-08-14 추가: `npx impeccable install` 이 만드는 파일들.
+# 스킬 본체만 200여 개 파일이고, 전부 같은 명령 한 줄로 언제든 다시 받을 수 있는
+# 서드파티 도구라 저장소에 담을 이유가 없다. 설치 위치도 쓰는 하니스마다 달라서
+# (Claude Code는 .claude/, GitHub Copilot은 .github/) 각자 설치하는 쪽이 맞다.
+#
+# 단, PRODUCT.md 는 여기 넣지 않는다 - 그건 도구가 아니라 팀이 공유해야 할
+# 제품 정의 문서다.
+.claude/skills/impeccable/
+.claude/settings.local.json
+.github/skills/impeccable/
+.github/agents/impeccable-*.agent.md
+.github/hooks/impeccable.json
+.impeccable/
