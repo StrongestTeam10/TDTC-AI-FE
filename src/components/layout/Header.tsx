@@ -1,7 +1,7 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { useCommonCodes } from '../../hooks/useCommonCodes';
-import { canAccessControlSystem, canManageFacilities } from '../../auth/permissions';
+import { canAccessControlSystem, canManageFacilities, isAdmin } from '../../auth/permissions';
 import ThemeToggle from '../ui/ThemeToggle';
 
 // 2026-07-24 추가
@@ -36,6 +36,8 @@ export default function Header() {
   // 제한하므로, 조회자(ROL03, 상인회)에게 메뉴를 남겨두면 눌러도 403만 보게 된다.
   // 상인회에게 열려 있는 것은 게시판과 상점 위치 등록이다.
   const canAccessControl = canAccessControlSystem(user);
+  // 2026-08-14 추가: 시장 등록·회원관리는 관리자(ROL01) 전용.
+  const admin = isAdmin(user);
   // 2026-08-12: 권한 이름을 types/auth.ts의 하드코딩 표(ROLE_LABELS)에서 읽고 있었다.
   // comcode01m ROL 도메인이 유일한 출처가 되도록 공통코드에서 받아온다.
   const { labelOf: roleLabel } = useCommonCodes('ROL');
@@ -83,6 +85,14 @@ export default function Header() {
               관제 대시보드
             </NavLink>
           )}
+          {/* 2026-08-14 추가 (시장 등록) - 관리자만. 시장 자체와 시뮬레이션 구역을
+              새로 만드는 화면이라, 이미 있는 시장을 편집하는 아래 "시장 구조 등록"보다
+              앞에 둔다(실제 작업 순서도 이쪽이 먼저다). */}
+          {admin && (
+            <NavLink to="/markets/register" className={navClass}>
+              시장 등록
+            </NavLink>
+          )}
           {/* 2026-08-11: "상점 위치 등록" → "시장 구조 등록"으로 개명(상점/출입구뿐 아니라
               CCTV 구역·시장 오브젝트까지 등록하는 화면이 됨). 경로(/facilities)는 유지. */}
           {showFacilitiesMenu && (
@@ -91,8 +101,10 @@ export default function Header() {
             </NavLink>
           )}
           {/* 2026-08-05 추가 (회원관리) - 관리자만 노출. RequireAuth가 URL 직접 접근도 막아주지만, 메뉴 자체를 숨겨서 혼란을 줄임.
-              회원 승인은 별도 메뉴 대신 이 페이지 안의 탭1으로 통합됨(2026-08-05 2차) */}
-          {user?.rulesCode === 'ROL01' && (
+              회원 승인은 별도 메뉴 대신 이 페이지 안의 탭1으로 통합됨(2026-08-05 2차)
+              2026-08-14: 인라인 rulesCode 비교를 permissions.isAdmin으로 바꿈 - 권한
+              판정을 한 곳에서만 한다는 규칙에 이 줄만 빠져 있었다. */}
+          {admin && (
               <NavLink to="/admin/users" className={navClass}>
                 회원관리
               </NavLink>

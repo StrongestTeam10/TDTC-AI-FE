@@ -75,6 +75,196 @@ export async function fetchZones(marketId: number): Promise<Zone[]> {
   return data;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 2026-08-14 추가 (시장 등록 화면 /markets/register). 관리자(ROL01) 전용이며,
+// 권한은 BE MarketService.assertCanManageMarkets가 매번 재검증한다.
+//
+// 지금까지 시장과 구역은 seed-market-data.sql로만 들어갔다. 등록 API가 없어서
+// 새 시장을 추가하면 구역이 없고, 구역이 없으면 CCTV 구역 등록(zoneId 필수)까지
+// 연쇄로 막혔다.
+//
+// ⚠️ 여기의 Zone은 시뮬레이션 구역(mrkaddr01d)이다. CCTV 관제 구역
+// (mrkcctv01m, createCctvZone)과는 다른 테이블이다.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface MarketCreateRequest {
+  marketName: string;
+  /** comcode01m MKT 도메인 코드. 'MKT' + 영문 대문자/숫자 2자(예: MKTGN). */
+  marketCode: string;
+  latitude: number;
+  longitude: number;
+}
+
+export async function createMarket(request: MarketCreateRequest): Promise<Market> {
+  const { data } = await apiClient.post<Market>('/markets', request);
+  return data;
+}
+
+/**
+ * 시장 정보 수정. marketCode가 없는 것은 일부러다 - 코드는 담당 시장 권한의 기준이라
+ * (usrusrs01m.market_code) 바뀌면 그 시장 담당자가 자기 시장에 못 들어가게 된다.
+ */
+export interface MarketUpdateRequest {
+  marketName: string;
+  latitude: number;
+  longitude: number;
+}
+
+export async function updateMarket(
+    marketId: number,
+    request: MarketUpdateRequest
+): Promise<Market> {
+  const { data } = await apiClient.put<Market>(`/markets/${marketId}`, request);
+  return data;
+}
+
+/**
+ * OpenStreetMap에서 찾은 시장 경계 제안. 저장된 값이 아니라 "이 모양이 맞나요?"를
+ * 보여주기 위한 것이다. found=false는 오류가 아니라 OSM에 없다는 뜻이다.
+ */
+export interface MarketBoundary {
+  found: boolean;
+  /** GeoJSON Polygon 문자열. found=false면 null. */
+  polygonCoordinates: string | null;
+  /** OSM에 적힌 이름. 엉뚱한 시장을 가져왔는지 확인하는 근거. */
+  sourceName: string | null;
+  vertexCount: number;
+  /** ODbL이 요구하는 출처 표시 문구. */
+  attribution: string | null;
+}
+
+/** Overpass 공개 서버가 느릴 때가 있어 공용 타임아웃(15초)보다 넉넉히 잡는다. */
+export async function suggestMarketBoundary(marketId: number): Promise<MarketBoundary> {
+  const { data } = await apiClient.get<MarketBoundary>(
+      `/markets/${marketId}/boundary/suggest`,
+      { timeout: 60_000 }
+  );
+  return data;
+}
+
+export interface ZoneSaveRequest {
+  zoneName: string;
+  /** GeoJSON Polygon 문자열([경도, 위도] 순). verticesToGeoJson으로 만든다. */
+  polygonCoordinates: string;
+}
+
+export async function createZone(marketId: number, request: ZoneSaveRequest): Promise<Zone> {
+  const { data } = await apiClient.post<Zone>(`/markets/${marketId}/zones`, request);
+  return data;
+}
+
+export interface ZoneSplitRequest {
+  /** 자를 시장 영역(GeoJSON Polygon 문자열). */
+  polygonCoordinates: string;
+  /** 자르는 선들(GeoJSON LineString 문자열). 선 N개 -> 구역 N+1개. */
+  cutLines: string[];
+  /** 구역 이름. 북쪽에서 남쪽 순서로 적용된다. 생략하면 BE가 "구역 1"부터 붙인다. */
+  zoneNames?: string[];
+}
+
+/** 시장 영역 하나를 선으로 잘라 여러 구역을 한 번에 만든다. 응답은 북 -> 남 순서. */
+export async function splitZones(marketId: number, request: ZoneSplitRequest): Promise<Zone[]> {
+  const { data } = await apiClient.post<Zone[]>(`/markets/${marketId}/zones/split`, request);
+  return data;
+}
+
+export async function updateZone(zoneId: number, request: ZoneSaveRequest): Promise<Zone> {
+  const { data } = await apiClient.put<Zone>(`/zones/${zoneId}`, request);
+  return data;
+}
+
+export async function deleteZone(zoneId: number): Promise<void> {
+  await apiClient.delete(`/zones/${zoneId}`);
+}
+
+/** 지도에서 지정한 사각형 범위. 주면 반경 대신 이걸 쓴다. */
+export interface BuildingBounds {
+  minLatitude: number;
+  minLongitude: number;
+  maxLatitude: number;
+  maxLongitude: number;
+}
+
+export interface BuildingImportRequest {
+  /** 시장 중심에서 몇 m까지. bounds가 없을 때만 쓴다. 생략하면 BE 기본값 150m. */
+  radiusMeters?: number;
+  /**
+   * 지도에서 집어낸 사각형 범위. 반경(원)은 시장 골목처럼 한쪽으로 긴 모양에서
+   * 필요 없는 사방까지 가져와서, 필요한 영역만 지정할 수 있게 한다.
+   */
+  bounds?: BuildingBounds;
+  /** 이미 건물이 있는 시장에 다시 넣을지. 생략하면 409로 거부된다. */
+  overwrite?: boolean;
+}
+
+export interface BuildingImportResult {
+  marketId: number;
+  /** 반경으로 받았을 때의 반경(m). 사각형 범위로 받았으면 0. */
+  radiusMeters: number;
+  usedBounds: boolean;
+  /** 브이월드가 돌려준 건물 수 */
+  fetchedFeatures: number;
+  /** 실제로 저장된 행 수. 건물 하나가 여러 조각이면 fetchedFeatures보다 많다. */
+  savedBuildings: number;
+  /** 중복이라 넣지 않은 수. 이웃 시장과 반경이 겹치면 자연스럽게 생긴다. */
+  skippedDuplicates: number;
+  deletedBuildings: number;
+  pages: number;
+}
+
+export interface BuildingPruneRequest {
+  /** 구역 경계에서 이 거리 안이면 남긴다. 생략하면 BE 기본값 30m. */
+  bufferMeters?: number;
+  /** 생략하거나 true면 세기만 하고 지우지 않는다. */
+  dryRun?: boolean;
+}
+
+export interface BuildingPruneResult {
+  totalBuildings: number;
+  /** 여유 거리를 벗어난 건물 수. dryRun이면 "지울 대상". */
+  outsideBuildings: number;
+  keptBuildings: number;
+  bufferMeters: number;
+  dryRun: boolean;
+}
+
+/**
+ * 구역에서 멀리 떨어진 건물을 정리한다(관리자 전용).
+ *
+ * 건물은 시장 중심 기준 반경으로 받아오기 때문에 구역이 확정되고 나면 시장과 상관없는
+ * 건물이 섞여 있다. dryRun으로 먼저 세어 보여주고, 사람이 확인한 뒤 dryRun=false로 지운다.
+ */
+export async function pruneBuildings(
+    marketId: number,
+    request: BuildingPruneRequest = {}
+): Promise<BuildingPruneResult> {
+  const { data } = await apiClient.post<BuildingPruneResult>(
+      `/markets/${marketId}/buildings/prune`,
+      request,
+      { timeout: 60_000 }
+  );
+  return data;
+}
+
+/**
+ * 시장 주변 건물 폴리곤을 브이월드에서 받아 적재한다(관리자 전용).
+ *
+ * 지도 표시용이 아니라 시뮬레이션용이다 - SIM이 걸을 수 있는 영역에서 건물을 빼기
+ * 때문에, 이 데이터가 있어야 밀집도와 대피 시간이 실제와 맞는다.
+ * 브이월드 응답이 느릴 수 있어 공용 타임아웃(15초)보다 넉넉하게 잡는다.
+ */
+export async function importBuildings(
+    marketId: number,
+    request: BuildingImportRequest = {}
+): Promise<BuildingImportResult> {
+  const { data } = await apiClient.post<BuildingImportResult>(
+      `/markets/${marketId}/buildings/import`,
+      request,
+      { timeout: 120_000 }
+  );
+  return data;
+}
+
 // 2026-07-25 추가: 특정 시장의 통로(구역 간 연결) 목록 조회.
 export async function fetchCorridors(marketId: number): Promise<Corridor[]> {
   const { data } = await apiClient.get<Corridor[]>(`/markets/${marketId}/corridors`);
@@ -716,7 +906,13 @@ export interface CctvZone {
 
 export interface CctvZoneSaveRequest {
   marketId: number;
-  zoneId: number;
+  /**
+   * 소속 시뮬레이션 구역.
+   *
+   * 2026-08-14: BE에서 필수가 아니게 됐다. 생략하면 사각형 중심 좌표가 들어가는
+   * 구역을 서버가 찾아 채운다. 시장 구조 등록 화면은 지금처럼 계속 보내면 된다.
+   */
+  zoneId?: number;
   polygonCoordinates: string;
   isActive?: boolean;
   rmk?: string;
@@ -832,6 +1028,10 @@ export interface PendingUser {
   marketCode: string | null;
   approvalStatus: string;
   createdAt: string;
+  // 2026-08-14 추가: BE PendingUserDto에 08-13에 phoneNumber가 들어왔는데 이 타입만
+  // 따라오지 않아, 이미 그 값을 그리고 있던 UserAdminPage에서 타입 오류가 나
+  // npm run build(tsc -b)가 실패하고 있었다.
+  phoneNumber?: string;
 }
 
 export async function fetchPendingUsers(): Promise<PendingUser[]> {
