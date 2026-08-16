@@ -517,6 +517,41 @@ export default function MarketRegisterPage() {
     }
   }
 
+  /**
+   * 이전 단계로 돌아간다. 앞으로 건너뛰는 데는 쓰지 않는다 - 각 단계는 앞 단계의
+   * 결과(marketId, 구역)를 전제로 하기 때문이다.
+   *
+   * 되돌아갈 때 그 단계에서 다시 시작해야 하는 상태만 비운다. 이미 서버에 저장된 것
+   * (시장·건물·구역)은 건드리지 않는다 - 화면을 되돌리는 것이지 등록을 취소하는 게 아니다.
+   */
+  function handleGoBack(target: Step) {
+    if (target >= step) return;
+    setError(null);
+
+    if (target === 1) {
+      // 등록된 시장 목록을 새로 받아야 "이미 등록된 시장입니다" 안내가 제대로 뜬다.
+      setDismissedExisting(false);
+      void refreshKnownMarkets();
+    }
+    if (target <= 2) {
+      setBoxCorners([]);
+    }
+    if (target <= 3) {
+      // 구역 그리기는 처음부터 다시. 이미 만들어진 구역이 있으면 2단계에서 경고한다.
+      setDrawPhase('area');
+      setAreaVertices([]);
+      setCommittedArea(null);
+      setBoundarySource(null);
+      setLineDraft([]);
+      setCutLines([]);
+      setZoneNames([]);
+      if (createdZones.length > 0) {
+        setExistingZoneCount(createdZones.length);
+      }
+    }
+    setStep(target);
+  }
+
   function handleRegisterAnother() {
     setStep(1);
     setMarketName('');
@@ -593,7 +628,7 @@ export default function MarketRegisterPage() {
         </Link>
       </header>
 
-      <StepBar current={step} />
+      <StepBar current={step} onGoBack={handleGoBack} />
 
       {error && <ErrorBanner message={error} />}
 
@@ -917,6 +952,10 @@ export default function MarketRegisterPage() {
                       ? `꼭짓점을 ${MIN_AREA_VERTEX_COUNT - areaVertices.length}개 더 찍어주세요`
                       : '영역 확정하고 선 긋기'}
                   </button>
+
+                  <button type="button" onClick={() => handleGoBack(2)} className={secondaryButtonClass}>
+                    ← 건물로
+                  </button>
                 </>
               ) : (
                 <>
@@ -1019,9 +1058,14 @@ export default function MarketRegisterPage() {
                     >
                       {saving ? '만드는 중...' : `구역 ${zoneCount}개 만들기`}
                     </button>
-                    <button type="button" onClick={handleRedrawArea} className={secondaryButtonClass}>
-                      영역부터 다시 그리기
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={handleRedrawArea} className={secondaryButtonClass}>
+                        영역부터 다시 그리기
+                      </button>
+                      <button type="button" onClick={() => handleGoBack(2)} className={secondaryButtonClass}>
+                        ← 건물로
+                      </button>
+                    </div>
                   </div>
                 </>
               )}
@@ -1117,9 +1161,14 @@ export default function MarketRegisterPage() {
                   서버에 브이월드 인증키가 없으면 이 단계는 실패합니다. 건너뛰어도 구역은 나눌 수 있고, 건물 없이도
                   시뮬레이션은 돌아갑니다. 다만 사람이 건물 자리를 통과하는 것으로 계산됩니다.
                 </p>
-                <button type="button" onClick={handleSkipBuildings} className={secondaryButtonClass}>
-                  건너뛰고 구역 나누기
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={handleSkipBuildings} className={secondaryButtonClass}>
+                    건너뛰고 구역 나누기
+                  </button>
+                  <button type="button" onClick={() => handleGoBack(1)} className={secondaryButtonClass}>
+                    ← 시장 정보로
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -1253,9 +1302,16 @@ export default function MarketRegisterPage() {
                 </Link>
               </div>
 
-              <button type="button" onClick={handleRegisterAnother} className={secondaryButtonClass}>
-                다른 시장 또 등록하기
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={handleRegisterAnother} className={secondaryButtonClass}>
+                  다른 시장 또 등록하기
+                </button>
+                {/* 이미 만들어진 구역은 그대로 두고 화면만 되돌린다. 거기서 선을 더 그으면
+                    구역이 추가되므로, 3단계가 기존 구역 수를 경고로 알려준다. */}
+                <button type="button" onClick={() => handleGoBack(3)} className={secondaryButtonClass}>
+                  ← 구역 나누기로
+                </button>
+              </div>
             </div>
           )}
         </section>
@@ -1305,39 +1361,60 @@ const STEP_LABELS: Record<Step, string> = {
   4: '완료',
 };
 
-/** 순서가 강제되는 흐름이라 번호가 정보다 - 지금 어디고 무엇이 남았는지 보여준다. */
-function StepBar({ current }: { current: Step }) {
+/**
+ * 순서가 강제되는 흐름이라 번호가 정보다 - 지금 어디고 무엇이 남았는지 보여준다.
+ *
+ * 2026-08-14: 지나온 단계는 눌러서 돌아갈 수 있다. 앞 단계는 누를 수 없다 - 각 단계가
+ * 앞 단계의 결과(marketId, 구역)를 전제로 하기 때문에 건너뛰면 빈 화면이 된다.
+ */
+function StepBar({ current, onGoBack }: { current: Step; onGoBack: (step: Step) => void }) {
   return (
     <ol className="flex flex-wrap items-center gap-1.5">
       {([1, 2, 3, 4] as Step[]).map((step, index) => {
         const isCurrent = step === current;
         const isDone = step < current;
+
+        const label = (
+          <>
+            <span
+              className={`flex h-5 w-5 items-center justify-center rounded-full text-xs tabular-nums ${
+                isCurrent
+                  ? 'bg-blue-600 text-white'
+                  : isDone
+                    ? 'bg-slate-300 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
+                    : 'bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-500'
+              }`}
+            >
+              {step}
+            </span>
+            {STEP_LABELS[step]}
+          </>
+        );
+
         return (
           <li key={step} className="flex items-center gap-1.5">
             {index > 0 && <span aria-hidden="true" className="h-px w-5 bg-slate-300 dark:bg-slate-700" />}
-            <span
-              aria-current={isCurrent ? 'step' : undefined}
-              className={`flex items-center gap-2 rounded px-2.5 py-1.5 text-sm ${
-                isCurrent
-                  ? 'bg-blue-50 font-medium text-blue-700 dark:bg-blue-950/50 dark:text-blue-300'
-                  : isDone
-                    ? 'text-slate-600 dark:text-slate-400'
-                    : 'text-slate-400 dark:text-slate-600'
-              }`}
-            >
+            {isDone ? (
+              <button
+                type="button"
+                onClick={() => onGoBack(step)}
+                aria-label={`${step}단계 ${STEP_LABELS[step]}(으)로 돌아가기`}
+                className="flex items-center gap-2 rounded px-2.5 py-1.5 text-sm text-slate-600 transition-colors hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600 dark:text-slate-400 dark:hover:bg-slate-800"
+              >
+                {label}
+              </button>
+            ) : (
               <span
-                className={`flex h-5 w-5 items-center justify-center rounded-full text-xs tabular-nums ${
+                aria-current={isCurrent ? 'step' : undefined}
+                className={`flex items-center gap-2 rounded px-2.5 py-1.5 text-sm ${
                   isCurrent
-                    ? 'bg-blue-600 text-white'
-                    : isDone
-                      ? 'bg-slate-300 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
-                      : 'bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-500'
+                    ? 'bg-blue-50 font-medium text-blue-700 dark:bg-blue-950/50 dark:text-blue-300'
+                    : 'text-slate-400 dark:text-slate-600'
                 }`}
               >
-                {step}
+                {label}
               </span>
-              {STEP_LABELS[step]}
-            </span>
+            )}
           </li>
         );
       })}
