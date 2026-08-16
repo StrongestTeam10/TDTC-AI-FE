@@ -68,6 +68,12 @@ export interface Market {
   marketName: string;
   latitude: number;
   longitude: number;
+  /**
+   * 2026-08-14 추가: comcode01m MKT 도메인 코드(MKTMW 등). 담당 시장 판정이 이
+   * 코드 기준이라(BE MarketService.getAccessibleMarket), 시장 등록 화면에서
+   * 어떤 코드로 만들어졌는지 보여준다. 기존 화면은 쓰지 않아도 된다.
+   */
+  marketCode: string;
 }
 
 export interface Zone {

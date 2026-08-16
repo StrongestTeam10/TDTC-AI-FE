@@ -244,7 +244,13 @@ export default function FacilityManagePage() {
     }
   }, [simulationZones, selectedZoneId]);
 
-  // 대상이 바뀌면 편집 상태와 페이지를 초기화한다.
+  // 대상(상점/출입구/CCTV)이나 시장이 바뀌면 편집 상태와 페이지를 초기화한다.
+  //
+  // 2026-08-14: 여기에 selectedMarketId가 빠져 있어서, 시장을 바꿔도 이전 시장에 매인
+  // 상태가 그대로 남았다. 특히 selectedZoneId(CCTV 구역의 소속 구역)는 아래 기본값
+  // 지정 이펙트가 "undefined일 때만" 채우기 때문에, 한 번 정해지면 시장이 바뀌어도
+  // 옛 시장의 zone_id를 계속 들고 있었다. 페이지 번호도 남아서 새 시장에서 빈 목록이
+  // 보이곤 했다.
   useEffect(() => {
     setEditingId(null);
     setEditingCctvZoneId(null);
@@ -253,10 +259,12 @@ export default function FacilityManagePage() {
     setPickedLng(null);
     setVertices([]);
     setFacilityPage(0);
+    setCctvPage(0);
+    setSelectedZoneId(undefined);
     setStallSearchInput('');
     setStallSearch('');
     setForm({ ...emptyForm, facilityType: targetKind === 'GATE' ? 'GATE' : 'STALL' });
-  }, [targetKind]);
+  }, [targetKind, selectedMarketId]);
 
   // 선택한 소속 구역의 폴리곤([위도,경도]). CCTV 4점이 이 안에만 있어야 한다.
   const constraintVertices: LatLng[] = useMemo(() => {
@@ -633,7 +641,11 @@ export default function FacilityManagePage() {
         </p>
         {loadError && <ErrorBanner message={loadError} onRetry={loadStaticData} />}
         {selectedMarket && selectedMarketId !== undefined ? (
+          // 2026-08-14: key에 marketId를 넣어 시장이 바뀌면 통째로 새로 만든다.
+          // 카카오 지도는 최초 생성 때의 중심 좌표를 쓰고 이후 prop 변경에 반응하지 않아서,
+          // key가 없으면 시장을 바꿔도 지도가 이전 시장 자리에 그대로 머문다.
           <MarketObjectEditor
+            key={selectedMarketId}
             marketId={selectedMarketId}
             centerLat={selectedMarket.latitude}
             centerLng={selectedMarket.longitude}
@@ -728,6 +740,10 @@ export default function FacilityManagePage() {
             // (FacilityLocationPicker의 setMinLevel(1) 참고 - API가 그 아래를 지원하지 않음).
             // 같은 배율에서 더 넓게 보이도록 지도 높이를 420 -> 560으로 키웠다.
             <FacilityLocationPicker
+              // 2026-08-14: 시장이 바뀌면 지도를 새로 만든다. 카카오 지도는 최초 생성 때의
+              // 중심 좌표만 쓰고 이후 prop 변경을 무시해서, key가 없으면 시장을 바꿔도
+              // 이전 시장 자리에 머문 채 새 시장의 마커만 화면 밖에 찍힌다.
+              key={selectedMarketId}
               height={560}
               centerLat={selectedMarket.latitude}
               centerLng={selectedMarket.longitude}

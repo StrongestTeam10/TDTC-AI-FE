@@ -387,8 +387,6 @@ export default function CctvControlDashboard() {
             <CctvZonePopupModal
               zoneId={expandedZoneId}
               onClose={() => setExpandedZoneId(null)}
-              videoRef={videoRef}
-              videoSrc={videoSrc}
               metrics={{
                 pedestrianCount: targetZone.raw.pedestrianCount,
                 occupancyRate: targetZone.raw.occupancyRate,
