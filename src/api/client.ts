@@ -832,6 +832,8 @@ export interface PendingUser {
   marketCode: string | null;
   approvalStatus: string;
   createdAt: string;
+  phoneNumber: string | null;
+  isDuty: boolean;
 }
 
 export async function fetchPendingUsers(): Promise<PendingUser[]> {

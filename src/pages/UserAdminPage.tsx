@@ -312,7 +312,7 @@ export default function UserAdminPage() {
       <div>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">회원관리</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          권한과 소속 시장은 체크한 행에서만 수정할 수 있고, 수정한 내용은 [저장]을 눌러야 반영됩니다.
+          당직 여부·권한과 소속 시장은 체크한 행에서만 수정할 수 있고, 수정한 내용은 [저장]을 눌러야 반영됩니다.
         </p>
       </div>
 
@@ -348,7 +348,7 @@ export default function UserAdminPage() {
 
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              수정할 회원의 체크박스를 켜면 권한·소속 시장을 고칠 수 있습니다.
+              수정할 회원의 체크박스를 켜면 권한·당직 여부·소속 시장을 고칠 수 있습니다.
             </p>
             <div className="flex items-center gap-2">
               {saveNotice && (
