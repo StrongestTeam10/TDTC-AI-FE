@@ -67,7 +67,7 @@ export default function CctvZoneGallery({
             }
 
             // Render video in the active zone, or zone 1 if none selected
-            const shouldRenderVideo = isActive || (activeZoneId === null && zone.id === 1);
+            const shouldRenderVideo = true;
 
             return (
               <div 
