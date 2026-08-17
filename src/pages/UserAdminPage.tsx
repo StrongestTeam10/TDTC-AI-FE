@@ -348,7 +348,7 @@ export default function UserAdminPage() {
 
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              수정할 회원의 체크박스를 켜면 권한·당직 여부·소속 시장을 고칠 수 있습니다.
+              수정할 회원의 체크박스를 켜면 당직 여부·권한·소속 시장을 고칠 수 있습니다.
             </p>
             <div className="flex items-center gap-2">
               {saveNotice && (
