@@ -13,6 +13,7 @@ import BoardListPage from './pages/BoardListPage';
 import BoardDetailPage from './pages/BoardDetailPage';
 import BoardWritePage from './pages/BoardWritePage';
 import FacilityManagePage from './pages/FacilityManagePage';
+import MarketRegisterPage from './pages/MarketRegisterPage';
 import UserAdminPage from './pages/UserAdminPage';
 import AppLayout from './components/layout/AppLayout';
 import RequireAuth from './components/RequireAuth';
@@ -108,6 +109,20 @@ export default function App() {
                   <FacilityManagePage />
                 </AppLayout>
               </RequireFacilityManager>
+            </RequireAuth>
+          }
+        />
+        {/* 2026-08-14 추가 (시장 등록) - 관리자(ROL01) 전용.
+            /facilities(시장 구조 등록)는 이미 있는 시장을 편집하는 화면이고, 여기는
+            시장 자체와 시뮬레이션 구역을 새로 만든다. 앞 단계 결과(marketId)가 있어야
+            다음이 열리는 순서 강제 흐름이라 라우트를 나눴다. */}
+        <Route
+          path="/markets/register"
+          element={
+            <RequireAuth requireRole="ROL01">
+              <AppLayout>
+                <MarketRegisterPage />
+              </AppLayout>
             </RequireAuth>
           }
         />

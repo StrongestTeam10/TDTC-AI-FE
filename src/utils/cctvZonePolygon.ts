@@ -28,6 +28,20 @@ export function verticesToGeoJson(vertices: LatLng[]): string {
 }
 
 /**
+ * 2026-08-14 추가: 점 목록을 GeoJSON LineString 문자열로 만든다.
+ *
+ * 시장 영역을 잘라 구역을 나눌 때(POST /markets/{id}/zones/split) 자르는 선을
+ * 이 형식으로 보낸다. Polygon과 달리 링을 닫지 않는다 - 닫으면 BE가 직선이 아니라
+ * 도형으로 읽는다. 좌표를 [경도, 위도]로 뒤집는 규칙은 위와 같다.
+ */
+export function verticesToLineStringGeoJson(vertices: LatLng[]): string {
+  return JSON.stringify({
+    type: 'LineString',
+    coordinates: vertices.map(([lat, lng]) => [lng, lat]),
+  });
+}
+
+/**
  * 저장된 GeoJSON Polygon 문자열을 꼭짓점 목록으로 되돌린다.
  * 닫힌 링의 마지막 중복점은 제거해서 화면에서 4점으로 보이게 한다.
  * 깨진 값이 하나 섞여도 화면 전체가 죽지 않도록 실패 시 빈 배열을 준다.

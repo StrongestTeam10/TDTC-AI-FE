@@ -34,7 +34,10 @@ export function loadKakaoSdk(): Promise<void> {
     }
     const script = document.createElement('script');
     script.id = 'kakao-map-sdk';
-    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_APP_KEY}&autoload=false`;
+    // 2026-08-14: libraries=services 추가. 장소 검색(kakao.maps.services.Places)은
+    // 기본 SDK에 없어서 이 파라미터 없이는 services가 undefined다. 지도만 쓰는 화면에는
+    // 영향이 없고(스크립트가 조금 더 커질 뿐), 로더가 하나뿐이라 여기서 한 번에 켠다.
+    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_APP_KEY}&autoload=false&libraries=services`;
     script.async = true;
     script.onload = () => window.kakao.maps.load(() => resolve());
     script.onerror = () => reject(new Error('카카오맵 SDK 로드 실패'));

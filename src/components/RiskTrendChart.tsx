@@ -94,7 +94,10 @@ export default function RiskTrendChart({ riskTrend, beforeTrend, afterTrend, eve
           )}
         </div>
         <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: -16 }}>
+          {/* 2026-08-14: 화재 마커(🔥) 라벨이 position:'top'이라 차트 맨 위에 그려지는데,
+              top 여백이 8px뿐이면 이모지 윗부분이 SVG 경계에 잘린다. 라벨이 들어갈
+              머리 공간을 확보한다. */}
+          <LineChart data={data} margin={{ top: 26, right: 16, bottom: 0, left: -16 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
             <XAxis
                 dataKey="step"
