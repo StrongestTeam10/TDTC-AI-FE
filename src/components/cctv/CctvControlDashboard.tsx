@@ -279,7 +279,7 @@ export default function CctvControlDashboard() {
                     .sort((a, b) => new Date(b.alertedAt).getTime() - new Date(a.alertedAt).getTime()) // 최신순 정렬
                     .map((alert) => {
                       // 1. 해당 알람과 연결된 PDF 명세서 찾기 (alert_id)
-                      const pdf = postReports.find(r => r.alert_id === alert.alertId);
+                      const pdf = postReports.find(r => r.alertId === alert.alertId);
                       
                       // 2. 해당 알람 시간(alertedAt)과 구역(zoneId)에 근접한 위험 클립(RISK) 찾기
                       // (alertedAt이 35초 클립 시간대에 포함된다고 가정하거나 단순 시간차로 매핑)
@@ -326,7 +326,7 @@ export default function CctvControlDashboard() {
                                 </button>
                               )}
                               {pdf && (
-                                <button className={styles.btnInlineDownload} onClick={() => window.open(pdf.s3_pdf_url, '_blank')} style={{ background: '#3b82f6', border: 'none', color: '#fff' }}>
+                                <button className={styles.btnInlineDownload} onClick={() => window.open(pdf.s3PdfUrl, '_blank')} style={{ background: '#3b82f6', border: 'none', color: '#fff' }}>
                                   ⬇️ PDF 명세서
                                 </button>
                               )}
