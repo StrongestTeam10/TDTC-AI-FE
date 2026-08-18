@@ -1,4 +1,4 @@
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { useCommonCodes } from '../../hooks/useCommonCodes';
 import { canAccessControlSystem, canManageFacilities, isAdmin } from '../../auth/permissions';
@@ -47,6 +47,9 @@ export default function Header() {
     navigate('/login');
   };
 
+  const location = useLocation();
+  const showMenu = user && location.pathname !== '/';
+
   return (
     <header className="border-b border-slate-200 dark:border-slate-800">
       {/* 가이드라인: 건너뛰기 링크 - 마우스 대신 키보드로 본문 콘텐츠 구조 탐색을 돕는 보조 수단 */}
@@ -57,68 +60,61 @@ export default function Header() {
         본문 바로가기
       </a>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
-        <Link
-          to="/"
-          className="font-semibold text-slate-900 dark:text-slate-100 hover:text-slate-900 dark:hover:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 rounded"
-        >
-          Home
-        </Link>
+      <div className="relative flex items-center justify-between px-6 py-4">
+        {/* Left side (Logo/Home) */}
+        <div className="flex flex-1 justify-start">
+          <Link
+            to="/"
+            className="font-semibold text-slate-900 dark:text-slate-100 hover:text-slate-900 dark:hover:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 rounded"
+          >
+            Home
+          </Link>
+        </div>
 
-        <nav aria-label="주요 메뉴" className="flex gap-2">
-          {/* 2026-08-11 메뉴 순서 변경: 시뮬레이션 비교 > 시나리오 이력 > 관제 대시보드 >
-              시장 구조 등록 > 회원관리 > 게시판 */}
-          {canAccessControl && (
-            <NavLink to="/compare" className={navClass}>
-              시뮬레이션 비교
-            </NavLink>
-          )}
-          {/* 경로를 /scenarios가 아니라 /scenario-history로 둔 이유: 아직 남아 있는
-              유휴 라우트 /scenario(ScenarioPage)와 한 글자 차이가 되어 혼동을 부른다. */}
-          {canAccessControl && (
-            <NavLink to="/scenario-history" className={navClass}>
-              시나리오 이력
-            </NavLink>
-          )}
-          {canAccessControl && (
-            <NavLink to="/dashboard" className={navClass}>
-              관제 대시보드
-            </NavLink>
-          )}
-          {/* 2026-08-14 추가 (시장 등록) - 관리자만. 시장 자체와 시뮬레이션 구역을
-              새로 만드는 화면이라, 이미 있는 시장을 편집하는 아래 "시장 구조 등록"보다
-              앞에 둔다(실제 작업 순서도 이쪽이 먼저다). */}
-          {admin && (
-            <NavLink to="/markets/register" className={navClass}>
-              시장 등록
-            </NavLink>
-          )}
-          {/* 2026-08-11: "상점 위치 등록" → "시장 구조 등록"으로 개명(상점/출입구뿐 아니라
-              CCTV 구역·시장 오브젝트까지 등록하는 화면이 됨). 경로(/facilities)는 유지. */}
-          {showFacilitiesMenu && (
-            <NavLink to="/facilities" className={navClass}>
-              시장 구조 등록
-            </NavLink>
-          )}
-          {/* 2026-08-05 추가 (회원관리) - 관리자만 노출. RequireAuth가 URL 직접 접근도 막아주지만, 메뉴 자체를 숨겨서 혼란을 줄임.
-              회원 승인은 별도 메뉴 대신 이 페이지 안의 탭1으로 통합됨(2026-08-05 2차)
-              2026-08-14: 인라인 rulesCode 비교를 permissions.isAdmin으로 바꿈 - 권한
-              판정을 한 곳에서만 한다는 규칙에 이 줄만 빠져 있었다. */}
-          {admin && (
-              <NavLink to="/admin/users" className={navClass}>
-                회원관리
+        {showMenu && (
+          <nav aria-label="주요 메뉴" className="flex gap-2">
+            {canAccessControl && (
+              <NavLink to="/compare" className={navClass}>
+                시뮬레이션 비교
               </NavLink>
-          )}
-          <NavLink to="/board" className={navClass}>
-            게시판
-          </NavLink>
-        </nav>
+            )}
+            {canAccessControl && (
+              <NavLink to="/scenario-history" className={navClass}>
+                시나리오 이력
+              </NavLink>
+            )}
+            {canAccessControl && (
+              <NavLink to="/dashboard" className={navClass}>
+                관제 대시보드
+              </NavLink>
+            )}
+            {admin && (
+              <NavLink to="/markets/register" className={navClass}>
+                시장 등록
+              </NavLink>
+            )}
+            {showFacilitiesMenu && (
+              <NavLink to="/facilities" className={navClass}>
+                시장 구조 등록
+              </NavLink>
+            )}
+            {admin && (
+                <NavLink to="/admin/users" className={navClass}>
+                  회원관리
+                </NavLink>
+            )}
+            <NavLink to="/board" className={navClass}>
+              게시판
+            </NavLink>
+          </nav>
+        )}
 
-        <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+        {/* Right side (Utilities) */}
+        <div className="flex flex-1 items-center justify-end gap-3 text-sm text-slate-500 dark:text-slate-400">
           <ThemeToggle />
           {user ? (
             <>
-              <span>
+              <span className="hidden sm:inline">
                 {user.name} <span className="text-slate-400 dark:text-slate-600">· {roleLabel(user.rulesCode)}</span>
               </span>
               <button

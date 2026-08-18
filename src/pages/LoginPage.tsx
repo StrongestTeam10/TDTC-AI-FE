@@ -57,12 +57,39 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950 px-4">
-      <div className="absolute right-6 top-6 flex items-center gap-2">
+    <div className="relative flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-slate-950">
+      {/* Background Mask Wrapper */}
+      <div 
+        className="fixed inset-0 pointer-events-none"
+        style={{
+          WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 60%, transparent 100%), linear-gradient(to right, black 0%, black calc(100% - 15px), transparent 100%)',
+          WebkitMaskComposite: 'source-in',
+          maskImage: 'linear-gradient(to bottom, black 0%, black 60%, transparent 100%), linear-gradient(to right, black 0%, black calc(100% - 15px), transparent 100%)',
+          maskComposite: 'intersect',
+        }}
+      >
+        {/* Light Mode Background Image */}
+        <img
+          src="/images/bg-light.png"
+          alt="Digital Twin Background Light"
+          className="h-full w-full object-cover object-center dark:hidden"
+        />
+        
+        {/* Dark Mode Background Image */}
+        <img
+          src="/images/bg-dark.png"
+          alt="Digital Twin Background Dark"
+          className="hidden h-full w-full object-cover object-center dark:block"
+        />
+      </div>
+
+      {/* Subtle Overlay to ensure text readability */}
+      <div className="fixed inset-0 pointer-events-none bg-white/40 backdrop-blur-[2px] dark:bg-slate-950/40"></div>
+      <div className="absolute right-6 top-6 z-10 flex items-center gap-2">
         <ThemeToggle />
       </div>
 
-      <div className="w-full max-w-md">
+      <div className="relative z-10 w-full max-w-md">
         <div className="mb-8 text-center">
           <p className="mb-1.5 text-sm text-slate-500">KT Aivle School B2G 빅프로젝트</p>
           <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">시켜줘 네 장터매니저</h1>
