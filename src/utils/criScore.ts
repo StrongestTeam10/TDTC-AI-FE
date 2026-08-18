@@ -10,7 +10,7 @@ export const ALPHA_EMA = 0.2;
 export const MAX_HISTORY_LENGTH = 30;
 
 /** 차트에 점선으로 그려지는 대피 임계선. 슬라이더와 무관한 고정 기준선이다. */
-export const CRITICAL_THRESHOLD_LINE = 80;
+export const CRITICAL_THRESHOLD_LINE = 70;
 
 /** 관제 파라미터 초기값(드로어 슬라이더의 기본 위치와 동일). */
 export const DEFAULT_CONTROL_PARAMS: ControlParams = {
