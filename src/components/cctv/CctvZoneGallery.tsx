@@ -1,3 +1,4 @@
+import { CCTV_API_BASE_URL } from '../../api/cctvClient';
 import React, { useState } from 'react';
 import type { RefObject } from 'react';
 import styles from './CctvDashboard.module.css';
@@ -87,12 +88,12 @@ export default function CctvZoneGallery({
                     <>
                       <img
                         className={styles.galleryVideoBlurBg}
-                        src={`http://localhost:8088/api/v1/cctv/stream?zone_id=${zone.id}`}
+                        src={`${CCTV_API_BASE_URL}/api/v1/cctv/stream?zone_id=${zone.id}&ngrok-skip-browser-warning=true`}
                         alt={`Zone ${zone.id} Blur Background`}
                       />
                       <img
                         className={styles.galleryVideoMain}
-                        src={`http://localhost:8088/api/v1/cctv/stream?zone_id=${zone.id}`}
+                        src={`${CCTV_API_BASE_URL}/api/v1/cctv/stream?zone_id=${zone.id}&ngrok-skip-browser-warning=true`}
                         alt={`Zone ${zone.id} Live Stream`}
                         onClick={(e) => {
                           e.stopPropagation();

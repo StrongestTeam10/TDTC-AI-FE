@@ -540,11 +540,11 @@
     max-width: 1750px;
     width: 100%;
     margin: 0 auto;
-    padding: 16px 36px 28px 36px;
+    padding: 5px 36px 28px 36px;
     flex-grow: 1;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 10px;
 }
 
 /* 날씨 컨트롤 탭 */
@@ -1032,7 +1032,7 @@
 
 .line-chart-container {
     position: relative;
-    height: 200px;
+    height: 195px;
     width: 100%;
 }
 
@@ -1902,10 +1902,10 @@
     width: 100%;
     overflow-x: auto;
     overflow-y: hidden;
-    margin-bottom: 24px;
+    margin-bottom: 0px;
     background: var(--card-bg);
     border-radius: 12px;
-    padding: 16px;
+    padding: 4px;
     border: 1px solid var(--border-color);
 }
 

@@ -832,8 +832,10 @@ export interface PendingUser {
   marketCode: string | null;
   approvalStatus: string;
   createdAt: string;
-  phoneNumber: string | null;
-  isDuty: boolean;
+  // 2026-08-14 추가: BE PendingUserDto에 08-13에 phoneNumber가 들어왔는데 이 타입만
+  // 따라오지 않아, 이미 그 값을 그리고 있던 UserAdminPage에서 타입 오류가 나
+  // npm run build(tsc -b)가 실패하고 있었다.
+  phoneNumber?: string;
 }
 
 export async function fetchPendingUsers(): Promise<PendingUser[]> {
