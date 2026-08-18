@@ -18,7 +18,7 @@ export default function Footer() {
   const [openDoc, setOpenDoc] = useState<OpenDoc>(null);
 
   return (
-    <footer className="mt-12 flex flex-col gap-2 border-t border-slate-200 dark:border-slate-800 px-6 py-6 text-xs text-slate-500">
+    <footer className="flex flex-col gap-2 border-t border-slate-200 px-6 py-6 text-xs text-slate-500 dark:border-slate-800">
       <div className="flex flex-wrap items-center gap-4">
         <span>StrongestTeam10 (KT Aivle School 9기)</span>
         <a

@@ -11,7 +11,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen flex-col bg-slate-50 dark:bg-slate-950">
       <IdentityBanner />
       <Header />
-      <main id="main-content" className="flex-1 px-6 py-6">
+      <main id="main-content" className="flex flex-1 flex-col px-6 py-6">
         {children}
       </main>
       <Footer />

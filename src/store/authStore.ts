@@ -20,11 +20,11 @@ import { toDisplayErrorMessage } from '../utils/errorMessage';
 // axios 인터셉터가 모든 요청에 Authorization 헤더로 자동 첨부하도록 함(순환 참조를
 // 피하려고 tokenStore를 중간에 둠 - tokenStore.ts 주석 참고).
 
-type LoginResult = { ok: true } | { ok: false; message: string };
-type SignupResult = { ok: true } | { ok: false; message: string };
+type LoginResult = { ok: true; message?: undefined } | { ok: false; message: string };
+type SignupResult = { ok: true; message?: undefined } | { ok: false; message: string };
 // 2026-08-04 추가 (비밀번호 찾기)
-type VerifyIdentityResult = { ok: true } | { ok: false; message: string };
-type ResetPasswordResult = { ok: true } | { ok: false; message: string };
+type VerifyIdentityResult = { ok: true; message?: undefined } | { ok: false; message: string };
+type ResetPasswordResult = { ok: true; message?: undefined } | { ok: false; message: string };
 
 interface AuthStore {
   user: AuthUser | null;

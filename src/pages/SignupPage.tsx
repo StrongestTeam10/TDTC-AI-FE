@@ -152,9 +152,36 @@ export default function SignupPage() {
 
   if (submitted) {
     return (
-      <div className="relative flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950 px-4">
-        <ThemeToggle className="absolute right-6 top-6" />
-        <div className="w-full max-w-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 text-center">
+      <div className="relative flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-slate-950">
+        {/* Background Mask Wrapper */}
+        <div 
+          className="fixed inset-0 pointer-events-none"
+          style={{
+            WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 60%, transparent 100%), linear-gradient(to right, black 0%, black calc(100% - 15px), transparent 100%)',
+            WebkitMaskComposite: 'source-in',
+            maskImage: 'linear-gradient(to bottom, black 0%, black 60%, transparent 100%), linear-gradient(to right, black 0%, black calc(100% - 15px), transparent 100%)',
+            maskComposite: 'intersect',
+          }}
+        >
+          {/* Light Mode Background Image */}
+          <img
+            src="/images/bg-light.png"
+            alt="Digital Twin Background Light"
+            className="h-full w-full object-cover object-center dark:hidden"
+          />
+          
+          {/* Dark Mode Background Image */}
+          <img
+            src="/images/bg-dark.png"
+            alt="Digital Twin Background Dark"
+            className="hidden h-full w-full object-cover object-center dark:block"
+          />
+        </div>
+
+        {/* Subtle Overlay to ensure text readability */}
+        <div className="fixed inset-0 pointer-events-none bg-white/40 backdrop-blur-[2px] dark:bg-slate-950/40"></div>
+        <ThemeToggle className="absolute right-6 top-6 z-10" />
+        <div className="relative z-10 w-full max-w-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 text-center">
           <p className="mb-2 text-lg font-semibold text-slate-900 dark:text-slate-100">가입 신청이 접수되었습니다</p>
           <p className="mb-6 text-sm text-slate-500">
             관리자 승인 후 로그인할 수 있습니다. 승인까지 다소 시간이 걸릴 수 있습니다.
@@ -172,9 +199,36 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950 px-4 py-12">
-      <ThemeToggle className="absolute right-6 top-6" />
-      <div className="w-full max-w-md">
+    <div className="relative flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 dark:bg-slate-950">
+      {/* Background Mask Wrapper */}
+      <div 
+        className="fixed inset-0 pointer-events-none"
+        style={{
+          WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 60%, transparent 100%), linear-gradient(to right, black 0%, black calc(100% - 15px), transparent 100%)',
+          WebkitMaskComposite: 'source-in',
+          maskImage: 'linear-gradient(to bottom, black 0%, black 60%, transparent 100%), linear-gradient(to right, black 0%, black calc(100% - 15px), transparent 100%)',
+          maskComposite: 'intersect',
+        }}
+      >
+        {/* Light Mode Background Image */}
+        <img
+          src="/images/bg-light.png"
+          alt="Digital Twin Background Light"
+          className="h-full w-full object-cover object-center dark:hidden"
+        />
+        
+        {/* Dark Mode Background Image */}
+        <img
+          src="/images/bg-dark.png"
+          alt="Digital Twin Background Dark"
+          className="hidden h-full w-full object-cover object-center dark:block"
+        />
+      </div>
+
+      {/* Subtle Overlay to ensure text readability */}
+      <div className="fixed inset-0 pointer-events-none bg-white/40 backdrop-blur-[2px] dark:bg-slate-950/40"></div>
+      <ThemeToggle className="absolute right-6 top-6 z-10" />
+      <div className="relative z-10 w-full max-w-md">
         <div className="mb-6 text-center">
           {/* 2026-08-12: 제목이 "관제 시스템 계정 등록"이었는데, 여기로 들어오는 통로
               (로그인 화면의 버튼, 하단 링크)가 모두 "회원가입"이라 도착한 화면 이름이
