@@ -14,6 +14,7 @@ import { useChartTheme } from '../../hooks/useChartTheme';
 import { CRITICAL_THRESHOLD_LINE } from '../../utils/criScore';
 import type { CriHistoryPoint } from '../../hooks/useCriScore';
 import type { ControlStatus } from '../../types/cctv';
+import { useSmoothNumber } from '../../hooks/useSmoothNumber';
 
 // 2026-08-06: 원본 index.html의 <div class="card chart-card"> 블록 + dashboard.js 5번 섹션.
 //
@@ -37,6 +38,7 @@ export default function CctvRiskChartCard({
   history,
 }: CctvRiskChartCardProps) {
   const chartTheme = useChartTheme();
+  const smoothCri = useSmoothNumber(cri);
 
   return (
       <div className={`${styles.card} ${styles.chartCard}`} style={{ boxShadow: 'none' }}>
@@ -52,14 +54,14 @@ export default function CctvRiskChartCard({
           </div>
           <div className={styles.scoreDisplayBox}>
             <div className={styles.scoreTitle}>종합 위험 지수</div>
-            <div className={styles.scoreNumber}>{cri.toFixed(1)} pt</div>
+            <div className={styles.scoreNumber}>{smoothCri.toFixed(1)} pt</div>
           </div>
         </div>
 
         <div className={styles.progressBarContainer}>
           <div
               className={styles.progressBar}
-              style={{ width: `${cri}%`, backgroundColor: barColor }}
+              style={{ width: `${smoothCri}%`, backgroundColor: barColor }}
           />
         </div>
 

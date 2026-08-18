@@ -16,11 +16,15 @@ import type { CctvFrameDataMap, CctvFrameMetrics } from '../types/cctv';
 // ⚠️ 포트 8088 주의. 8000은 SIM 서버(TDTC-AI-SIM)가 점유하고 있어서, 8000으로 두면
 // CCTV WS 핸드셰이크가 SIM으로 간다. SIM엔 그 라우트가 없으니 Starlette가 accept
 // 없이 닫고, uvicorn은 그걸 "403 Forbidden"으로 로깅한다(권한 문제로 오인하기 쉽다).
-const CCTV_API_BASE_URL = import.meta.env.VITE_CCTV_API_BASE_URL ?? 'http://localhost:8088';
+const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'https:' : 'http:';
+const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:';
+
+export const CCTV_API_BASE_URL = import.meta.env.VITE_CCTV_API_BASE_URL ?? `${protocol}//${host}:8088`;
 
 /** WebSocket 주소. useCctvStream에서 사용. */
 export const CCTV_WS_URL =
-    import.meta.env.VITE_CCTV_WS_URL ?? 'ws://localhost:8088/ws/cctv-stream';
+    import.meta.env.VITE_CCTV_WS_URL ?? `${wsProtocol}//${host}:8088/ws/cctv-stream`;
 
 // 2026-08-10 추가: ngrok 무료 플랜의 브라우저 경고 페이지를 건너뛴다.
 //

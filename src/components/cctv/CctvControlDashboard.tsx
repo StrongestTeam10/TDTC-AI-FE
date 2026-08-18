@@ -245,8 +245,8 @@ export default function CctvControlDashboard() {
           />
 
 
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '24px 0 32px 0', minHeight: '32px' }}>
-            <div style={{ fontWeight: '800', fontSize: '1.75rem', color: 'var(--text-main)' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0px 0 0px 0', minHeight: '32px' }}>
+            <div style={{ fontWeight: '800', fontSize: '1.35rem', color: 'var(--text-main)' }}>
               {currentZoneName}
             </div>
           </div>

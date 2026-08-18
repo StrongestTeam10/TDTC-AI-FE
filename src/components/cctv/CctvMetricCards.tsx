@@ -1,4 +1,5 @@
 import styles from './CctvDashboard.module.css';
+import { useSmoothNumber } from '../../hooks/useSmoothNumber';
 
 // 2026-08-06: 원본 index.html의 <div class="metrics-card-grid"> 블록.
 
@@ -22,6 +23,8 @@ export default function CctvMetricCards({
 }: CctvMetricCardsProps) {
   // 원본은 하위 문구가 항상 "BEV 3D 역투영 기준"으로 고정이라, 실측인지 추정인지
   // 구분이 안 됐다. AI 서버가 안 붙어 있을 때 추정값을 실측처럼 읽는 걸 막는다.
+  const smoothCount = useSmoothNumber(pedestrianCount);
+  const smoothOccupancy = useSmoothNumber(occupancyRate);
   const sourceSuffix = isEstimated ? ' (추정)' : '';
 
   return (
@@ -31,7 +34,7 @@ export default function CctvMetricCards({
             <span className={styles.metricCardTitle}>👥 실시간 인원수</span>
             <span className={styles.metricCardIcon}>COUNT</span>
           </div>
-          <div className={styles.metricCardValue}>{pedestrianCount} 명</div>
+          <div className={styles.metricCardValue}>{Math.round(smoothCount)} 명</div>
           <div className={styles.metricCardSub}>실시간 감지 기준</div>
         </div>
 
@@ -40,7 +43,7 @@ export default function CctvMetricCards({
             <span className={styles.metricCardTitle}>📐 3D 공간 밀집율</span>
             <span className={styles.metricCardIcon}>OCCUPANCY</span>
           </div>
-          <div className={styles.metricCardValue}>{occupancyRate} %</div>
+          <div className={styles.metricCardValue}>{Math.round(smoothOccupancy)} %</div>
           <div className={styles.metricCardSub}>BEV 3D 역투영 기준{sourceSuffix}</div>
         </div>
 
