@@ -187,6 +187,8 @@ export default function FacilityManagePage() {
   const [photos, setPhotos] = useState<FacilityPhoto[]>([]);
   const [isPhotosLoading, setIsPhotosLoading] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  // 사진을 상자 위로 끌어왔는지. 테두리를 강조해 여기에 놓으면 된다는 걸 알린다.
+  const [photoDragOver, setPhotoDragOver] = useState(false);
   const [photoDirection, setPhotoDirection] = useState('DIRNO');
   const [photoLat, setPhotoLat] = useState('');
   const [photoLng, setPhotoLng] = useState('');
@@ -1376,13 +1378,56 @@ export default function FacilityManagePage() {
           {photoError && <ErrorBanner message={photoError} />}
 
           <div className="mb-4 grid gap-3 rounded border border-slate-200 dark:border-slate-800 p-3 sm:grid-cols-2">
+            {/*
+              2026-08-20: 기본 file input은 "파일 선택 / 선택된 파일 없음"만 작게 떠서
+              여기서 사진을 올린다는 것이 눈에 띄지 않았다. 눌러야 할 자리를 상자로
+              키우고, 고른 파일 이름과 크기를 되돌려 보여준다. 끌어다 놓기도 받는다.
+            */}
             <div className="sm:col-span-2">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => handlePhotoFileChange(e.target.files?.[0] ?? null)}
-                className="block w-full text-sm text-slate-700 dark:text-slate-300"
-              />
+              <label
+                onDragOver={(e) => { e.preventDefault(); setPhotoDragOver(true); }}
+                onDragLeave={() => setPhotoDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setPhotoDragOver(false);
+                  const dropped = e.dataTransfer.files?.[0];
+                  // 이미지가 아닌 파일을 떨어뜨리면 조용히 무시한다.
+                  if (dropped && dropped.type.startsWith('image/')) handlePhotoFileChange(dropped);
+                }}
+                className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed px-4 py-6 text-center transition ${
+                  photoDragOver
+                    ? 'border-blue-500 bg-blue-500/10'
+                    : 'border-slate-300 bg-slate-50 hover:border-blue-400 hover:bg-blue-500/5 dark:border-slate-700 dark:bg-slate-950 dark:hover:border-blue-500'
+                }`}
+              >
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handlePhotoFileChange(e.target.files?.[0] ?? null)}
+                  className="sr-only"
+                />
+                {photoFile ? (
+                  <>
+                    <span className="text-2xl leading-none">🖼️</span>
+                    <span className="text-sm font-medium text-slate-800 dark:text-slate-100">
+                      {photoFile.name}
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      {(photoFile.size / 1024 / 1024).toFixed(1)}MB · 다시 누르면 다른 사진으로 바꿉니다
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-2xl leading-none">📷</span>
+                    <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                      사진 선택
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      클릭하거나 이미지를 이 상자로 끌어다 놓으세요
+                    </span>
+                  </>
+                )}
+              </label>
               {photoExifNote && <p className="mt-1 text-xs text-slate-500">{photoExifNote}</p>}
             </div>
             <div>

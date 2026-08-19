@@ -1,5 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
-import HeatmapView from '../components/HeatmapView';
+// 2026-08-19: 비교 지도를 3D(HeatmapView3D)로 교체했다. 2D판(HeatmapView)은
+// 같은 props 계약을 유지한 채 src/components/HeatmapView.tsx에 그대로 남아 있어,
+// 되돌리려면 이 import와 아래 두 곳의 컴포넌트 이름만 바꾸면 된다.
+import HeatmapView3D from '../components/HeatmapView3D';
 import ScenarioForm from '../components/ScenarioForm';
 import EventSettingsPanel from '../components/EventSettingsPanel';
 import PolicyAnalysisPanel from '../components/PolicyAnalysisPanel';
@@ -17,7 +20,7 @@ import { useAuthStore } from '../store/authStore';
 import { canSwitchMarket } from '../auth/permissions';
 import { useReportGeneration } from '../hooks/useReportGeneration';
 import { toDisplayErrorMessage } from '../utils/errorMessage';
-import type { PredictRequest, ScenarioRequest, PlacedObject, EventTrigger, CorridorPolicy, Corridor, Gate, Building } from '../types';
+import type { PredictRequest, ScenarioRequest, PlacedObject, EventTrigger, CorridorPolicy, Corridor, Gate, Building, RiskTrendPoint } from '../types';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 type PlacementKind = PlacedObject['objectType'] | EventTrigger['eventType'];
@@ -761,6 +764,19 @@ export default function SimulationComparePage() {
     return scenarioResult.frames[idx] ?? [];
   };
 
+  // 2026-08-19: 지도에 구역별 위험도 색을 입힌다.
+  //
+  // riskTrend는 처음부터 스텝별 구역 위험도를 담고 있었는데 지도로 넘겨주는 곳이
+  // 없어서, 개입 전/후 두 지도가 늘 같은 회색으로만 보였다. 정책 효과를 눈으로
+  // 비교하는 화면인데 정작 위험도가 색으로 안 드러나고 있었다.
+  //
+  // 프레임과 같은 인덱스를 쓴다 - 사람 위치와 구역 색이 다른 시점을 가리키면
+  // "사람이 몰렸는데 파란 구역" 같은 어긋난 그림이 나온다.
+  const getZoneRisks = (trend: RiskTrendPoint[] | undefined) => {
+    if (!trend || trend.length === 0) return undefined;
+    return trend[Math.min(playIndex, trend.length - 1)]?.zones;
+  };
+
   // 보고서 대상은 방금 실행한 시나리오(After)다. Before는 비교 기준인 현행안이라
   // 따로 지목하지 않고 BE가 같은 시장의 최신 현행안 결과를 찾아 쓴다.
   //
@@ -1120,13 +1136,15 @@ export default function SimulationComparePage() {
               <div className="flex h-[380px] min-w-0 flex-1 flex-col md:h-auto">
                 <div className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">개입 전 (Before)</div>
                 <div className="flex-1 relative rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900">
-                  <HeatmapView
+                  <HeatmapView3D
                     zones={zones}
                     agents={getBeforeAgents()}
+                    zoneRisks={getZoneRisks(predictResult?.riskTrend)}
                     width="100%"
                     height="100%"
                     transitionMs={intervalMs}
                     buildings={buildings}
+                    currentStep={currentStepNumber}
                     corridors={corridors}
                     gates={gates}
                     closedGateIds={beforeClosedGateIds}
@@ -1147,13 +1165,15 @@ export default function SimulationComparePage() {
                   <span>개입 후 (After)</span>
                 </div>
                 <div className="flex-1 relative rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900">
-                  <HeatmapView
+                  <HeatmapView3D
                     zones={zones}
                     agents={getAfterAgents()}
+                    zoneRisks={getZoneRisks(scenarioResult?.riskTrend)}
                     width="100%"
                     height="100%"
                     transitionMs={intervalMs}
                     buildings={buildings}
+                    currentStep={currentStepNumber}
                     corridors={corridors}
                     gates={gates}
                     closedGateIds={afterClosedGateIds}
