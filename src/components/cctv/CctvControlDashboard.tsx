@@ -52,11 +52,11 @@ export default function CctvControlDashboard() {
   const [alerts, setAlerts] = useState<EmergencyAlert[]>([]);
   const [videoClips, setVideoClips] = useState<VideoClip[]>([]);
   const [postReports, setPostReports] = useState<any[]>([]);
-  const [isAlertLoading, setAlertLoading] = useState(false);
+  const [loadingType, setLoadingType] = useState<'ALARM' | 'VIDEO' | 'NONE'>('NONE');
   const [alertError, setAlertError] = useState<string | null>(null);
 
-  const loadAlerts = useCallback(async () => {
-    setAlertLoading(true);
+  const loadAlerts = useCallback(async (type: 'ALARM' | 'VIDEO' | 'NONE' = 'NONE') => {
+    if (type !== 'NONE') setLoadingType(type); // 수동 클릭일 때만 해당 버튼 로딩 ON
     setAlertError(null);
     try {
       const [alertsData, clipsData, reportsData] = await Promise.all([
@@ -71,23 +71,29 @@ export default function CctvControlDashboard() {
       console.error('미해결 알람 로드 실패', err);
       setAlertError(toDisplayErrorMessage(err, '알람 이력을 불러오지 못했습니다.'));
     } finally {
-      setAlertLoading(false);
+      setLoadingType('NONE'); // 무조건 로딩 OFF
     }
   }, [selectedZoneId]);
 
+
   useEffect(() => {
-    loadAlerts();
+    loadAlerts('NONE'); // 처음엔 몰래 가져오기
+    const intervalId = setInterval(() => {
+      loadAlerts('NONE'); // 10초마다 몰래 가져오기
+    }, 10000);
+    return () => clearInterval(intervalId);
   }, [loadAlerts]);
 
   const handleResolveAlert = async (alertId: number) => {
     try {
       await resolveAlert(alertId);
-      loadAlerts();
+      loadAlerts('NONE');
     } catch (err) {
       console.error("알람 해결 처리 실패", err);
       alert("알람 해결 처리에 실패했습니다.");
     }
   };
+
 
   // ----- 현재 프레임의 관제 지표 결정 -----
   // 우선순위: AI 스트림 실측 > 정적 폴백(원본 영상 604프레임) > 0
@@ -179,13 +185,30 @@ export default function CctvControlDashboard() {
     };
   }, [rawZones, selectedZoneId]);
 
-  // ----- 위험도 산출 & 비상 타이머 (글로벌 차트용 단일 인스턴스) -----
-  const { cri, statusResult, history, reset: resetCri } = useCriScore({
-    pedestrianCount: metrics.pedestrianCount,
-    incomingCriScore: metrics.incomingCriScore,
+  // ----- 종합 대시보드 전용 글로벌 차트 인스턴스 (선택된 영상과 무관하게 항상 전체 상태 추적) -----
+  const globalMetrics = useMemo(() => {
+    let maxCri: number | null = null;
+    rawZones.forEach(z => { 
+      if (z.criScore !== null && (maxCri === null || z.criScore > maxCri)) maxCri = z.criScore; 
+    });
+    return {
+      count: rawZones[0].pedestrianCount + rawZones[1].pedestrianCount + rawZones[2].pedestrianCount,
+      criScore: maxCri
+    };
+  }, [rawZones]);
+
+  const globalCriData = useCriScore({
+    pedestrianCount: globalMetrics.count,
+    incomingCriScore: globalMetrics.criScore,
     weatherMode,
     params,
   });
+
+  // 💡 현재 화면에 보여줄 진짜 차트 데이터 (종합 화면이면 전체 차트, 개별 화면이면 그 구역만의 차트)
+  const chartData = selectedZoneId === null 
+    ? globalCriData 
+    : zonesData.find(z => z.id === selectedZoneId)!.criData;
+
   
   // ----- [Method A] 수동/자동 신고 연동 상태 (구역별 분리) -----
   const [actionTakenState, setActionTakenState] = useState<Record<number, boolean>>({ 1: false, 2: false, 3: false });
@@ -267,7 +290,17 @@ export default function CctvControlDashboard() {
             </div>
 
             <div className={styles.inlineLogBox}>
-              <div className={styles.inlineLogTitle}>🔔 미해결 알람 및 관제 로그</div>
+              <div className={styles.inlineLogTitle}>
+                <span>🔔 미해결 알람 및 관제 로그</span>
+                <button className={styles.btnRefresh} onClick={() => loadAlerts('ALARM')} disabled={loadingType === 'ALARM'} title="새로고침">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={loadingType === 'ALARM' ? styles.spinIcon : ''}>
+                    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+                    <path d="M21 3v5h-5" />
+                  </svg>
+                  새로고침
+                </button>
+              </div>
+
               <div className={styles.inlineLogContent}>
                 {alerts.length === 0 ? (
                   <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
@@ -340,7 +373,17 @@ export default function CctvControlDashboard() {
             </div>
             
             <div className={styles.inlineLogBox}>
-              <div className={styles.inlineLogTitle}>🎥 정기 녹화 영상 (raw-videos)</div>
+              <div className={styles.inlineLogTitle}>
+                <span>🎥 정기 녹화 영상 </span>
+                <button className={styles.btnRefresh} onClick={() => loadAlerts('VIDEO')} disabled={loadingType === 'VIDEO'} title="새로고침">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={loadingType === 'VIDEO' ? styles.spinIcon : ''}>
+                    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+                    <path d="M21 3v5h-5" />
+                  </svg>
+                  새로고침
+                </button>
+              </div>
+
               <div className={styles.inlineLogContent}>
                 {videoClips.filter(c => (c.clipType === 'TEMP' || c.clipType === 'LIVE') && (!selectedZoneId || c.zoneId === selectedZoneId)).length === 0 ? (
                   <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
@@ -357,7 +400,7 @@ export default function CctvControlDashboard() {
                           {new Date(clip.startTime || '').toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                           {` [구역 ${clip.zoneId}]`}
                         </div>
-                        <div className={styles.inlineLogDesc}>1분 정기 영상 (raw)</div>
+                        <div className={styles.inlineLogDesc}>정기 영상</div>
                       </div>
                       <button className={styles.btnInlineDownload} onClick={() => window.open(clip.s3ClipUrl || '', '_blank')}>
                         ⬇️ 받기
@@ -370,11 +413,11 @@ export default function CctvControlDashboard() {
 
             <div className={styles.inlineLogBox} style={{ padding: 0, background: 'transparent', border: 'none', boxShadow: 'none' }}>
               <CctvRiskChartCard
-                  cri={cri}
-                  status={statusResult.status}
-                  statusLabel={statusResult.label}
-                  barColor={statusResult.barColor}
-                  history={history}
+                  cri={chartData.cri}
+                  status={chartData.statusResult.status}
+                  statusLabel={chartData.statusResult.label}
+                  barColor={chartData.statusResult.barColor}
+                  history={chartData.history}
               />
             </div>
           </div>

@@ -2014,6 +2014,9 @@
 }
 
 .inline-log-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     font-size: 0.95rem;
     font-weight: 700;
     color: var(--text-strong);
@@ -2021,6 +2024,40 @@
     border-bottom: 1px solid var(--border-color);
     margin-bottom: 12px;
 }
+
+.btn-refresh {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-muted);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s ease;
+}
+
+.btn-refresh:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.15);
+    color: var(--text-main);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.btn-refresh:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.spin-icon {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    100% { transform: rotate(360deg); }
+}
+
 
 .inline-log-content {
     flex-grow: 1;
