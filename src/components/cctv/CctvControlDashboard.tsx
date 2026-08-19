@@ -377,7 +377,7 @@ export default function CctvControlDashboard() {
                           {new Date(clip.startTime || '').toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                           {` [구역 ${clip.zoneId}]`}
                         </div>
-                        <div className={styles.inlineLogDesc}>1분 정기 영상 (raw)</div>
+                        <div className={styles.inlineLogDesc}>정기 영상</div>
                       </div>
                       <button className={styles.btnInlineDownload} onClick={() => window.open(clip.s3ClipUrl || '', '_blank')}>
                         ⬇️ 받기
