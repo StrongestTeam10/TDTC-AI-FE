@@ -55,14 +55,15 @@ export function useEmergencyTimer(
   useEffect(() => {
     // 위험 상태가 아니면 타이머 초기화
     if (status !== 'danger') {
-      console.log('Timer reset because status is not danger');
+      // (2026-08-20: 이 훅에 있던 디버그 console.log 4개를 전부 제거했다 - reset / starting /
+      //  dangerStartRef / ticking. reset 은 구역 3개 × 스트림 갱신마다, ticking 은 위험 중
+      //  매초 찍혀 콘솔을 덮고 실제 오류가 묻혔다.)
       dangerStartRef.current = null;
       setElapsedSec(0);
       setConfirmed(false);
       return;
     }
 
-    console.log('Timer starting. isConfirmed:', isConfirmed, 'elapsedSec:', elapsedSec);
 
     if (dangerStartRef.current === null) {
       dangerStartRef.current = Date.now();
@@ -87,11 +88,9 @@ export function useEmergencyTimer(
       
       if (dangerStartRef.current === null) {
         dangerStartRef.current = Date.now() - elapsedSec * 1000;
-        console.log('dangerStartRef initialized to', dangerStartRef.current);
       }
       const newElapsed = (Date.now() - dangerStartRef.current) / 1000;
       if (Math.floor(newElapsed) > Math.floor(elapsedSec)) {
-        console.log('Timer ticking:', newElapsed);
       }
       setElapsedSec(newElapsed);
     }, TICK_INTERVAL_MS);

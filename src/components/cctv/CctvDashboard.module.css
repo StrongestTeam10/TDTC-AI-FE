@@ -1338,6 +1338,28 @@
     top: 24px; /* 서랍이 위에서 자연스럽게 내려옴 */
 }
 
+/* 2026-08-19: 구역별 다중 토스트 변형. CctvEmergencyOverlay 가 fixed 컨테이너 안에
+   카드를 쌓으므로, 개별 카드의 fixed/top 은 풀고 컨테이너 흐름을 따른다.
+   (원래 이 값들은 컴포넌트의 인라인 style 이었다 - 여기로 옮겨 테마 변수를 쓰게 했다)
+   slideInRight 는 원래 인라인에서 참조만 하고 정의가 없어 무동작이었다. 여기서 정의한다. */
+.emergency-top-drawer.emergency-toast {
+    position: relative;
+    top: 0;
+    right: 0;
+    left: 0;
+    transform: none;
+    width: 450px;
+    box-shadow: 0 10px 25px rgba(var(--shadow-rgb), 0.5);
+    pointer-events: auto;
+    border-left: 5px solid var(--color-danger);
+    animation: slideInRight 0.3s ease-out forwards;
+}
+
+@keyframes slideInRight {
+    from { transform: translateX(24px); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+}
+
 .emergency-drawer-header {
     display: flex;
     justify-content: space-between;
@@ -2305,16 +2327,67 @@
     cursor: pointer;
     z-index: 20;
     transition: all 0.2s ease;
-    opacity: 0;
+    /* 2026-08-19 (접근성): 원래 opacity: 0 이고 hover 때만 1 이었다. 두 가지 문제가 있었다.
+       (1) Tab 으로 닿은 버튼이 opacity 0 인 채 포커스를 받아 이름은 읽히는데 눈엔 안 보였다.
+       (2) 접근성 트리 빌더가 opacity 0 을 "숨김"으로 취급해, 포커스가 없을 때는
+           스크린리더의 요소 탐색에서 버튼 자체가 빠졌다(실측: read_page 에 3개 모두 미노출).
+       그래서 완전히 숨기지 않고 흐리게만 둔다. 평소 0.55, hover/focus 시 1. 관제 화면에서
+       확대 버튼이 항상 은은하게 보이는 건 오히려 발견성에 도움이 된다. */
+    opacity: 0.55;
 }
 
-.gallery-item:hover .btn-expand-zone {
+.gallery-item:hover .btn-expand-zone,
+.gallery-item:focus-within .btn-expand-zone {
     opacity: 1;
 }
 
-.btn-expand-zone:hover {
+/* ==========================================================================
+   2026-08-19 추가: 구역 선택 버튼 (키보드 접근)
+   ==========================================================================
+   CctvZoneGallery 의 구역 선택이 <div onClick> 이라 Tab 으로 닿지 않았다.
+   본영상 자리를 <button> 으로 승격했으므로 브라우저 기본 버튼 모양을 지우고
+   원래 <img> 가 차지하던 면적을 그대로 채운다. 포커스는 카드 테두리로 보인다
+   (카드가 overflow:hidden 이라 버튼 자체의 링은 잘려 안 보인다). */
+.btn-select-zone {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+}
+
+.btn-select-zone:focus {
+    outline: none;
+}
+
+/* 카드 안 어떤 버튼이든 키보드 포커스를 받으면 카드 테두리로 드러낸다.
+   .active-zone(초록)과 겹치면 선택 상태 색이 이기도록 순서를 뒤에 둔다. */
+.gallery-item:has(:focus-visible) {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.45);
+}
+
+.gallery-item.active-zone:has(:focus-visible) {
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.55), 0 0 16px rgba(16, 185, 129, 0.4);
+}
+
+.btn-expand-zone:hover,
+.btn-expand-zone:focus-visible {
     background: var(--color-accent);
     transform: scale(1.1);
+}
+
+.btn-expand-zone:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
 }
 
 @keyframes fadeIn {
@@ -2362,4 +2435,54 @@
 
 .layer-popup-info-side .metric-card-title {
     font-size: 0.75rem;
+}
+
+/* ==========================================================================
+   2026-08-19 추가: 움직임 줄이기 (prefers-reduced-motion)
+   ==========================================================================
+   이 화면에는 무한 반복 애니메이션이 11개 돈다(blink 5, btnPulse, spinRing,
+   iconPulse, gradientMove, placeholderPulse, spin). 자동 시작되고 5초 넘게
+   이어지는 움직임은 사용자가 멈출 수 있어야 한다(WCAG 2.2.2, KWCAG 2.2 "정지
+   기능 제공"). 전정 장애가 있는 사용자는 OS에서 "동작 줄이기"를 켜 두는데,
+   지금까지 이 앱은 그 설정을 한 번도 읽지 않았다.
+
+   끄기만 하면 되는 건 아니다. 깜빡임이 상태를 겸하는 요소가 있다 - 위험 점수
+   배지, WebSocket 연결 점, 비상 배지. 이들은 전부 색·테두리를 따로 가지고
+   있어서(위험=빨강, 연결=초록, 연결중=주황) 움직임을 꺼도 상태는 그대로 읽힌다.
+   확인하고 끈 것이다.
+
+   팝업 열림/닫힘(fadeIn·scaleUp·fadeOut·scaleDown)은 한 번만 도는 전환이라
+   규정 대상은 아니지만, 같은 설정에서 같이 줄인다. 단 animation: none 으로
+   지우면 안 된다 - .closing 은 `forwards` 로 opacity:0 을 붙잡고 있고
+   CctvZonePopupModal 이 250ms 뒤에 언마운트한다. none 으로 하면 그 250ms 동안
+   모달이 불투명하게 되살아났다가 사라져 오히려 깜빡인다. 그래서 duration 을
+   거의 0 으로 줄여 마지막 프레임으로 바로 점프시킨다.
+
+   transition 은 손대지 않는다. 전부 0.2~0.4초의 hover/색 전환이라 규정 밖이고,
+   끄면 포커스·선택 상태 변화가 뚝뚝 끊겨 보여 오히려 불편하다.
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+    /* 무한 반복 - 멈춘다. 상태는 색으로 남는다. */
+    .score-summary-status.danger,
+    .dispatch-overlay,
+    .emergency-badge-pulse,
+    .btn-emergency-confirm,
+    .ai-pulse-ring,
+    .ai-spinner-icon,
+    .ai-progress-bar,
+    .placeholder-content,
+    .ws-status-badge.open .ws-dot,
+    .ws-status-badge.connecting .ws-dot,
+    .spin-icon {
+        animation: none;
+    }
+
+    /* 한 번 도는 전환 - 끝 프레임으로 즉시 점프 (none 금지, 위 설명 참고) */
+    .layer-popup-overlay,
+    .layer-popup-content,
+    .layer-popup-overlay.closing,
+    .layer-popup-overlay.closing .layer-popup-content,
+    .emergency-top-drawer.emergency-toast {
+        animation-duration: 0.01ms;
+    }
 }

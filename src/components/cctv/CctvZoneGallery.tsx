@@ -39,11 +39,13 @@ export default function CctvZoneGallery({
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         {totalPages > 1 && (
           <button
+            type="button"
+            aria-label="이전 구역 페이지"
             onClick={(e) => { e.stopPropagation(); setPage(p => Math.max(0, p - 1)); }}
             disabled={page === 0}
             style={{ padding: '8px', cursor: page === 0 ? 'not-allowed' : 'pointer', background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-color)', opacity: page === 0 ? 0.5 : 1 }}
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
           </button>
         )}
 
@@ -51,16 +53,20 @@ export default function CctvZoneGallery({
           {currentZones.map((zone) => {
             const isActive = activeZoneId === zone.id;
 
+            // 2026-08-19 (접근성): 구역 선택이 <div onClick> + <img onClick> 이라 키보드로는
+            // 구역을 고를 수 없었다 - 관제 대시보드의 가장 기본 조작이 Tab 으로 닿지 않았다.
+            // 선택 조작을 <button> 으로 올린다. 카드 전체를 button 으로 감싸지 않은 이유:
+            // 안에 이미 확대 <button> 이 있어서 버튼 안에 버튼이 되면 HTML 위반이다.
+            // 그래서 본영상 자리(원래 onClick 이 걸려 있던 곳)를 버튼으로 승격해 확대 버튼과
+            // 형제로 둔다. 외곽 div 는 레이아웃·테두리만 맡고 핸들러는 없다.
+            const toggle = () => onSelectZone(isActive ? null : zone.id);
+
             return (
               <div
                 key={zone.id}
                 className={`${styles.galleryItem} ${isActive ? styles.activeZone : ''}`}
-                onClick={() => {
-                  if (isActive) onSelectZone(null);
-                  else onSelectZone(zone.id);
-                }}
               >
-                <div className={styles.zoneBadge}>
+                <div className={styles.zoneBadge} aria-hidden="true">
                   {zone.name}
                 </div>
 
@@ -68,30 +74,34 @@ export default function CctvZoneGallery({
                   <img
                     className={styles.galleryVideoBlurBg}
                     src={`${CCTV_API_BASE_URL}/api/v1/cctv/stream?zone_id=${zone.id}&ngrok-skip-browser-warning=true`}
-                    alt={`Zone ${zone.id} Blur Background`}
+                    alt=""
                   />
-                  <img
-                    className={styles.galleryVideoMain}
-                    src={`${CCTV_API_BASE_URL}/api/v1/cctv/stream?zone_id=${zone.id}&ngrok-skip-browser-warning=true`}
-                    alt={`Zone ${zone.id} Live Stream`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (isActive) {
-                        onSelectZone(null);
-                      } else {
-                        onSelectZone(zone.id);
-                      }
-                    }}
-                  />
+                  {/* 선택 조작. 스트림 <img> 는 장식이라 alt 를 비우고, 이름은 버튼이 가진다.
+                      aria-pressed 로 "지금 이 구역이 선택돼 있는지"를 보조기기에 알린다. */}
+                  <button
+                    type="button"
+                    className={styles.btnSelectZone}
+                    aria-label={`${zone.name} 선택`}
+                    aria-pressed={isActive}
+                    onClick={toggle}
+                  >
+                    <img
+                      className={styles.galleryVideoMain}
+                      src={`${CCTV_API_BASE_URL}/api/v1/cctv/stream?zone_id=${zone.id}&ngrok-skip-browser-warning=true`}
+                      alt=""
+                    />
+                  </button>
 
                   <button
+                    type="button"
                     className={styles.btnExpandZone}
+                    aria-label={`${zone.name} 크게 보기`}
                     onClick={(e) => {
                       e.stopPropagation();
                       onExpandZone(zone.id);
                     }}
                   >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="15 3 21 3 21 9"></polyline>
                       <polyline points="9 21 3 21 3 15"></polyline>
                       <line x1="21" y1="3" x2="14" y2="10"></line>
@@ -106,11 +116,13 @@ export default function CctvZoneGallery({
 
         {totalPages > 1 && (
           <button
+            type="button"
+            aria-label="다음 구역 페이지"
             onClick={(e) => { e.stopPropagation(); setPage(p => Math.min(totalPages - 1, p + 1)); }}
             disabled={page === totalPages - 1}
             style={{ padding: '8px', cursor: page === totalPages - 1 ? 'not-allowed' : 'pointer', background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-color)', opacity: page === totalPages - 1 ? 0.5 : 1 }}
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
           </button>
         )}
       </div>

@@ -1,4 +1,5 @@
 import { useRef, useState, type ReactNode } from 'react';
+import { useModalDismiss } from '../hooks/useModalDismiss';
 
 // 2026-07-24 추가
 // 회원가입의 필수 동의 항목(서비스 이용약관/개인정보 수집·이용)을 체크박스로
@@ -16,6 +17,13 @@ const BOTTOM_THRESHOLD_PX = 8;
 
 export default function TermsModal({ title, children, onConfirm, onClose }: TermsModalProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // 2026-08-20 (접근성): Escape·초점 트랩·복원·스크롤 잠금을 공용 훅으로.
+  // 이 모달은 "끝까지 스크롤해야 확인이 켜지는" 구조라 초기 초점을 본문 스크롤 영역에
+  // 둔다 - 키보드 사용자가 열리자마자 화살표/PageDown 으로 읽어 내려갈 수 있게.
+  // (handleBodyRef 콜백이 bodyRef.current 를 채우므로 그대로 넘긴다. 스크롤 영역에는
+  //  tabIndex={0} 을 줘서 초점을 받을 수 있게 했다)
+  useModalDismiss(dialogRef, onClose, { initialFocusRef: bodyRef });
   // 내용이 스크롤할 필요가 없을 만큼 짧은 경우(초기 렌더 시 이미 다 보이는 경우)까지
   // 대비해서, 마운트 직후 한 번 스크롤 가능 여부를 확인해 초기값을 정함.
   const [reachedBottom, setReachedBottom] = useState(false);
@@ -37,10 +45,12 @@ export default function TermsModal({ title, children, onConfirm, onClose }: Term
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+      tabIndex={-1}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 focus:outline-none"
       onClick={onClose}
     >
       <div
@@ -62,7 +72,8 @@ export default function TermsModal({ title, children, onConfirm, onClose }: Term
         <div
           ref={handleBodyRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto whitespace-pre-line px-5 py-4 text-sm leading-relaxed text-slate-500 dark:text-slate-400"
+          tabIndex={0}
+          className="flex-1 overflow-y-auto whitespace-pre-line px-5 py-4 text-sm leading-relaxed text-slate-500 dark:text-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600"
         >
           {children}
         </div>
