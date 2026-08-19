@@ -33,6 +33,7 @@ import {
 } from '../api/client';
 import type { Facility, FacilityPhoto, CctvZone } from '../api/client';
 import type { PageResponse } from '../types/board';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 // 2026-08-04 추가 (상점 위치 등록 화면). 08-11 대상 선택기/CCTV 구역 추가.
 //
@@ -134,6 +135,7 @@ function Pager({
 }
 
 export default function FacilityManagePage() {
+  useDocumentTitle('시장 구조 등록');
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.rulesCode === 'ROL01';
 

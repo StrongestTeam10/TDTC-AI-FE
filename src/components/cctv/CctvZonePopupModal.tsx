@@ -2,6 +2,7 @@ import { CCTV_API_BASE_URL } from '../../api/cctvClient';
 import React from 'react';
 import type { RefObject } from 'react';
 import styles from './CctvDashboard.module.css';
+import { cctvZoneName } from '../../constants/cctvZone';
 import CctvMetricCards from './CctvMetricCards';
 import CctvRiskChartCard from './CctvRiskChartCard';
 
@@ -28,7 +29,10 @@ export default function CctvZonePopupModal({
   showEmergencyActions,
   onResolveEmergency
 }: Props) {
-  const zoneName = zoneId === 1 ? "남측" : zoneId === 2 ? "중앙" : "북측";
+  // 2026-08-19: 삼항으로 이름을 만들던 것을 constants/cctvZone.ts 로 모았다.
+  // 예전 방식은 목록에 없는 id 가 오면 전부 '북측'으로 보였다.
+  // 여기서 오는 이름은 '남측 구역'처럼 '구역'까지 포함하므로 뒤에 덧붙이지 않는다.
+  const zoneName = cctvZoneName(zoneId);
   const [isClosing, setIsClosing] = React.useState(false);
 
   const handleClose = () => {
@@ -56,7 +60,7 @@ export default function CctvZonePopupModal({
               alt={`Zone ${zoneId} Live Stream`}
             />
             <div style={{ position: 'absolute', top: 16, left: 16, background: 'rgba(0,0,0,0.7)', padding: '6px 12px', borderRadius: 8, color: '#fff', fontWeight: 'bold', zIndex: 20 }}>
-              {zoneName} 구역
+              {zoneName}
             </div>
           </>
           
@@ -66,7 +70,7 @@ export default function CctvZonePopupModal({
           <div className={styles.layerPopupHeader}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', width: '100%' }}>
               <div className={styles.cardTitle} style={{ fontSize: '1.25rem', padding: 0 }}>
-                {zoneName} 구역 실시간 대시보드
+                {zoneName} 실시간 대시보드
               </div>
               <button 
                 onClick={handleClose}

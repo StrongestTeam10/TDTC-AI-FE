@@ -16,6 +16,7 @@ import {
 import { toDisplayErrorMessage } from '../utils/errorMessage';
 import type { Market } from '../types';
 import type { PageResponse } from '../types/board';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 // 2026-08-06 추가 (시나리오 이력)
 //
@@ -104,6 +105,7 @@ const SEARCH_FIELDS: { value: ScenarioSearchField; label: string; adminOnly?: bo
 ];
 
 export default function ScenarioHistoryPage() {
+  useDocumentTitle('시나리오 이력');
   const user = useAuthStore((s) => s.user);
   const isAdmin = isAdminUser(user);
 

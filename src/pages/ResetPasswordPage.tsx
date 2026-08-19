@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { PASSWORD_RULES, isPasswordValid } from '../utils/password';
 import { useAuthStore } from '../store/authStore';
 import ThemeToggle from '../components/ui/ThemeToggle';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 // 2026-08-04 추가 (비밀번호 찾기 2/2 - 재설정)
 //
@@ -23,6 +24,7 @@ interface LocationState {
 }
 
 export default function ResetPasswordPage() {
+  useDocumentTitle('비밀번호 재설정');
   const navigate = useNavigate();
   const location = useLocation();
   const resetPassword = useAuthStore((s) => s.resetPassword);

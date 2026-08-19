@@ -8,6 +8,7 @@ import { useAuthStore } from '../store/authStore';
 import { useCommonCodes } from '../hooks/useCommonCodes';
 import type { PostListResponse, PostSummary } from '../types/board';
 import { toDisplayErrorMessage } from '../utils/errorMessage';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 // 2026-07-24 추가 (게시판 기능)
 // 2026-07-25 UI 설계서 반영: 상단 카테고리 탭(전체/공지사항/자유게시판) +
@@ -37,6 +38,7 @@ function formatDate(iso: string) {
 }
 
 export default function BoardListPage() {
+  useDocumentTitle('게시판');
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);

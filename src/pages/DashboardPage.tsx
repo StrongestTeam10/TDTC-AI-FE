@@ -2,6 +2,7 @@ import { useState } from 'react';
 import CctvControlDashboard from '../components/cctv/CctvControlDashboard';
 import TabButton from '../components/ui/TabButton';
 import { useAuthStore } from '../store/authStore';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 // 2026-08-06 변경: 관제 화면이 public/mangwon/index.html을 가리키는 <iframe>이었다.
 // iframe 안은 별도 문서라 (1) 드로어/모달의 position:fixed가 앱 뷰포트가 아닌
@@ -15,6 +16,7 @@ import { useAuthStore } from '../store/authStore';
 // 실시간 관제라 데이터 그레인 자체가 다르다. 두 화면을 합칠지는 별도 판단이 필요하다.
 
 export default function DashboardPage() {
+  useDocumentTitle('관제 대시보드');
   const user = useAuthStore((s) => s.user);
   // 2026-07-27 추가: 게시판과 동일한 권한 체계(관리자 ROL01은 전체, 그 외 상인회/
   // 지자체 등은 본인 담당 시장만) - 관리자만 시장 전환 탭을 보여준다.

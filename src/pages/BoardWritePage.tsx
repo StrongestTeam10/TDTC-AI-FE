@@ -8,6 +8,7 @@ import { useAuthStore } from '../store/authStore';
 import { createPost, fetchPostDetail, updatePost } from '../api/client';
 import { ADMIN_ONLY_CATEGORY_CODE } from '../constants/categoryCode';
 import { useCommonCodes } from '../hooks/useCommonCodes';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import type { Attachment } from '../types/board';
 import { toDisplayErrorMessage } from '../utils/errorMessage';
 
@@ -33,6 +34,9 @@ import { toDisplayErrorMessage } from '../utils/errorMessage';
 export default function BoardWritePage() {
   const { postId } = useParams<{ postId: string }>();
   const isEditMode = Boolean(postId);
+  // 이 컴포넌트가 /board/write 와 /board/:postId/edit 두 라우트를 겸한다.
+  // 제목도 갈라줘야 스크린리더가 두 화면을 구분할 수 있다.
+  useDocumentTitle(isEditMode ? '글 수정' : '글쓰기');
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.rulesCode === 'ROL01';

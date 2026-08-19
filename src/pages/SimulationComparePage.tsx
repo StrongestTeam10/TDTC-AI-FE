@@ -18,6 +18,7 @@ import { canSwitchMarket } from '../auth/permissions';
 import { useReportGeneration } from '../hooks/useReportGeneration';
 import { toDisplayErrorMessage } from '../utils/errorMessage';
 import type { PredictRequest, ScenarioRequest, PlacedObject, EventTrigger, CorridorPolicy, Corridor, Gate, Building } from '../types';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 type PlacementKind = PlacedObject['objectType'] | EventTrigger['eventType'];
 const OBJECT_TYPES = new Set<PlacedObject['objectType']>(['food_truck', 'obstacle', 'event_zone', 'rest_area']);
@@ -234,6 +235,7 @@ function StepSection({
 // 시나리오 이력 화면(/scenario-history)을 쓴다 - 이 화면은 이미 설정 항목이 많아 입력 폼을
 // 하나 더 얹으면 실행 흐름이 묻힌다.
 export default function SimulationComparePage() {
+  useDocumentTitle('시뮬레이션 비교');
   const {
     markets,
     setMarkets,

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useCommonCodes } from '../hooks/useCommonCodes';
 import { useAuthStore } from '../store/authStore';
 import ThemeToggle from '../components/ui/ThemeToggle';
+import BackdropImage from '../components/ui/BackdropImage';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 // 2026-08-04 추가 (비밀번호 찾기 1/2 - 본인확인)
 //
@@ -15,6 +17,7 @@ import ThemeToggle from '../components/ui/ThemeToggle';
 // 이 4개 필드를 함께 보내 서버가 다시 한 번 검증하도록 하기 위함(브라우저 state를
 // 직접 조작해서 이 화면을 건너뛰는 걸 막는 최소한의 방어).
 export default function ForgotPasswordPage() {
+  useDocumentTitle('비밀번호 찾기');
   const navigate = useNavigate();
   const verifyIdentity = useAuthStore((s) => s.verifyIdentity);
 
@@ -51,30 +54,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-slate-950">
-      {/* Background Mask Wrapper */}
-      <div 
-        className="fixed inset-0 pointer-events-none"
-        style={{
-          WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 60%, transparent 100%), linear-gradient(to right, black 0%, black calc(100% - 15px), transparent 100%)',
-          WebkitMaskComposite: 'source-in',
-          maskImage: 'linear-gradient(to bottom, black 0%, black 60%, transparent 100%), linear-gradient(to right, black 0%, black calc(100% - 15px), transparent 100%)',
-          maskComposite: 'intersect',
-        }}
-      >
-        {/* Light Mode Background Image */}
-        <img
-          src="/images/bg-light.png"
-          alt="Digital Twin Background Light"
-          className="h-full w-full object-cover object-center dark:hidden"
-        />
-        
-        {/* Dark Mode Background Image */}
-        <img
-          src="/images/bg-dark.png"
-          alt="Digital Twin Background Dark"
-          className="hidden h-full w-full object-cover object-center dark:block"
-        />
-      </div>
+      <BackdropImage className="fixed inset-0 pointer-events-none" />
 
       {/* Subtle Overlay to ensure text readability */}
       <div className="fixed inset-0 pointer-events-none bg-white/40 backdrop-blur-[2px] dark:bg-slate-950/40"></div>

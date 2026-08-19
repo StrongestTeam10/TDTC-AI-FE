@@ -1,8 +1,11 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { homePathFor, canAccessControlSystem, canManageFacilities, isAdmin } from '../auth/permissions';
+import BackdropImage from '../components/ui/BackdropImage';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 export default function LandingPage() {
+  useDocumentTitle();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
 
@@ -14,30 +17,7 @@ export default function LandingPage() {
 
   return (
     <div className="relative -mx-6 -my-6 flex flex-1 flex-col items-center justify-center overflow-hidden bg-slate-50 px-4 py-24 text-center dark:bg-slate-950">
-      {/* Background Mask Wrapper */}
-      <div 
-        className="absolute inset-0"
-        style={{
-          WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 60%, transparent 100%), linear-gradient(to right, black 0%, black calc(100% - 15px), transparent 100%)',
-          WebkitMaskComposite: 'source-in',
-          maskImage: 'linear-gradient(to bottom, black 0%, black 60%, transparent 100%), linear-gradient(to right, black 0%, black calc(100% - 15px), transparent 100%)',
-          maskComposite: 'intersect',
-        }}
-      >
-        {/* Light Mode Background Image */}
-        <img
-          src="/images/bg-light.png"
-          alt="Digital Twin Background Light"
-          className="h-full w-full object-cover object-center dark:hidden"
-        />
-        
-        {/* Dark Mode Background Image */}
-        <img
-          src="/images/bg-dark.png"
-          alt="Digital Twin Background Dark"
-          className="hidden h-full w-full object-cover object-center dark:block"
-        />
-      </div>
+      <BackdropImage className="absolute inset-0" />
 
       {/* Subtle Overlay to ensure text readability */}
       <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px] dark:bg-slate-950/40"></div>
