@@ -6,6 +6,8 @@ import { PASSWORD_RULES, isPasswordValid } from '../utils/password';
 import { TERMS_TEXT, PRIVACY_TEXT } from '../constants/legalText';
 import { useCommonCodes } from '../hooks/useCommonCodes';
 import { useAuthStore } from '../store/authStore';
+import BackdropImage from '../components/ui/BackdropImage';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 // 2026-07-24 추가 (1차, SIGNUP-01)
 // 행안부 가이드라인 - 기본패턴 영역 반영: "개인 식별 정보 입력" + "동의" 패턴을
@@ -33,6 +35,7 @@ interface ConsentState {
 type ModalKey = 'terms' | 'privacy' | null;
 
 export default function SignupPage() {
+  useDocumentTitle('회원가입');
   const navigate = useNavigate();
   const signup = useAuthStore((s) => s.signup);
 
@@ -153,30 +156,7 @@ export default function SignupPage() {
   if (submitted) {
     return (
       <div className="relative flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-slate-950">
-        {/* Background Mask Wrapper */}
-        <div 
-          className="fixed inset-0 pointer-events-none"
-          style={{
-            WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 60%, transparent 100%), linear-gradient(to right, black 0%, black calc(100% - 15px), transparent 100%)',
-            WebkitMaskComposite: 'source-in',
-            maskImage: 'linear-gradient(to bottom, black 0%, black 60%, transparent 100%), linear-gradient(to right, black 0%, black calc(100% - 15px), transparent 100%)',
-            maskComposite: 'intersect',
-          }}
-        >
-          {/* Light Mode Background Image */}
-          <img
-            src="/images/bg-light.png"
-            alt="Digital Twin Background Light"
-            className="h-full w-full object-cover object-center dark:hidden"
-          />
-          
-          {/* Dark Mode Background Image */}
-          <img
-            src="/images/bg-dark.png"
-            alt="Digital Twin Background Dark"
-            className="hidden h-full w-full object-cover object-center dark:block"
-          />
-        </div>
+        <BackdropImage className="fixed inset-0 pointer-events-none" />
 
         {/* Subtle Overlay to ensure text readability */}
         <div className="fixed inset-0 pointer-events-none bg-white/40 backdrop-blur-[2px] dark:bg-slate-950/40"></div>
@@ -200,30 +180,7 @@ export default function SignupPage() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 dark:bg-slate-950">
-      {/* Background Mask Wrapper */}
-      <div 
-        className="fixed inset-0 pointer-events-none"
-        style={{
-          WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 60%, transparent 100%), linear-gradient(to right, black 0%, black calc(100% - 15px), transparent 100%)',
-          WebkitMaskComposite: 'source-in',
-          maskImage: 'linear-gradient(to bottom, black 0%, black 60%, transparent 100%), linear-gradient(to right, black 0%, black calc(100% - 15px), transparent 100%)',
-          maskComposite: 'intersect',
-        }}
-      >
-        {/* Light Mode Background Image */}
-        <img
-          src="/images/bg-light.png"
-          alt="Digital Twin Background Light"
-          className="h-full w-full object-cover object-center dark:hidden"
-        />
-        
-        {/* Dark Mode Background Image */}
-        <img
-          src="/images/bg-dark.png"
-          alt="Digital Twin Background Dark"
-          className="hidden h-full w-full object-cover object-center dark:block"
-        />
-      </div>
+      <BackdropImage className="fixed inset-0 pointer-events-none" />
 
       {/* Subtle Overlay to ensure text readability */}
       <div className="fixed inset-0 pointer-events-none bg-white/40 backdrop-blur-[2px] dark:bg-slate-950/40"></div>

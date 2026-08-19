@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { canAccessControlSystem, homePathFor } from '../auth/permissions';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 // 2026-07-24 추가
 // 지금까지 App.tsx에 정의된 경로(/, /login, /dashboard, /scenario, /prediction) 외의
@@ -11,6 +12,7 @@ import { canAccessControlSystem, homePathFor } from '../auth/permissions';
 // ROL01·ROL02 전용이 되면서 조회자에게는 눌러도 되돌려지는 버튼이 됐다. 권한에 따라
 // 갈 수 있는 화면으로 바꾸고 라벨도 함께 바꾼다.
 export default function NotFoundPage() {
+  useDocumentTitle('페이지를 찾을 수 없습니다');
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
 

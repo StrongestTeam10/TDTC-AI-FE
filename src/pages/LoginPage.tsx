@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { homePathFor } from '../auth/permissions';
 import ThemeToggle from '../components/ui/ThemeToggle';
+import BackdropImage from '../components/ui/BackdropImage';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 // 2026-07-24 추가 (1차)
 // 행안부 가이드라인 - 로그인 영역 반영 (아이디/비밀번호 로그인 정보입력 패턴 기준).
@@ -26,6 +28,7 @@ import ThemeToggle from '../components/ui/ThemeToggle';
 // 함께 키웠다. 폭만 넓히면 내용은 그대로라 여백만 늘어난 것처럼 보인다.
 // 안내 문구도 "관제 시스템 로그인이 필요합니다."에서 바꿨다(문구는 확정 아님).
 export default function LoginPage() {
+  useDocumentTitle('로그인');
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -58,30 +61,7 @@ export default function LoginPage() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-slate-950">
-      {/* Background Mask Wrapper */}
-      <div 
-        className="fixed inset-0 pointer-events-none"
-        style={{
-          WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 60%, transparent 100%), linear-gradient(to right, black 0%, black calc(100% - 15px), transparent 100%)',
-          WebkitMaskComposite: 'source-in',
-          maskImage: 'linear-gradient(to bottom, black 0%, black 60%, transparent 100%), linear-gradient(to right, black 0%, black calc(100% - 15px), transparent 100%)',
-          maskComposite: 'intersect',
-        }}
-      >
-        {/* Light Mode Background Image */}
-        <img
-          src="/images/bg-light.png"
-          alt="Digital Twin Background Light"
-          className="h-full w-full object-cover object-center dark:hidden"
-        />
-        
-        {/* Dark Mode Background Image */}
-        <img
-          src="/images/bg-dark.png"
-          alt="Digital Twin Background Dark"
-          className="hidden h-full w-full object-cover object-center dark:block"
-        />
-      </div>
+      <BackdropImage className="fixed inset-0 pointer-events-none" />
 
       {/* Subtle Overlay to ensure text readability */}
       <div className="fixed inset-0 pointer-events-none bg-white/40 backdrop-blur-[2px] dark:bg-slate-950/40"></div>

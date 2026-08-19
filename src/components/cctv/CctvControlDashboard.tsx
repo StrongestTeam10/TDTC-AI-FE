@@ -9,6 +9,7 @@ import CctvWeatherCard from './CctvWeatherCard';
 import ErrorBanner from '../ui/ErrorBanner';
 import { fetchCctvResultVideoUrl, triggerCctvAlert } from '../../api/cctvClient';
 import { fetchUnresolvedAlerts, fetchVideoClips, fetchPostReports, resolveAlert } from '../../api/client';
+import { CCTV_ZONES, cctvZoneName } from '../../constants/cctvZone';
 import { WEATHER_SCENARIOS } from '../../constants/weatherScenario';
 import { useCctvStream } from '../../hooks/useCctvStream';
 import { useCriScore } from '../../hooks/useCriScore';
@@ -131,10 +132,14 @@ export default function CctvControlDashboard() {
   const zone2Timer = useEmergencyTimer(zone2Cri.statusResult.status, params.alarmDelaySec);
   const zone3Timer = useEmergencyTimer(zone3Cri.statusResult.status, params.alarmDelaySec);
 
+  // 2026-08-19: id/이름을 constants/cctvZone.ts 에서 가져온다. 세 줄로 펼쳐 둔 것은
+  // 위의 useCriScore / useEmergencyTimer 가 구역당 하나씩 최상위 호출이라 그렇다
+  // (훅은 개수가 변하는 반복문에서 부를 수 없다). 구역을 늘리려면 그 훅 호출도
+  // 같이 늘려야 한다 - 자세한 배경은 constants/cctvZone.ts 주석 참고.
   const zonesData = useMemo(() => [
-    { id: 1, name: '남측 구역', raw: rawZones[0], criData: zone1Cri, timer: zone1Timer },
-    { id: 2, name: '중앙 구역', raw: rawZones[1], criData: zone2Cri, timer: zone2Timer },
-    { id: 3, name: '북측 구역', raw: rawZones[2], criData: zone3Cri, timer: zone3Timer },
+    { ...CCTV_ZONES[0], raw: rawZones[0], criData: zone1Cri, timer: zone1Timer },
+    { ...CCTV_ZONES[1], raw: rawZones[1], criData: zone2Cri, timer: zone2Timer },
+    { ...CCTV_ZONES[2], raw: rawZones[2], criData: zone3Cri, timer: zone3Timer },
   ], [rawZones, zone1Cri, zone2Cri, zone3Cri, zone1Timer, zone2Timer, zone3Timer]);
 
   const metrics = useMemo(() => {
@@ -229,7 +234,7 @@ export default function CctvControlDashboard() {
       }));
   }, [zonesData]);
 
-  const currentZoneName = selectedZoneId === null ? '종합대시보드' : selectedZoneId === 1 ? '남측 구역' : selectedZoneId === 2 ? '중앙 구역' : '북측 구역';
+  const currentZoneName = cctvZoneName(selectedZoneId);
 
   return (
       <div className={styles.dashboardRoot}>
@@ -246,7 +251,7 @@ export default function CctvControlDashboard() {
 
 
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0px 0 0px 0', minHeight: '32px' }}>
-            <div style={{ fontWeight: '800', fontSize: '1.35rem', color: 'var(--text-main)' }}>
+            <div style={{ fontWeight: '800', fontSize: '1.35rem', color: 'var(--text-color)' }}>
               {currentZoneName}
             </div>
           </div>

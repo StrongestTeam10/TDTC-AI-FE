@@ -24,6 +24,7 @@ import {
 } from '../api/client';
 import type { BuildingImportResult, BuildingPruneResult } from '../api/client';
 import type { Market, Zone } from '../types';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 // 2026-08-14 추가 (시장 등록). 관리자(ROL01) 전용.
 //
@@ -79,6 +80,7 @@ type Step = 1 | 2 | 3 | 4;
 type DrawPhase = 'area' | 'cuts';
 
 export default function MarketRegisterPage() {
+  useDocumentTitle('시장 등록');
   const [step, setStep] = useState<Step>(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

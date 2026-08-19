@@ -5,6 +5,7 @@ import Spinner from '../components/ui/Spinner';
 import ErrorBanner from '../components/ui/ErrorBanner';
 import { deletePost, downloadAttachment, fetchPostDetail, togglePostLike } from '../api/client';
 import { useCommonCodes } from '../hooks/useCommonCodes';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import type { PostDetail } from '../types/board';
 import { toDisplayErrorMessage } from '../utils/errorMessage';
 
@@ -29,6 +30,9 @@ export default function BoardDetailPage() {
   const navigate = useNavigate();
 
   const [post, setPost] = useState<PostDetail | null>(null);
+  // 게시글 제목이 곧 이 화면의 이름이다. 불러오기 전까지는 '게시글'로 두고,
+  // 도착하면 실제 제목으로 바뀐다(훅이 title 변화를 따라간다).
+  useDocumentTitle(post?.title ?? '게시글');
   // 2026-08-12: 화면마다 복사돼 있던 공통코드 조회를 useCommonCodes로 모았다.
   const { labelOf: categoryLabel } = useCommonCodes('BCT');
   const [isLoading, setIsLoading] = useState(true);

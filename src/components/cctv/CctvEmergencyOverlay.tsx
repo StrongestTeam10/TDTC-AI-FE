@@ -68,7 +68,7 @@ export default function CctvEmergencyOverlay({ emergencies }: CctvEmergencyOverl
                 <button type="button" className={styles.btnEmergencyConfirm} onClick={em.onConfirm}>
                   {em.isAutoDispatched
                       ? '🚨 [112/119 긴급 출동 완료 - 조작 해제]'
-                      : '🚨 [확인 및 관람 조작 해제]'}
+                      : '🚨 [확인 및 관제 조작 해제]'}
                 </button>
               </div>
             </div>

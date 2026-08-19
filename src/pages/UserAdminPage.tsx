@@ -15,6 +15,7 @@ import {
 import { useCommonCodes } from '../hooks/useCommonCodes';
 import { type UserRole } from '../types/auth';
 import { toDisplayErrorMessage } from '../utils/errorMessage';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 // 2026-08-05 추가 (회원관리)
 //
@@ -65,6 +66,7 @@ const CELL_SELECT_CLASS =
   'dark:disabled:bg-slate-900 dark:disabled:text-slate-600';
 
 export default function UserAdminPage() {
+  useDocumentTitle('회원관리');
   const [marketCode, setMarketCode] = useState(ALL_VALUE);
   const [tab, setTab] = useState<ViewTab>('manage');
 
