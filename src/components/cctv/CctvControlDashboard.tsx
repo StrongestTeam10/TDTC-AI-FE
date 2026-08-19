@@ -267,7 +267,17 @@ export default function CctvControlDashboard() {
             </div>
 
             <div className={styles.inlineLogBox}>
-              <div className={styles.inlineLogTitle}>🔔 미해결 알람 및 관제 로그</div>
+              <div className={styles.inlineLogTitle}>
+                <span>🔔 미해결 알람 및 관제 로그</span>
+                <button className={styles.btnRefresh} onClick={loadAlerts} disabled={isAlertLoading} title="새로고침">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isAlertLoading ? styles.spinIcon : ''}>
+                    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+                    <path d="M21 3v5h-5" />
+                  </svg>
+                  새로고침
+                </button>
+              </div>
+
               <div className={styles.inlineLogContent}>
                 {alerts.length === 0 ? (
                   <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
@@ -340,7 +350,17 @@ export default function CctvControlDashboard() {
             </div>
             
             <div className={styles.inlineLogBox}>
-              <div className={styles.inlineLogTitle}>🎥 정기 녹화 영상 (raw-videos)</div>
+              <div className={styles.inlineLogTitle}>
+                <span>🎥 정기 녹화 영상 </span>
+                <button className={styles.btnRefresh} onClick={loadAlerts} disabled={isAlertLoading} title="새로고침">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isAlertLoading ? styles.spinIcon : ''}>
+                    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+                    <path d="M21 3v5h-5" />
+                  </svg>
+                  새로고침
+                </button>
+              </div>
+
               <div className={styles.inlineLogContent}>
                 {videoClips.filter(c => (c.clipType === 'TEMP' || c.clipType === 'LIVE') && (!selectedZoneId || c.zoneId === selectedZoneId)).length === 0 ? (
                   <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
