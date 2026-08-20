@@ -157,7 +157,7 @@ export default function BoardDetailPage() {
         {/* 2026-07-24: content는 RichTextEditor(Tiptap)가 만든 HTML 문자열이라, 저장된
             값을 그대로 신뢰하지 않고 DOMPurify로 sanitize한 뒤에만 렌더링함(저장형 XSS 방지) */}
         <div
-          className="prose prose-invert prose-sm max-w-none text-slate-800 dark:text-slate-200"
+          className="prose dark:prose-invert prose-sm max-w-none text-slate-800 dark:text-slate-200"
           dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}
         />
 

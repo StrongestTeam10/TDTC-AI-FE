@@ -12,6 +12,17 @@ export function useSmoothNumber(targetValue: number, duration: number = 500) {
   useEffect(() => {
     if (targetValue === currentValRef.current) return;
 
+    // 2026-08-19: OS "동작 줄이기"가 켜져 있으면 카운트업 없이 목표값으로 바로 간다.
+    // CSS 애니메이션은 CctvDashboard.module.css 의 prefers-reduced-motion 블록이
+    // 멈추지만, 이 훅은 requestAnimationFrame 으로 숫자를 굴리는 JS 애니메이션이라
+    // 그 블록이 닿지 않는다. 설정을 effect 안에서 읽는 이유: 화면이 켜진 채로 OS
+    // 설정을 바꿔도 다음 값 변화부터 바로 따라가게 하려고.
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setCurrentValue(targetValue);
+      currentValRef.current = targetValue;
+      return;
+    }
+
     // 새로운 목표값이 들어온 순간의 위치를 '출발점'으로 영구 고정
     const startValue = currentValRef.current;
     const change = targetValue - startValue;

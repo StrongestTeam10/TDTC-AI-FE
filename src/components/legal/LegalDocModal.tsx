@@ -1,4 +1,5 @@
-import { useEffect, type ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
+import { useModalDismiss } from '../../hooks/useModalDismiss';
 
 // 2026-08-07 신규: 푸터의 "개인정보처리방침" / "이용약관" 전문을 띄우는 보기 전용 팝업.
 //
@@ -6,6 +7,10 @@ import { useEffect, type ReactNode } from 'react';
 // 절차용이라 "끝까지 스크롤해야 확인 버튼이 활성화"되고 onConfirm으로 체크박스를
 // 켜준다. 이건 이미 가입한 사람이든 아니든 아무나 열어보는 열람용이라 동의 개념이
 // 없고, 표가 들어간 긴 문서라 폭도 더 넓다.
+//
+// 2026-08-20: 여기 있던 Escape·스크롤 잠금 구현을 hooks/useModalDismiss 로 옮겼다.
+// 이 모달이 셋 중 가장 잘 갖춰져 있어서 그 구현을 기준으로 공용화한 것이고, 초점
+// 이동·복원·트랩이 더해졌다. 동작은 이전과 같고 키보드 경로만 늘었다.
 
 interface LegalDocModalProps {
   title: string;
@@ -14,28 +19,17 @@ interface LegalDocModalProps {
 }
 
 export default function LegalDocModal({ title, children, onClose }: LegalDocModalProps) {
-  // 열려 있는 동안 Esc로 닫고, 뒤쪽 본문이 같이 스크롤되지 않게 막는다.
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [onClose]);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalDismiss(dialogRef, onClose);
 
   return (
       <div
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-label={title}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6"
+          tabIndex={-1}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6 focus:outline-none"
           onClick={onClose}
       >
         <div

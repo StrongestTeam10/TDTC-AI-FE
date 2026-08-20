@@ -1,26 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import styles from './CctvDashboard.module.css';
 import CctvEmergencyOverlay from './CctvEmergencyOverlay';
 import CctvMetricCards from './CctvMetricCards';
 import CctvZoneGallery from './CctvZoneGallery';
 import CctvZonePopupModal from './CctvZonePopupModal';
 import CctvRiskChartCard from './CctvRiskChartCard';
-import CctvWeatherCard from './CctvWeatherCard';
 import ErrorBanner from '../ui/ErrorBanner';
-import { fetchCctvResultVideoUrl, triggerCctvAlert } from '../../api/cctvClient';
+import { triggerCctvAlert } from '../../api/cctvClient';
 import { fetchUnresolvedAlerts, fetchVideoClips, fetchPostReports, resolveAlert } from '../../api/client';
 import { CCTV_ZONES, cctvZoneName } from '../../constants/cctvZone';
-import { WEATHER_SCENARIOS } from '../../constants/weatherScenario';
 import { useCctvStream } from '../../hooks/useCctvStream';
 import { useCriScore } from '../../hooks/useCriScore';
 import { useEmergencyTimer } from '../../hooks/useEmergencyTimer';
 import type { ControlParams, EmergencyAlert, WeatherMode, VideoClip } from '../../types/cctv';
-import {
-  DEFAULT_CONTROL_PARAMS,
-  estimateOccupancyRate,
-  estimateStagnationSec,
-  formatStoppage,
-} from '../../utils/criScore';
+import { DEFAULT_CONTROL_PARAMS, formatStoppage } from '../../utils/criScore';
 import { toDisplayErrorMessage } from '../../utils/errorMessage';
 
 // 2026-08-06 신규: public/mangwon/index.html + dashboard.js를 대체하는 React 관제 대시보드.
@@ -30,21 +23,20 @@ import { toDisplayErrorMessage } from '../../utils/errorMessage';
 // (2) 로그인 JWT가 전달되지 않아 BE 데이터를 하나도 못 읽고 (3) 앱 다크모드와 따로 놀았다.
 // 세 문제 모두 iframe을 없애면서 사라진다.
 //
-// 영상 재생 위치가 곧 관제 프레임이라, currentFrame을 이 컴포넌트가 들고 있고
-// 지표/스코어/비상 타이머는 전부 그 파생값으로 계산된다.
-
-/** 원본과 동일하게 1초당 10프레임 기준으로 타임라인을 끊는다. */
-const FRAMES_PER_SECOND = 10;
-
-/** timeupdate가 초당 수십 번 올라오므로 이 간격으로만 상태를 갱신한다. */
-const FRAME_UPDATE_THROTTLE_MS = 180;
+// (2026-08-20: 여기 있던 FRAMES_PER_SECOND / FRAME_UPDATE_THROTTLE_MS 는 MP4 재생
+//  위치를 프레임으로 환산하던 상수였다. 03ec190 에서 MP4 업로드가 MJPEG 실시간 뷰어로
+//  바뀌며 쓰는 곳이 없어졌고, 지금 관제 프레임은 useCctvStream 의 liveFrameId 가 준다.)
 
 export default function CctvControlDashboard() {
   // ----- 관제 파라미터 & 기상 시나리오 -----
-  const [params, setParams] = useState<ControlParams>(DEFAULT_CONTROL_PARAMS);
+  // 2026-08-20: setParams / setWeatherMode 는 d20913f UI 개편 때 조절 패널(CctvWeatherCard,
+  // onParamsChange)이 빠지면서 호출부가 없어졌다. 값 자체는 아래 useCriScore /
+  // useEmergencyTimer 가 계속 읽으므로 state 는 남기고, setter 만 _ 로 "의도적 미사용"
+  // 표시한다. 조절 UI 를 되살릴 때 _ 를 떼고 쓰면 된다.
+  const [params, _setParams] = useState<ControlParams>(DEFAULT_CONTROL_PARAMS);
   const [selectedZoneId, setSelectedZoneId] = useState<number | null>(null);
   const [expandedZoneId, setExpandedZoneId] = useState<number | null>(null);
-  const [weatherMode, setWeatherMode] = useState<WeatherMode>('PREDICTIVE_RAIN');
+  const [weatherMode, _setWeatherMode] = useState<WeatherMode>('PREDICTIVE_RAIN');
 
   // ----- AI 파이프라인 실시간 스트림 -----
   const stream = useCctvStream();
@@ -97,13 +89,10 @@ export default function CctvControlDashboard() {
 
 
   // ----- 현재 프레임의 관제 지표 결정 -----
-  // 우선순위: AI 스트림 실측 > 정적 폴백(원본 영상 604프레임) > 0
-  // 스트림 데이터가 하나라도 들어온 뒤에는 폴백을 조회하지 않는다. 업로드한 영상을
-  // 보고 있는데 원본 영상의 인원수가 섞여 나오면 안 되기 때문이다(원본 동작 유지).
-  const hasStreamData = useMemo(() => {
-    return Object.values(stream.multiZoneFrameData).some(zoneData => Object.keys(zoneData).length > 0);
-  }, [stream.multiZoneFrameData]);
-
+  // AI 스트림 실측이 있으면 그 값을, 없으면 0(isEstimated=true)을 쓴다.
+  // (2026-08-20: 예전엔 "정적 폴백 데이터셋(원본 영상 604프레임)"이 한 단계 더 있어서
+  //  hasStreamData 로 폴백 조회를 막았는데, 그 데이터셋이 46bfabf 에서 사라져 가드할
+  //  대상이 없어졌다. 계산만 남아 있던 hasStreamData 를 제거했다.)
   const rawZones = useMemo(() => {
     const getZoneData = (zId: number) => {
       const targetFrame = stream.liveFrameId || 1;
@@ -297,8 +286,8 @@ export default function CctvControlDashboard() {
             <div className={styles.inlineLogBox}>
               <div className={styles.inlineLogTitle}>
                 <span>🔔 미해결 알람 및 관제 로그</span>
-                <button className={styles.btnRefresh} onClick={() => loadAlerts('ALARM')} disabled={loadingType === 'ALARM'} title="새로고침">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={loadingType === 'ALARM' ? styles.spinIcon : ''}>
+                <button type="button" className={styles.btnRefresh} onClick={() => loadAlerts('ALARM')} disabled={loadingType === 'ALARM'} title="새로고침" aria-label="미해결 알람 및 관제 로그 새로고침">
+                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={loadingType === 'ALARM' ? styles.spinIcon : ''}>
                     <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
                     <path d="M21 3v5h-5" />
                   </svg>
@@ -307,6 +296,11 @@ export default function CctvControlDashboard() {
               </div>
 
               <div className={styles.inlineLogContent}>
+                {/* 2026-08-20: alertError 는 d20913f 개편 때 표시 컴포넌트가 사라지면서
+                    set 만 되고 어디에도 안 그려지고 있었다. 10초 폴링이 실패해도 콘솔
+                    말고는 아무 신호가 없었다(video-clips 500 이 실제로 그 경우였다).
+                    같은 커밋에서 import 만 남고 안 쓰이던 ErrorBanner 로 다시 연결한다. */}
+                {alertError && <ErrorBanner message={alertError} onRetry={() => loadAlerts('ALARM')} />}
                 {alerts.length === 0 ? (
                   <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                     현재 해결되지 않은 긴급 알람이 없습니다.
@@ -336,7 +330,7 @@ export default function CctvControlDashboard() {
                                   {new Date(alert.alertedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                                   {` [구역 ${alert.zoneId}]`}
                                 </div>
-                                <div className={styles.inlineLogDesc} style={{ color: alert.isResolved ? '#10b981' : '#ef4444' }}>
+                                <div className={styles.inlineLogDesc} style={{ color: alert.isResolved ? 'var(--color-safe)' : 'var(--color-danger)' }}>
                                   {alert.alertType} ({alert.isResolved ? 'RESOLVED' : 'UNRESOLVED'})
                                 </div>
                               </div>
@@ -359,12 +353,12 @@ export default function CctvControlDashboard() {
                           {(clip || pdf) && (
                             <div style={{ display: 'flex', gap: '8px', marginTop: '8px', justifyContent: 'flex-end' }}>
                               {clip && (
-                                <button className={styles.btnInlineDownload} onClick={() => window.open(clip.s3ClipUrl || '', '_blank')} style={{ background: '#ef4444', border: 'none', color: '#fff' }}>
+                                <button className={styles.btnInlineDownload} onClick={() => window.open(clip.s3ClipUrl || '', '_blank')} style={{ background: 'var(--color-danger)', border: 'none', color: '#fff' }}>
                                   ⬇️ 위험 클립 (35s)
                                 </button>
                               )}
                               {pdf && (
-                                <button className={styles.btnInlineDownload} onClick={() => window.open(pdf.s3PdfUrl, '_blank')} style={{ background: '#3b82f6', border: 'none', color: '#fff' }}>
+                                <button className={styles.btnInlineDownload} onClick={() => window.open(pdf.s3PdfUrl, '_blank')} style={{ background: 'var(--color-accent)', border: 'none', color: '#fff' }}>
                                   ⬇️ PDF 명세서
                                 </button>
                               )}
@@ -380,8 +374,8 @@ export default function CctvControlDashboard() {
             <div className={styles.inlineLogBox}>
               <div className={styles.inlineLogTitle}>
                 <span>🎥 정기 녹화 영상 </span>
-                <button className={styles.btnRefresh} onClick={() => loadAlerts('VIDEO')} disabled={loadingType === 'VIDEO'} title="새로고침">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={loadingType === 'VIDEO' ? styles.spinIcon : ''}>
+                <button type="button" className={styles.btnRefresh} onClick={() => loadAlerts('VIDEO')} disabled={loadingType === 'VIDEO'} title="새로고침" aria-label="정기 녹화 영상 새로고침">
+                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={loadingType === 'VIDEO' ? styles.spinIcon : ''}>
                     <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
                     <path d="M21 3v5h-5" />
                   </svg>
