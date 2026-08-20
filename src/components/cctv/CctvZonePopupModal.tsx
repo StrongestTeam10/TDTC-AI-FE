@@ -87,13 +87,13 @@ export default function CctvZonePopupModal({
             {/* 블러 배경 처리 */}
             <img
               className={styles.layerPopupVideoBlur}
-              src={`${CCTV_API_BASE_URL}/api/v1/cctv/stream?zone_id=${zoneId}&ngrok-skip-browser-warning=true`}
+              src={`${CCTV_API_BASE_URL}/api/v1/cctv/stream?zone_id=${zoneId}`}
               alt={`Zone ${zoneId} Blur Background`}
             />
             {/* 메인 영상 */}
             <img
               className={styles.layerPopupVideoMain}
-              src={`${CCTV_API_BASE_URL}/api/v1/cctv/stream?zone_id=${zoneId}&ngrok-skip-browser-warning=true`}
+              src={`${CCTV_API_BASE_URL}/api/v1/cctv/stream?zone_id=${zoneId}`}
               alt={`Zone ${zoneId} Live Stream`}
             />
             <div style={{ position: 'absolute', top: 16, left: 16, background: 'rgba(0,0,0,0.7)', padding: '6px 12px', borderRadius: 8, color: '#fff', fontWeight: 'bold', zIndex: 20 }}>

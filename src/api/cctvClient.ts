@@ -26,23 +26,11 @@ export const CCTV_API_BASE_URL = import.meta.env.VITE_CCTV_API_BASE_URL ?? `${pr
 export const CCTV_WS_URL =
     import.meta.env.VITE_CCTV_WS_URL ?? `${wsProtocol}//${host}:8088/ws/cctv-stream`;
 
-// 2026-08-10 추가: ngrok 무료 플랜의 브라우저 경고 페이지를 건너뛴다.
-//
-// ngrok은 User-Agent가 브라우저로 보이는 요청을 가로채 "You are about to visit..."
-// 안내 페이지(ERR_NGROK_6024)를 대신 돌려준다. 그 응답에는 CORS 헤더가 없어서
-// 브라우저가 차단하고, 콘솔에는 서버가 CORS를 안 걸어둔 것처럼 보인다.
-// 실제로는 AI 서버의 CORS 설정이 정상이며, ngrok이 응답을 가로챈 것이다.
-//
-// 이 헤더를 붙이면 값과 무관하게 안내 페이지를 건너뛴다.
-// 커스텀 헤더라 프리플라이트(OPTIONS)가 발생하지만, AI 서버가 allow_headers=["*"]라
-// 통과한다(2026-08-10 실측 확인).
-const NGROK_SKIP_WARNING = { 'ngrok-skip-browser-warning': 'true' } as const;
 
 const cctvApiClient = axios.create({
   baseURL: CCTV_API_BASE_URL,
   // 영상 업로드는 파일 크기에 따라 오래 걸릴 수 있어 Java BE(15초)보다 넉넉하게 잡는다.
   timeout: 120_000,
-  headers: { ...NGROK_SKIP_WARNING },
 });
 
 export interface CctvUploadResponse {
