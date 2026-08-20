@@ -850,7 +850,7 @@ export default function HeatmapView3D({
           const t = c.animDuration > 0
             ? Math.min(1, (now - c.animStart) / c.animDuration)
             : 1;
-          // 2026-08-20: ease-out(t*(2-t))에서 등속(linear)으로 되돌렸다.
+          // ease-out(t*(2-t))에서 등속(linear)으로 되돌렸다.
           //
           // 이징은 "A에서 B로 한 번 이동"하는 UI 요소용이다. 여기는 사람이 계속
           // 걷는 연속 이동이라 스텝 경계에서 속도가 이어져야 하는데, t*(2-t)는
