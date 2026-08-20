@@ -1,8 +1,12 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Spinner from '../components/ui/Spinner';
 import ErrorBanner from '../components/ui/ErrorBanner';
-import RichTextEditor from '../components/RichTextEditor';
+// 2026-08-20 (성능): 정적 import → React.lazy. tiptap+prosemirror 는 이 화면(글쓰기/수정)
+// 에서만 쓰이는데 정적으로 두면 메인 번들에 통째로 들어가, 게시판만 읽는 사용자도
+// 에디터 엔진을 내려받는다. HeatmapView3D 와 같은 패턴 - /board/write 진입 시에만
+// 별도 청크로 로드되고, 폴백은 에디터 높이(min-h-[240px])를 그대로 잡아 레이아웃이 안 튄다.
+const RichTextEditor = lazy(() => import('../components/RichTextEditor'));
 import FileDropzone from '../components/FileDropzone';
 import { useAuthStore } from '../store/authStore';
 import { createPost, fetchPostDetail, updatePost } from '../api/client';
@@ -284,7 +288,9 @@ export default function BoardWritePage() {
 
         <div>
           <label className="mb-1 block text-sm text-slate-500 dark:text-slate-400">내용</label>
-          <RichTextEditor value={content} onChange={setContent} />
+          <Suspense fallback={<div className="min-h-[240px] rounded-b border border-t-0 border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-sm text-slate-500">에디터를 불러오는 중...</div>}>
+              <RichTextEditor value={content} onChange={setContent} />
+            </Suspense>
         </div>
 
         {isAdmin && (

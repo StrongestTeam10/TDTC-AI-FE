@@ -29,10 +29,12 @@ import { toDisplayErrorMessage } from '../../utils/errorMessage';
 
 export default function CctvControlDashboard() {
   // ----- 관제 파라미터 & 기상 시나리오 -----
-  // 2026-08-20: setParams / setWeatherMode 는 d20913f UI 개편 때 조절 패널(CctvWeatherCard,
-  // onParamsChange)이 빠지면서 호출부가 없어졌다. 값 자체는 아래 useCriScore /
-  // useEmergencyTimer 가 계속 읽으므로 state 는 남기고, setter 만 _ 로 "의도적 미사용"
-  // 표시한다. 조절 UI 를 되살릴 때 _ 를 떼고 쓰면 된다.
+  // 2026-08-20: setParams / setWeatherMode 는 d20913f UI 개편 때 조절 패널이 빠지면서
+  // 호출부가 없어졌다. 값 자체는 아래 useCriScore(기상 배율)와 useEmergencyTimer 가
+  // 계속 읽으므로 state 는 남기고, setter 만 _ 로 "의도적 미사용" 표시한다.
+  // (조절 UI 였던 CctvWeatherCard 일가는 팀 결정으로 8/20 삭제 - 되살리려면 git 이력의
+  //  d20913f 이전 버전을 참고해 새로 만들어야 한다. WEATHER_SCENARIOS 상수도 함께 갔고,
+  //  CRI 의 기상 배율은 utils/criScore 의 WEATHER_MULTIPLIER 로 독립적이라 영향 없다.)
   const [params, _setParams] = useState<ControlParams>(DEFAULT_CONTROL_PARAMS);
   const [selectedZoneId, setSelectedZoneId] = useState<number | null>(null);
   const [expandedZoneId, setExpandedZoneId] = useState<number | null>(null);
