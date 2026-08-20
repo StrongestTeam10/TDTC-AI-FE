@@ -51,8 +51,16 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
 
   // 수정 화면에서 비동기로 기존 게시글을 불러온 뒤 value가 뒤늦게 채워지는 경우,
   // 에디터 초기 콘텐츠를 한 번 더 동기화함
+  //
+  // 2026-08-20 버그 수정: isDestroyed 확인을 추가함.
+  // StrictMode는 개발 모드에서 컴포넌트를 두 번 마운트하는데(mount → unmount → mount),
+  // 그 사이 첫 에디터 인스턴스는 destroy된다. 수정 화면은 게시글을 비동기로 받아
+  // value가 뒤늦게 채워지므로 이 effect가 한 박자 늦게 실행되고, 그때 이미 버려진
+  // 에디터의 getHTML()을 부르면 내부 스키마가 없어
+  // "Cannot read properties of null (reading 'cached')"로 죽었다.
+  // (글쓰기 화면은 value가 처음부터 비어 있어 이 경로를 타지 않아 멀쩡했다.)
   useEffect(() => {
-    if (editor && value !== editor.getHTML() && !editor.isFocused) {
+    if (editor && !editor.isDestroyed && value !== editor.getHTML() && !editor.isFocused) {
       editor.commands.setContent(value, { emitUpdate: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
