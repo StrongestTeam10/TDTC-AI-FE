@@ -1,8 +1,13 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, lazy, Suspense } from 'react';
 // 2026-08-19: 비교 지도를 3D(HeatmapView3D)로 교체했다. 2D판(HeatmapView)은
 // 같은 props 계약을 유지한 채 src/components/HeatmapView.tsx에 그대로 남아 있어,
 // 되돌리려면 이 import와 아래 두 곳의 컴포넌트 이름만 바꾸면 된다.
-import HeatmapView3D from '../components/HeatmapView3D';
+//
+// 2026-08-20: 정적 import → React.lazy. three.js 가 이 컴포넌트에만 쓰이는데 정적으로
+// 두면 첫 번들에 통째로 들어가(전체 JS 2.04MB 중 ~0.6MB) 게시판만 보는 조회자도 3D
+// 엔진을 내려받는다. lazy 로 떼면 /compare 진입 시에만 별도 청크로 로드된다.
+// 폴백은 기존 공용 Spinner - 지도 영역 크기는 부모 div 가 잡고 있어 레이아웃이 안 튄다.
+const HeatmapView3D = lazy(() => import('../components/HeatmapView3D'));
 import ScenarioForm from '../components/ScenarioForm';
 import EventSettingsPanel from '../components/EventSettingsPanel';
 import PolicyAnalysisPanel from '../components/PolicyAnalysisPanel';
@@ -1136,27 +1141,29 @@ export default function SimulationComparePage() {
               <div className="flex h-[380px] min-w-0 flex-1 flex-col md:h-auto">
                 <div className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">개입 전 (Before)</div>
                 <div className="flex-1 relative rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900">
-                  <HeatmapView3D
-                    zones={zones}
-                    agents={getBeforeAgents()}
-                    zoneRisks={getZoneRisks(predictResult?.riskTrend)}
-                    width="100%"
-                    height="100%"
-                    transitionMs={intervalMs}
-                    buildings={buildings}
-                    currentStep={currentStepNumber}
-                    corridors={corridors}
-                    gates={gates}
-                    closedGateIds={beforeClosedGateIds}
-                    placedObjects={baselineObjects}
-                    placementType={beforePlacementType}
-                    onPlaceObject={handlePlaceObject}
-                    events={visibleEvents}
-                    focusEvent={focusEvent}
-                    viewCenter={mapViewport ? { lon: mapViewport.lon, lat: mapViewport.lat } : undefined}
-                    viewZoom={mapViewport?.zoom}
-                    onViewportChange={setMapViewport}
-                  />
+                  <Suspense fallback={<Spinner label="3D 지도를 불러오는 중..." />}>
+                    <HeatmapView3D
+                      zones={zones}
+                      agents={getBeforeAgents()}
+                      zoneRisks={getZoneRisks(predictResult?.riskTrend)}
+                      width="100%"
+                      height="100%"
+                      transitionMs={intervalMs}
+                      buildings={buildings}
+                      currentStep={currentStepNumber}
+                      corridors={corridors}
+                      gates={gates}
+                      closedGateIds={beforeClosedGateIds}
+                      placedObjects={baselineObjects}
+                      placementType={beforePlacementType}
+                      onPlaceObject={handlePlaceObject}
+                      events={visibleEvents}
+                      focusEvent={focusEvent}
+                      viewCenter={mapViewport ? { lon: mapViewport.lon, lat: mapViewport.lat } : undefined}
+                      viewZoom={mapViewport?.zoom}
+                      onViewportChange={setMapViewport}
+                    />
+                  </Suspense>
                 </div>
               </div>
 
@@ -1165,28 +1172,30 @@ export default function SimulationComparePage() {
                   <span>개입 후 (After)</span>
                 </div>
                 <div className="flex-1 relative rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900">
-                  <HeatmapView3D
-                    zones={zones}
-                    agents={getAfterAgents()}
-                    zoneRisks={getZoneRisks(scenarioResult?.riskTrend)}
-                    width="100%"
-                    height="100%"
-                    transitionMs={intervalMs}
-                    buildings={buildings}
-                    currentStep={currentStepNumber}
-                    corridors={corridors}
-                    gates={gates}
-                    closedGateIds={afterClosedGateIds}
-                    onGateClick={handleAfterGateClick}
-                    placementType={placementType}
-                    onPlaceObject={handlePlaceObject}
-                    placedObjects={objects}
-                    events={visibleEvents}
-                    focusEvent={focusEvent}
-                    viewCenter={mapViewport ? { lon: mapViewport.lon, lat: mapViewport.lat } : undefined}
-                    viewZoom={mapViewport?.zoom}
-                    onViewportChange={setMapViewport}
-                  />
+                  <Suspense fallback={<Spinner label="3D 지도를 불러오는 중..." />}>
+                    <HeatmapView3D
+                      zones={zones}
+                      agents={getAfterAgents()}
+                      zoneRisks={getZoneRisks(scenarioResult?.riskTrend)}
+                      width="100%"
+                      height="100%"
+                      transitionMs={intervalMs}
+                      buildings={buildings}
+                      currentStep={currentStepNumber}
+                      corridors={corridors}
+                      gates={gates}
+                      closedGateIds={afterClosedGateIds}
+                      onGateClick={handleAfterGateClick}
+                      placementType={placementType}
+                      onPlaceObject={handlePlaceObject}
+                      placedObjects={objects}
+                      events={visibleEvents}
+                      focusEvent={focusEvent}
+                      viewCenter={mapViewport ? { lon: mapViewport.lon, lat: mapViewport.lat } : undefined}
+                      viewZoom={mapViewport?.zoom}
+                      onViewportChange={setMapViewport}
+                    />
+                  </Suspense>
 
                 </div>
               </div>

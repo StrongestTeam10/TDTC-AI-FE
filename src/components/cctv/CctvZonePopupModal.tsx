@@ -88,13 +88,13 @@ export default function CctvZonePopupModal({
             <img
               className={styles.layerPopupVideoBlur}
               src={`${CCTV_API_BASE_URL}/api/v1/cctv/stream?zone_id=${zoneId}`}
-              alt={`Zone ${zoneId} Blur Background`}
+              alt=""   // 장식(블러 배경). NVDA 검증에서 영어 alt 가 낭독되던 것 수정
             />
             {/* 메인 영상 */}
             <img
               className={styles.layerPopupVideoMain}
               src={`${CCTV_API_BASE_URL}/api/v1/cctv/stream?zone_id=${zoneId}`}
-              alt={`Zone ${zoneId} Live Stream`}
+              alt=""   // 영상 자체가 정보이나 대체 수단(우측 수치·상태)이 있어 장식 처리
             />
             <div style={{ position: 'absolute', top: 16, left: 16, background: 'rgba(0,0,0,0.7)', padding: '6px 12px', borderRadius: 8, color: '#fff', fontWeight: 'bold', zIndex: 20 }}>
               {zoneName}

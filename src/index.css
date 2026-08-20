@@ -7,6 +7,36 @@
    있을 때만 dark: 유틸리티가 적용됨) - store/themeStore.ts가 이 클래스를 붙였다 뗐다 함. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* 2026-08-20 추가: 디자인 토큰 1단계 (감사 P2 "토큰 통합").
+   그동안 같은 의미의 색이 두 시스템에 따로 살았다 - Tailwind 쪽은 원시 유틸리티
+   (bg-blue-600 91곳 등)로, 관제 대시보드는 CSS 모듈 변수(--color-danger 등)로.
+   값을 대조하니 CCTV 신호색은 Tailwind 표준 팔레트와 정확히 일치했다
+   (다크 면=500 계열, 라이트 면=600·700 계열). 그래서 여기서 의미 토큰으로 선언하고
+   CctvDashboard.module.css 가 이 변수들을 참조하게 이었다 - 이제 브랜드/신호색을
+   바꿀 곳은 여기 하나다.
+   @theme 은 토큰을 :root CSS 변수(--color-*)로 내보내는 동시에 유틸리티
+   (bg-brand, text-signal-danger …)도 만들어 주므로, 기존 원시 유틸리티를
+   한꺼번에 치환하지 않고도 새 코드부터 토큰을 쓸 수 있다.
+   전면 치환(bg-blue-600 -> bg-brand 등 90여 파일)은 회귀 위험 대비 실익이 낮아
+   다음 단계로 남긴다. */
+@theme static {
+  /* 브랜드 - 버튼·링크·포커스 링의 지배색 (= blue-600) */
+  --color-brand: #2563eb;
+  --color-brand-soft: #3b82f6;          /* blue-500 - 어두운 면 위 */
+
+  /* 관제 신호색. 기본(다크 면)과 -strong(라이트 면, 한 단계 진함) 쌍 */
+  --color-signal-safe: #10b981;          /* emerald-500 */
+  --color-signal-safe-strong: #047857;   /* emerald-700 */
+  --color-signal-warn: #f59e0b;          /* amber-500 */
+  --color-signal-warn-strong: #b45309;   /* amber-700 */
+  --color-signal-danger: #ef4444;        /* red-500 */
+  --color-signal-danger-strong: #dc2626; /* red-600 */
+  --color-signal-accent: #3b82f6;        /* blue-500 */
+  --color-signal-accent-strong: #2563eb; /* blue-600 */
+  --color-signal-purple: #8b5cf6;        /* violet-500 */
+  --color-signal-purple-strong: #7c3aed; /* violet-600 */
+}
+
 :root {
   color-scheme: light;
 }

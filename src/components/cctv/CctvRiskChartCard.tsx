@@ -1,3 +1,4 @@
+import type React from 'react';
 import {
   Area,
   AreaChart,
@@ -61,11 +62,18 @@ export default function CctvRiskChartCard({
         <div className={styles.progressBarContainer}>
           <div
               className={styles.progressBar}
-              style={{ width: `${smoothCri}%`, backgroundColor: barColor }}
+              style={{ '--cri-scale': smoothCri / 100, backgroundColor: barColor } as React.CSSProperties}
           />
         </div>
 
-        <div className={styles.lineChartContainer}>
+        {/* 2026-08-20 (NVDA 실검증): Recharts 의 키보드 데이터 탐색(role="application",
+            방향키로 포인트 낭독)은 유용한 기능이지만, 이 차트는 초 단위 실시간 갱신이라
+            탐색 중 발밑에서 데이터가 바뀐다 - 실제 로그에서 같은 시점(-29s)이 연속
+            5번 다른 값(26.8→27→34.4→35.8→28.6)으로 읽혔다. 안정된 값을 읽을 수 없는
+            차트는 탐색 대상으로 부적합하고, 현재 위험도·상태는 바로 위 텍스트(관제
+            경보 라벨, 종합 위험 지수 N pt)가 제공하므로 보조기기에서 가린다.
+            (/compare 의 추이 차트는 사용자가 재생을 멈추면 안정되므로 탐색을 살려 둠) */}
+        <div className={styles.lineChartContainer} aria-hidden="true">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={history} margin={{ top: 8, right: 12, bottom: 0, left: -20 }}>
               <CartesianGrid stroke={chartTheme.grid} />

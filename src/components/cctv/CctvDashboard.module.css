@@ -29,11 +29,13 @@
     --tint-rgb: 255, 255, 255;
     --shadow-rgb: 0, 0, 0;
 
-    --color-safe: #10b981;
-    --color-warning: #f59e0b;
-    --color-danger: #ef4444;
-    --color-accent: #3b82f6;
-    --color-purple: #8b5cf6;
+    /* 2026-08-20: 값을 직접 들고 있던 것을 index.css @theme 의 의미 토큰 참조로.
+       색을 바꿀 곳은 이제 @theme 하나다. (다크 면 = 기본 토큰) */
+    --color-safe: var(--color-signal-safe);
+    --color-warning: var(--color-signal-warn);
+    --color-danger: var(--color-signal-danger);
+    --color-accent: var(--color-signal-accent);
+    --color-purple: var(--color-signal-purple);
 
     --drawer-width: 360px;
 
@@ -1002,8 +1004,14 @@
 
 .progress-bar {
     height: 100%;
-    width: 0%;
-    transition: width 0.2s ease, background-color 0.2s ease;
+    /* 2026-08-20 (성능): width % 전환 → transform scaleX. 이 바는 useSmoothNumber 가
+       rAF 프레임마다 값을 밀어 넣는 실시간 표시라, width 갱신은 매 프레임 리플로를
+       만들었다(24시간 켜두는 화면). scaleX 는 컴포지터에서만 처리된다.
+       width 는 100% 고정, 배율은 인라인 --cri-scale 변수로 받는다(CctvRiskChartCard). */
+    width: 100%;
+    transform-origin: left center;
+    transform: scaleX(var(--cri-scale, 0));
+    transition: transform 0.2s ease, background-color 0.2s ease;
 }
 
 .line-chart-container {
@@ -1798,11 +1806,12 @@
     --tint-rgb: 15, 23, 42;
     --shadow-rgb: 148, 163, 184;
 
-    --color-safe: #047857;
-    --color-warning: #b45309;
-    --color-danger: #dc2626;
-    --color-accent: #2563eb;
-    --color-purple: #7c3aed;
+    /* 라이트 면 = -strong 토큰 (한 단계 진한 계열) */
+    --color-safe: var(--color-signal-safe-strong);
+    --color-warning: var(--color-signal-warn-strong);
+    --color-danger: var(--color-signal-danger-strong);
+    --color-accent: var(--color-signal-accent-strong);
+    --color-purple: var(--color-signal-purple-strong);
 }
 
 /* 큰 그림자는 라이트 배경에서 얼룩처럼 보여서 더 얕게 깐다. */
