@@ -850,8 +850,16 @@ export default function HeatmapView3D({
           const t = c.animDuration > 0
             ? Math.min(1, (now - c.animStart) / c.animDuration)
             : 1;
-          // 끝에서 살짝 감속시키면 스텝 전환이 덜 기계적으로 보인다.
-          const e = t * (2 - t);
+          // ease-out(t*(2-t))에서 등속(linear)으로 되돌렸다.
+          //
+          // 이징은 "A에서 B로 한 번 이동"하는 UI 요소용이다. 여기는 사람이 계속
+          // 걷는 연속 이동이라 스텝 경계에서 속도가 이어져야 하는데, t*(2-t)는
+          // 미분하면 2-2t라서 스텝 시작에 평균의 2배, 끝에 0이 된다. 즉 매 스텝
+          // "확 튀어나갔다 -> 멈췄다"를 0.5초 주기로 반복해 걸음이 덜컹거렸다.
+          //
+          // 2D판(HeatmapView.tsx)은 CSS transition을 linear로 쓰고 있었고,
+          // 3D로 옮기면서 이징이 들어가 움직임이 거칠어진 것이라 원래대로 맞춘다.
+          const e = t;
           if (scaleChanged) c.agentScale = wantScale;
           const s2 = c.agentScale;
 
