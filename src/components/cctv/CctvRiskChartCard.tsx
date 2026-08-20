@@ -44,7 +44,7 @@ export default function CctvRiskChartCard({
   return (
       <div className={`${styles.card} ${styles.chartCard}`} style={{ boxShadow: 'none' }}>
         <div className={styles.cardTitle}>
-          <span>📈 실시간 위험도 (CRI Score) 추이 그래프</span>
+          <span>📈 실시간 위험도 추이 그래프</span>
           <span className={styles.chartTag}>CRITICAL LIMIT: {CRITICAL_THRESHOLD_LINE}pt</span>
         </div>
 
