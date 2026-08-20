@@ -107,7 +107,7 @@ export default function BoardDetailPage() {
   if (!post) return null;
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-7xl space-y-6">
       <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>

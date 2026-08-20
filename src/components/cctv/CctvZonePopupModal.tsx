@@ -3,18 +3,29 @@ import React from 'react';
 import styles from './CctvDashboard.module.css';
 import { cctvZoneName } from '../../constants/cctvZone';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
+import type { CriHistoryPoint } from '../../hooks/useCriScore';
+import type { ControlStatusResult } from '../../utils/criScore';
 import CctvMetricCards from './CctvMetricCards';
 import CctvRiskChartCard from './CctvRiskChartCard';
+
+// 2026-08-20: any 3개를 실제 타입으로. statusResult/history 는 useCriScore 가 주는
+// 타입 그대로이고, metrics 는 호출부(CctvControlDashboard)가 넘기는 객체 중 이 모달이
+// 실제로 읽는 4개 필드만 좁혀 받는다 - README 의 "어긋나면 컴파일은 통과하고 런타임에
+// undefined 로 조용히 깨진다" 가 정확히 이 지점이었다.
+interface PopupMetrics {
+  pedestrianCount: number;
+  occupancyRate: number;
+  stagnationSec: number;
+  isEstimated: boolean;
+}
 
 interface Props {
   zoneId: number;
   onClose: () => void;
-  // useRef<HTMLVideoElement>(null) 의 타입은 RefObject<HTMLVideoElement | null> 이다.
-  // (React 19 타입 정의 기준) null 을 빼면 호출부에서 대입이 막힌다.
-  metrics: any;
+  metrics: PopupMetrics;
   cri: number;
-  statusResult: any;
-  history: any;
+  statusResult: ControlStatusResult;
+  history: CriHistoryPoint[];
   showEmergencyActions?: boolean;
   onResolveEmergency?: (type: 'dispatch' | 'false_alarm') => void;
 }

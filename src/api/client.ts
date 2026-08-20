@@ -19,6 +19,7 @@ import type {
   ExternalFactor,
   PedestrianCoordinate,
   VideoClip,
+  PostReport,
 } from '../types/cctv';
 import { getToken, notifyUnauthorized } from '../auth/tokenStore';
 
@@ -1111,8 +1112,8 @@ export async function fetchVideoClips(zoneId?: number): Promise<VideoClip[]> {
 }
 
 /** CCTV 긴급 상황 PDF 명세서 목록. s3PdfUrl은 BE가 만들어준 1시간짜리 presigned URL이다. */
-export async function fetchPostReports(zoneId?: number): Promise<any[]> {
-  const { data } = await apiClient.get<any[]>('/v1/post-reports', {
+export async function fetchPostReports(zoneId?: number): Promise<PostReport[]> {
+  const { data } = await apiClient.get<PostReport[]>('/v1/post-reports', {
     params: zoneId ? { zoneId } : undefined
   });
   return data;

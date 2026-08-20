@@ -15,6 +15,8 @@ import {
   createMarket,
   updateMarket,
   splitZones,
+  updateZone,
+  deleteZone,
   importBuildings,
   fetchMarkets,
   fetchZones,
@@ -102,8 +104,19 @@ export default function MarketRegisterPage() {
   const [knownMarkets, setKnownMarkets] = useState<Market[]>([]);
   /** 안내를 닫았는지. 이름이나 코드를 고치면 다시 열린다. */
   const [dismissedExisting, setDismissedExisting] = useState(false);
-  /** 이어서 진행할 때, 그 시장에 이미 있던 구역 수. 0보다 크면 2단계에서 경고한다. */
-  const [existingZoneCount, setExistingZoneCount] = useState(0);
+  /**
+   * 이어서 진행할 때, 그 시장에 이미 있던 구역들. 예전에는 개수만 세서 경고문에
+   * 썼는데, 그러면 기존 구역이 어디에 있는지 안 보여서 새 구역을 겹치게 그리거나
+   * 이름이 충돌하는 사고가 났다. 폴리곤째 들고 있으면서 3단계 지도에 회색 점선으로
+   * 깔아주고, 목록에서 이름 수정·삭제도 바로 할 수 있게 한다.
+   */
+  const [existingZones, setExistingZones] = useState<Zone[]>([]);
+  const existingZoneCount = existingZones.length;
+  /** 기존 구역 중 지금 이름을 고치고 있는 것. null이면 편집 중 아님. */
+  const [editingZoneId, setEditingZoneId] = useState<number | null>(null);
+  const [editingZoneName, setEditingZoneName] = useState('');
+  /** 이름 수정/삭제 요청이 진행 중인 구역. 그 행의 버튼만 잠근다. */
+  const [zoneBusyId, setZoneBusyId] = useState<number | null>(null);
 
   // 2단계
   const [drawPhase, setDrawPhase] = useState<DrawPhase>('area');
@@ -198,7 +211,7 @@ export default function MarketRegisterPage() {
         longitude: centerLng,
       });
       setMarket(created);
-      setExistingZoneCount(0);
+      setExistingZones([]);
       // 새로 만든 시장이라 건물도 구역도 없다. 이전 시장의 값이 남지 않게 비운다.
       setExistingBuildingCount(0);
       setBuildingShapes([]);
@@ -265,7 +278,7 @@ export default function MarketRegisterPage() {
         longitude: centerLng,
       });
       const zones = await fetchZones(updated.marketId);
-      setExistingZoneCount(zones.length);
+      setExistingZones(zones);
       await loadBuildingShapes(updated.marketId);
       setMarket(updated);
       setDismissedExisting(true);
@@ -286,7 +299,7 @@ export default function MarketRegisterPage() {
       // 이미 구역이 있으면 2단계에서 알려줘야 한다. 분할은 기존 구역을 지우지 않고
       // 새로 더하기만 하므로, 모르고 진행하면 구역이 중복으로 쌓인다.
       const zones = await fetchZones(existingMarket.marketId);
-      setExistingZoneCount(zones.length);
+      setExistingZones(zones);
       await loadBuildingShapes(existingMarket.marketId);
       setMarket(existingMarket);
       setDismissedExisting(true);
@@ -295,6 +308,46 @@ export default function MarketRegisterPage() {
       setError(toDisplayErrorMessage(err, '구역 정보를 불러오지 못했습니다.'));
     } finally {
       setSaving(false);
+    }
+  }
+
+  /** 기존 구역 이름 수정 확정. 폴리곤은 그대로 두고 이름만 바꾼다(PUT은 둘 다 요구). */
+  async function handleRenameZone(zone: Zone) {
+    const nextName = editingZoneName.trim();
+    if (!nextName || nextName === zone.zoneName) {
+      setEditingZoneId(null);
+      return;
+    }
+    setZoneBusyId(zone.zoneId);
+    setError(null);
+    try {
+      const updated = await updateZone(zone.zoneId, {
+        zoneName: nextName,
+        polygonCoordinates: zone.polygonCoordinates,
+      });
+      setExistingZones((previous) =>
+        previous.map((known) => (known.zoneId === updated.zoneId ? updated : known))
+      );
+      setEditingZoneId(null);
+    } catch (err) {
+      setError(toDisplayErrorMessage(err, '구역 이름을 수정하지 못했습니다.'));
+    } finally {
+      setZoneBusyId(null);
+    }
+  }
+
+  async function handleDeleteZone(zone: Zone) {
+    // CCTV 구역이 물려 있으면 BE가 구체적인 안내와 함께 거부한다(ZoneService.deleteZone).
+    if (!window.confirm(`"${zone.zoneName}" 구역을 삭제할까요? 연결된 통로 정보도 함께 삭제됩니다.`)) return;
+    setZoneBusyId(zone.zoneId);
+    setError(null);
+    try {
+      await deleteZone(zone.zoneId);
+      setExistingZones((previous) => previous.filter((known) => known.zoneId !== zone.zoneId));
+    } catch (err) {
+      setError(toDisplayErrorMessage(err, '구역을 삭제하지 못했습니다.'));
+    } finally {
+      setZoneBusyId(null);
     }
   }
 
@@ -467,6 +520,25 @@ export default function MarketRegisterPage() {
   }
 
   /**
+   * 3단계 건너뛰기. 이미 구역이 있는 시장을 다시 들어왔을 때(이름 수정·삭제만 하고
+   * 싶을 때) 억지로 선을 긋지 않고 완료로 넘어가는 길이다. 구역이 하나도 없으면
+   * 시뮬레이션도 CCTV 구역 등록(zone_id 필수)도 못 하므로 확인을 한 번 받는다.
+   */
+  function handleSkipZones() {
+    if (
+      existingZoneCount === 0 &&
+      !window.confirm(
+        '구역이 하나도 없는 상태로 완료할까요? 구역이 없으면 시뮬레이션과 CCTV 구역 등록을 할 수 없습니다.'
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    setCreatedZones([]);
+    setStep(4);
+  }
+
+  /**
    * 구역에서 먼 건물이 몇 개인지 세어본다(지우지 않는다).
    * 건물이 없거나 구역이 없으면 조용히 넘어간다 - 안내할 것이 없다.
    */
@@ -548,7 +620,10 @@ export default function MarketRegisterPage() {
       setCutLines([]);
       setZoneNames([]);
       if (createdZones.length > 0) {
-        setExistingZoneCount(createdZones.length);
+        setExistingZones((previous) => {
+          const known = new Set(previous.map((zone) => zone.zoneId));
+          return [...previous, ...createdZones.filter((zone) => !known.has(zone.zoneId))];
+        });
       }
     }
     setStep(target);
@@ -562,7 +637,7 @@ export default function MarketRegisterPage() {
     setCenterLng(null);
     setMarket(null);
     setDismissedExisting(false);
-    setExistingZoneCount(0);
+    setExistingZones([]);
     void refreshKnownMarkets();
     handleRedrawArea();
     setCreatedZones([]);
@@ -601,20 +676,32 @@ export default function MarketRegisterPage() {
     [step, buildingShapes]
   );
 
-  const mapSimulationZones = useMemo(
-    () =>
-      step >= 4
-        ? createdZones.map((zone) => ({
+  const mapSimulationZones = useMemo(() => {
+    // 3단계부터 기존 구역을 회색 점선으로 깔아준다. 어디에 이미 구역이 있는지
+    // 보여야 겹치지 않게 새 구역을 그릴 수 있다. 4단계에서는 방금 만든 구역까지 합친다.
+    const existing =
+      step >= 3
+        ? existingZones.map((zone) => ({
             zoneId: zone.zoneId,
             zoneName: zone.zoneName,
             vertices: geoJsonToVertices(zone.polygonCoordinates),
           }))
-        : [],
-    [step, createdZones]
-  );
+        : [];
+    const created =
+      step >= 4
+        ? createdZones
+            .filter((zone) => !existingZones.some((known) => known.zoneId === zone.zoneId))
+            .map((zone) => ({
+              zoneId: zone.zoneId,
+              zoneName: zone.zoneName,
+              vertices: geoJsonToVertices(zone.polygonCoordinates),
+            }))
+        : [];
+    return [...existing, ...created];
+  }, [step, existingZones, createdZones]);
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-screen-2xl space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">시장 등록</h1>
@@ -877,10 +964,74 @@ export default function MarketRegisterPage() {
               </div>
 
               {existingZoneCount > 0 && (
-                <p className="rounded border border-amber-300 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-                  이 시장에는 이미 구역 {existingZoneCount}개가 있습니다. 여기서 만드는 구역은 기존 구역을 지우지
-                  않고 <strong className="font-medium">더해집니다.</strong> 이름이 겹치면 저장이 거부됩니다.
-                </p>
+                <div className="space-y-2 rounded border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/40">
+                  <p className="text-xs leading-relaxed text-amber-800 dark:text-amber-300">
+                    이 시장에는 이미 구역 {existingZoneCount}개가 있습니다(지도의 회색 점선). 여기서 만드는 구역은
+                    기존 구역을 지우지 않고 <strong className="font-medium">더해집니다.</strong> 이름이 겹치면 저장이
+                    거부됩니다.
+                  </p>
+                  <ul className="space-y-1.5">
+                    {existingZones.map((zone) => (
+                      <li key={zone.zoneId} className="flex items-center gap-1.5">
+                        {editingZoneId === zone.zoneId ? (
+                          <>
+                            <input
+                              value={editingZoneName}
+                              onChange={(event) => setEditingZoneName(event.target.value)}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter') void handleRenameZone(zone);
+                                if (event.key === 'Escape') setEditingZoneId(null);
+                              }}
+                              autoFocus
+                              maxLength={50}
+                              className="min-w-0 flex-1 rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => void handleRenameZone(zone)}
+                              disabled={zoneBusyId === zone.zoneId}
+                              className="rounded border border-blue-600 px-2 py-1 text-xs text-blue-700 hover:bg-blue-50 disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-950/40"
+                            >
+                              저장
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingZoneId(null)}
+                              className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+                            >
+                              취소
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="min-w-0 flex-1 truncate text-xs text-amber-900 dark:text-amber-200">
+                              {zone.zoneName}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingZoneId(zone.zoneId);
+                                setEditingZoneName(zone.zoneName);
+                              }}
+                              disabled={zoneBusyId !== null}
+                              className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+                            >
+                              이름 수정
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleDeleteZone(zone)}
+                              disabled={zoneBusyId !== null}
+                              className="rounded border border-red-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
+                            >
+                              {zoneBusyId === zone.zoneId ? '처리 중...' : '삭제'}
+                            </button>
+                          </>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
 
               {drawPhase === 'area' ? (
@@ -1071,6 +1222,17 @@ export default function MarketRegisterPage() {
                   </div>
                 </>
               )}
+
+              <div className="space-y-2 border-t border-slate-200 pt-3 dark:border-slate-800">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {existingZoneCount > 0
+                    ? '구역을 더 만들지 않아도 됩니다. 기존 구역을 그대로 두고 완료할 수 있습니다.'
+                    : '구역 없이 완료하면 시뮬레이션과 CCTV 구역 등록을 할 수 없습니다.'}
+                </p>
+                <button type="button" onClick={handleSkipZones} className={secondaryButtonClass}>
+                  건너뛰고 완료
+                </button>
+              </div>
             </div>
           )}
 
@@ -1180,7 +1342,11 @@ export default function MarketRegisterPage() {
               <div>
                 <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">등록 완료</h2>
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  {market?.marketName}에 구역 {createdZones.length}개가 만들어졌습니다.
+                  {createdZones.length > 0
+                    ? `${market?.marketName}에 구역 ${createdZones.length}개가 만들어졌습니다.`
+                    : existingZoneCount > 0
+                      ? `새 구역 없이 완료했습니다. ${market?.marketName}의 기존 구역 ${existingZoneCount}개를 그대로 사용합니다.`
+                      : `${market?.marketName}에 아직 구역이 없습니다. 시뮬레이션·CCTV 구역 등록을 하려면 구역을 나눠야 합니다.`}
                 </p>
               </div>
 

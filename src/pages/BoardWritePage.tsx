@@ -188,7 +188,7 @@ export default function BoardWritePage() {
   if (loadError) return <ErrorBanner message={loadError} />;
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-7xl space-y-6">
       <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
         {isEditMode ? '게시글 수정' : '게시글 작성'}
       </h1>

@@ -633,7 +633,7 @@ export default function FacilityManagePage() {
   // (기존 상점/CCTV 화면과 로직이 완전히 달라 early return으로 분리).
   if (targetKind === 'MARKET_OBJECT') {
     return (
-      <div className="space-y-6">
+      <div className="mx-auto w-full max-w-screen-2xl space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">시장 구조 등록</h1>
         </div>

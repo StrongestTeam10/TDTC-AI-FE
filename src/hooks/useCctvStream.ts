@@ -108,7 +108,7 @@ export function useCctvStream(): CctvStreamState {
         // 드래그해도 이미 지나간 프레임의 지표가 남아 있다.
         fetchCctvDataset(message.filename)
             .then((dataset) => {
-              const zoneId = (message as any).zone_id || 1;
+              const zoneId = message.zone_id || 1;
               setMultiZoneFrameData(prev => ({ ...prev, [zoneId]: dataset }));
             })
             .catch((err) => console.error('[CCTV] 분석 데이터셋 로드 실패', err));
@@ -122,7 +122,7 @@ export function useCctvStream(): CctvStreamState {
         // 스트림이 오기 시작했는데 오버레이가 아직 떠 있으면 닫는다.
         setAnalysis((prev) => (prev.isAnalyzing ? IDLE_ANALYSIS : prev));
         setLiveFrameId(message.frame_id);
-        const zoneId = (message as any).zone_id || 1;
+        const zoneId = message.zone_id || 1;
         setMultiZoneFrameData((prev) => ({
           ...prev,
           [zoneId]: {

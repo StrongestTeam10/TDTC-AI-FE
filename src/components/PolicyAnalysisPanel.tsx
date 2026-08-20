@@ -3,6 +3,7 @@ import { analyzePolicy } from '../api/client';
 import Spinner from './ui/Spinner';
 import type { PolicyAnalysisResult } from '../api/client';
 import type { Gate, Zone } from '../types';
+import { isAxiosError } from 'axios';
 
 /**
  * LLM objectsToRemove 항목 하나에 대한 제거 결과.
@@ -94,8 +95,8 @@ export default function PolicyAnalysisPanel({
       const result = await analyzePolicy(policyText, file);
       setLastResult(result);
       onAnalyzeSuccess(result);
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || '공문 분석 중 오류가 발생했습니다.');
+    } catch (err) {
+      setError(isAxiosError(err) ? err.response?.data?.detail ?? '공문 분석 중 오류가 발생했습니다.' : '공문 분석 중 오류가 발생했습니다.');
     } finally {
       setIsAnalyzing(false);
     }
