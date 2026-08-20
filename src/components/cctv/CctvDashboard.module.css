@@ -613,7 +613,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    white-space: nowrap;
+    flex-wrap: wrap;
     border-bottom: 1px solid var(--border-color);
     padding-bottom: 12px;
     color: var(--text-strong);
