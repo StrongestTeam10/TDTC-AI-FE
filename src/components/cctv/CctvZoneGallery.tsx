@@ -73,7 +73,7 @@ export default function CctvZoneGallery({
                 <div className={styles.videoLayers}>
                   <img
                     className={styles.galleryVideoBlurBg}
-                    src={`${CCTV_API_BASE_URL}/api/v1/cctv/stream?zone_id=${zone.id}&ngrok-skip-browser-warning=true`}
+                    src={`${CCTV_API_BASE_URL}/api/v1/cctv/stream?zone_id=${zone.id}`}
                     alt=""
                   />
                   {/* 선택 조작. 스트림 <img> 는 장식이라 alt 를 비우고, 이름은 버튼이 가진다.
@@ -87,7 +87,7 @@ export default function CctvZoneGallery({
                   >
                     <img
                       className={styles.galleryVideoMain}
-                      src={`${CCTV_API_BASE_URL}/api/v1/cctv/stream?zone_id=${zone.id}&ngrok-skip-browser-warning=true`}
+                      src={`${CCTV_API_BASE_URL}/api/v1/cctv/stream?zone_id=${zone.id}`}
                       alt=""
                     />
                   </button>
