@@ -44,6 +44,8 @@ export interface CctvAiCompletedMessage {
   type: 'CCTV_AI_COMPLETED';
   filename: string;
   message: string;
+  /** 다중 구역 스트리밍에서 어느 구역의 분석인지. 서버가 항상 보내지만 구버전 호환으로 optional. */
+  zone_id?: number;
 }
 
 /** 분석 완료 후 프레임별 관제 지표를 약 5FPS로 연속 스트리밍. */
@@ -57,6 +59,8 @@ export interface CctvAiStreamMessage {
   cri_score: number;
   risk_level: string;
   timestamp: number;
+  /** 다중 구역 스트리밍에서 어느 구역의 프레임인지. 없으면 1로 간주(useCctvStream). */
+  zone_id?: number;
 }
 
 /** 연결 유지용 keepalive 응답. */
@@ -153,6 +157,17 @@ export interface VideoClip {
 }
 
 /** GET /api/v1/external-factors - ExternalFactorDto */
+/** BE dto/response PostReportDto 와 필드명 1:1. s3PdfUrl 은 1시간짜리 presigned URL. */
+export interface PostReport {
+  reportId: number;
+  alertId: number;
+  targetDate: string;
+  llmSummary: string;
+  s3PdfUrl: string | null;
+  createdAt: string;
+  videoId: number | null;
+}
+
 export interface ExternalFactor {
   factorId: number;
   marketId: number;

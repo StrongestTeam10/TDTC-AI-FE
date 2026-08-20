@@ -12,7 +12,7 @@ import { CCTV_ZONES, cctvZoneName } from '../../constants/cctvZone';
 import { useCctvStream } from '../../hooks/useCctvStream';
 import { useCriScore } from '../../hooks/useCriScore';
 import { useEmergencyTimer } from '../../hooks/useEmergencyTimer';
-import type { ControlParams, EmergencyAlert, WeatherMode, VideoClip } from '../../types/cctv';
+import type { ControlParams, EmergencyAlert, WeatherMode, VideoClip, PostReport } from '../../types/cctv';
 import { DEFAULT_CONTROL_PARAMS, formatStoppage } from '../../utils/criScore';
 import { toDisplayErrorMessage } from '../../utils/errorMessage';
 
@@ -44,7 +44,7 @@ export default function CctvControlDashboard() {
   // ----- BE 미해결 알람 -----
   const [alerts, setAlerts] = useState<EmergencyAlert[]>([]);
   const [videoClips, setVideoClips] = useState<VideoClip[]>([]);
-  const [postReports, setPostReports] = useState<any[]>([]);
+  const [postReports, setPostReports] = useState<PostReport[]>([]);
   const [loadingType, setLoadingType] = useState<'ALARM' | 'VIDEO' | 'NONE'>('NONE');
   const [alertError, setAlertError] = useState<string | null>(null);
 
@@ -357,8 +357,8 @@ export default function CctvControlDashboard() {
                                   ⬇️ 위험 클립 (35s)
                                 </button>
                               )}
-                              {pdf && (
-                                <button className={styles.btnInlineDownload} onClick={() => window.open(pdf.s3PdfUrl, '_blank')} style={{ background: 'var(--color-accent)', border: 'none', color: '#fff' }}>
+                              {pdf?.s3PdfUrl && (
+                                <button className={styles.btnInlineDownload} onClick={() => window.open(pdf.s3PdfUrl!, '_blank')} style={{ background: 'var(--color-accent)', border: 'none', color: '#fff' }}>
                                   ⬇️ PDF 명세서
                                 </button>
                               )}
@@ -433,8 +433,6 @@ export default function CctvControlDashboard() {
                 pedestrianCount: targetZone.raw.pedestrianCount,
                 occupancyRate: targetZone.raw.occupancyRate,
                 stagnationSec: targetZone.raw.stagnationSec,
-                incomingCriScore: targetZone.raw.criScore,
-                highestRiskZoneId: expandedZoneId,
                 isEstimated: targetZone.raw.isEstimated
               }}
               cri={targetZone.criData.cri}

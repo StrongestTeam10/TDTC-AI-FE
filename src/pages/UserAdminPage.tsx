@@ -16,6 +16,7 @@ import { useCommonCodes } from '../hooks/useCommonCodes';
 import { type UserRole } from '../types/auth';
 import { toDisplayErrorMessage } from '../utils/errorMessage';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { isAxiosError } from 'axios';
 
 // 2026-08-05 추가 (회원관리)
 //
@@ -209,8 +210,10 @@ export default function UserAdminPage() {
           updated = { ...updated, isDuty: dutyUpdated.isDuty };
         }
         saved.push(updated);
-      } catch (err: any) {
-        const errorDetail = err.response?.data ? JSON.stringify(err.response.data) : err.message;
+      } catch (err) {
+        const errorDetail = isAxiosError(err) && err.response?.data
+          ? JSON.stringify(err.response.data)
+          : err instanceof Error ? err.message : String(err);
         failed.push(`${user.name}(저장 실패: ${toDisplayErrorMessage(err, '원인 알 수 없음')}, 상세: ${errorDetail})`);
       }
     }
@@ -310,7 +313,7 @@ export default function UserAdminPage() {
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="mx-auto w-full max-w-screen-2xl flex flex-col gap-4">
       <div>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">회원관리</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">

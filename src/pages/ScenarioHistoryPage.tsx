@@ -416,7 +416,7 @@ export default function ScenarioHistoryPage() {
   const totalCount = historyPage?.totalElements ?? 0;
 
   return (
-      <div className="flex flex-col gap-4">
+      <div className="mx-auto w-full max-w-screen-2xl flex flex-col gap-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">시나리오 이력</h1>

@@ -59,7 +59,7 @@ export default function RiskTrendChart({ riskTrend, beforeTrend, afterTrend, eve
   })();
 
   const data = Array.from({ length: maxLen }).map((_, i) => {
-    const d: any = { step: i + 1 };
+    const d: Record<string, number> = { step: i + 1 };
     if (riskTrend && i < riskTrend.length) {
       d.risk = Number(riskTrend[i].overallRiskScore.toFixed(2));
     }
