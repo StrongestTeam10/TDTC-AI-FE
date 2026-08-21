@@ -96,7 +96,10 @@ export default function PolicyAnalysisPanel({
       setLastResult(result);
       onAnalyzeSuccess(result);
     } catch (err) {
-      setError(isAxiosError(err) ? err.response?.data?.detail ?? '공문 분석 중 오류가 발생했습니다.' : '공문 분석 중 오류가 발생했습니다.');
+      // BE는 {timestamp, message}, SIM은 {detail} 형태로 오류를 준다. detail만 보면
+      // BE가 준 안내(예: 사용량 한도 초과)가 화면에 닿지 못하고 기본 문구로 덮인다.
+      const data = isAxiosError(err) ? err.response?.data : undefined;
+      setError(data?.detail ?? data?.message ?? '공문 분석 중 오류가 발생했습니다.');
     } finally {
       setIsAnalyzing(false);
     }
